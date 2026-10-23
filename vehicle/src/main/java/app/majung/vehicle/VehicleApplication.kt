@@ -11,7 +11,8 @@ class VehicleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         destination = DestinationReader(this)
-        pickup = PickupController()
+        pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this))
+        pickup.restoreSession()
         destination.telemetryChanged = { pickup.syncVehicle(destination) }
     }
 }
