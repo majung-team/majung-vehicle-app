@@ -1,0 +1,26 @@
+{
+  "phase": "complete",
+  "backgroundRequestRecoveryMs": 20100,
+  "routingCompletedCallbacks": 0,
+  "rerouteEndedCallbacks": 0,
+  "cancelledRouteStayedHiddenMs": 12000,
+  "newRouteRecoveryMs": 17075,
+  "reconnectRecoveryMs": 15066,
+  "counts": {
+    "ROUTE_CANCELLED": 2,
+    "DRIVING_ETA": 4,
+    "ROUTE_STATE": 19,
+    "DESTINATION_ETA": 13,
+    "ROUTE_STATE_REQUEST": 15,
+    "ROUTE_STARTED": 2,
+    "DESTINATION_REQUEST": 10,
+    "LOCATION_REQUEST": 6,
+    "LOCATION": 6,
+    "DISCONNECTED": 1,
+    "CONNECTED": 1
+  },
+  "environment": "Pleos 2.1 ARM64 emulator / NaviHelper 3.0.5 / local API",
+  "date": "2026-10-23",
+  "testDurationSeconds": 93.616,
+  "result": "passed"
+}

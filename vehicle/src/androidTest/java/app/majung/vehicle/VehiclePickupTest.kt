@@ -197,11 +197,8 @@ class VehiclePickupTest {
                 app.destination.selection.current(SystemClock.elapsedRealtime()) != null
             })
             instrumentation.runOnMainSync { app.destination.pollTelemetry() }
-            assertTrue("Fresh reconnect data did not publish", await(10_000) {
-                controller.syncVehicle(app.destination)
-                controller.vehicleMessage == "SDK 위치·ETA를 서버에 전달했어요"
-            })
-            awaitVehicle(api, id, token) { it.optString("freshness") == "FRESH" }
+            val restored = awaitVehicle(api, id, token) { it.optString("freshness") == "FRESH" }
+            assertTrue("Reconnect must publish a newer sequence", restored.getLong("sequence") > hidden.getLong("sequence"))
             api.request("PUT", "/$id/readiness", token, JSONObject().put("readiness", "READY").put("sequence", 1))
             instrumentation.runOnMainSync { controller.refresh() }
             assertTrue("Passenger readiness not reflected", await(10_000) { controller.readiness == "READY" && !controller.busy })
@@ -282,7 +279,7 @@ class VehiclePickupTest {
         while (SystemClock.elapsedRealtime() < deadline) {
             val data = api.request("GET", "/$id/vehicle-state", token)
             if (condition(data)) return data
-            SystemClock.sleep(150)
+            SystemClock.sleep(1000)
         }
         throw AssertionError("Vehicle state did not reach the expected condition")
     }
