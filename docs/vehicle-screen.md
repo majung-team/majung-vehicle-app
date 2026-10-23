@@ -1,11 +1,12 @@
 # 차량 화면 코드 구조
 
 MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 각 영역은 별도 클래스에서 만든다.
-화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. 자동 연결·QR·주행 중 최소 표시·백그라운드 전송은 후속 기능이다.
+화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. [화면 밖 공유](background-sharing.md)를 연결했다. 자동 연결·QR·주행 중 최소 표시는 후속 기능이다.
 
 | 파일 | 담당 |
 | --- | --- |
-| `MainActivity.kt` | 루트 레이아웃, 영역 배치, onStart/onStop, 1초 화면 갱신·3초 픽업 조회·5초 SDK 조회 연결 |
+| `MainActivity.kt` | 루트 레이아웃, 영역 배치, onStart/onStop, 1초 화면 갱신, 서비스 미실행 시 3초 픽업 조회, 위치 권한·재개 확인 |
+| `PickupSharingService.kt` | 화면 밖 SDK 연결·5초 조회·전송, 서버 상태 조회와 종료 감지 |
 | `PickupCreationSection.kt` | 내비 연결·목적지 확인·픽업 생성 버튼과 사용 가능 여부 |
 | `PickupParticipantSection.kt` | 초대 링크 복사·참여 승인 확인 창·서버 상태 다시 확인 |
 | `PickupStatusSection.kt` | 연결 상태, 픽업 진행·장소·준비 상태·차량 정보·안내 문구 |
@@ -21,7 +22,7 @@ MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 
 
 `VehicleViews.button()`으로 만든 버튼은 동작 실행 뒤 MainActivity의 render를 호출한다.
 비동기 요청 완료 시에는 기존 `pickup.changed` 콜백으로 다시 렌더링한다.
-Activity가 멈추면 콜백과 타이머를 해제하고 SDK 연결을 끊는다. 화면 밖 전송은 후속 Foreground Service 작업에서 바꾼다.
+Activity가 멈추면 화면 콜백과 타이머만 해제한다. 공유 서비스가 실행 중이거나 시작 요청 중이면 SDK 연결을 유지한다. 그 외에는 연결을 끊는다.
 
 ## 함께 수정할 때
 

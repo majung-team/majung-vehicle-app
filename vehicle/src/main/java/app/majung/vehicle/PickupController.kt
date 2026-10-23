@@ -22,7 +22,6 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var vehicleGeneration = 0
     private var vehicleInFlight = false
     private var vehicleKnownEmpty = true
-    private var publishedRevision: Long? = null
     private var nextVehicleSend = 0L
     private var nextInvalidationSend = 0L
     var vehicleMessage = "차량 정보 전송 대기"
@@ -43,7 +42,26 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         private set
     var message = ""
         private set
+    var needsSharingConfirmation = false
+        private set
+
+    fun confirmRecoveredSharing() {
+        if (!needsSharingConfirmation || !online || status !in setOf("ACTIVE", "ARRIVED")) return
+        needsSharingConfirmation = false
+        message = ""
+        notifyChanged()
+    }
+
     var changed: (() -> Unit)? = null
+    private val observers = linkedSetOf<() -> Unit>()
+
+    fun addObserver(observer: () -> Unit) { observers.add(observer) }
+    fun removeObserver(observer: () -> Unit) { observers.remove(observer) }
+
+    private fun notifyChanged() {
+        observers.toList().forEach { it() }
+        changed?.invoke()
+    }
     private var restoringSession = false
     private var savedSession: SavedPickupSession? = null
     private var storageCleanupFailed = false
@@ -57,7 +75,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             handler.post {
                 busy = false
                 result.fold(onSuccess = { saved ->
-                    if (saved == null) { restoringSession = false; changed?.invoke(); return@fold }
+                    if (saved == null) { restoringSession = false; notifyChanged(); return@fold }
                     resetVehiclePublisher()
                     pickupId = saved.pickupId
                     driverToken = saved.driverToken
@@ -72,7 +90,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                     restoringSession = false
                     if (clearSavedSession()) message = "저장된 접근 정보를 읽을 수 없어 지웠어요."
                 })
-                changed?.invoke()
+                notifyChanged()
             }
         }
     }
@@ -164,7 +182,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
 
     fun prepareNextPickup() {
         if (busy || status !in ended) return
-        if (!clearSavedSession()) { changed?.invoke(); return }
+        if (!clearSavedSession()) { notifyChanged(); return }
         restoringSession = false
         controlGeneration++
         resetVehiclePublisher()
@@ -179,7 +197,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         message = ""
         online = false
         uncertainCreate = false
-        changed?.invoke()
+        notifyChanged()
     }
 
     fun invitationForHostBrowser(): String? {
@@ -190,7 +208,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     }
 
     fun syncVehicle(reader: DestinationReader) {
-        if (status !in setOf("ACTIVE", "ARRIVED")) return
+        if (needsSharingConfirmation || status !in setOf("ACTIVE", "ARRIVED")) return
         val id = pickupId ?: return
         val token = driverToken ?: return
         val confirmedPlace = place ?: return
@@ -201,15 +219,14 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             if (vehicleKnownEmpty && !vehicleInFlight) return
             if (now < nextInvalidationSend) return
         } else {
-            if (publishedRevision == sample.revision && !vehicleKnownEmpty) return
             if (now < nextVehicleSend) return
         }
         if (vehicleInFlight) return
         val sequence = ++vehicleSequence
-        if (!persistSession()) { changed?.invoke(); return }
+        if (!persistSession()) { notifyChanged(); return }
         vehicleInFlight = true
         val generation = vehicleGeneration
-        if (sample != null) nextVehicleSend = now + 3000 else nextInvalidationSend = now + 3000
+        if (sample != null) nextVehicleSend = now + 5000 else nextInvalidationSend = now + 3000
         val body = JSONObject().put("sequence", sequence)
         if (sample != null) {
             body.put("latitude", sample.latitude).put("longitude", sample.longitude)
@@ -224,16 +241,14 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                 vehicleInFlight = false
                 result.fold(onSuccess = {
                     vehicleKnownEmpty = sample == null
-                    publishedRevision = sample?.revision
                     vehicleMessage = if (sample == null) "서버의 이전 위치·ETA를 지웠어요"
                         else "SDK 위치·ETA를 서버에 전달했어요"
                 }, onFailure = {
                     // A timed-out request may have committed: invalidate until acknowledged.
                     vehicleKnownEmpty = false
-                    publishedRevision = null
                     vehicleMessage = "차량 정보 전송을 확인하지 못했어요. 이전 정보는 서버에서 만료돼요."
                 })
-                changed?.invoke()
+                notifyChanged()
                 // Do not wait for the next poll if the SDK was invalidated during an upload.
                 if (sample != null && reader.telemetry.current(confirmedPlace, SystemClock.elapsedRealtime()) == null) {
                     syncVehicle(reader)
@@ -247,7 +262,6 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         vehicleSequence = 0
         vehicleInFlight = false
         vehicleKnownEmpty = true
-        publishedRevision = null
         nextVehicleSend = 0
         nextInvalidationSend = 0
         vehicleMessage = "차량 정보 전송 대기"
@@ -255,6 +269,11 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
 
     private fun receiveSnapshot(data: JSONObject) {
         status = data.getString("status")
+        if (restoringSession && status in setOf("ACTIVE", "ARRIVED")) {
+            needsSharingConfirmation = true
+            message = "이전 픽업을 찾았어요. 계속하기를 눌러 위치 공유를 다시 시작해주세요."
+        }
+        if (status in ended) needsSharingConfirmation = false
         restoringSession = false
         data.optJSONObject("place")?.let {
             place = PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
@@ -284,7 +303,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             busy = true
             refreshError = false
             message = ""
-            changed?.invoke()
+            notifyChanged()
         }
         worker.execute {
             val result = runCatching(call)
@@ -315,13 +334,14 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                         driverToken = null
                         inviteToken = null
                         participantId = null
+                        needsSharingConfirmation = false
                         status = "EXPIRED"
                         place = null
                         participantName = null
                         if (!storageCleanupFailed) message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
                     }
                 })
-                changed?.invoke()
+                notifyChanged()
             }
         }
     }

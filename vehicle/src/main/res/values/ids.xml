@@ -4,4 +4,6 @@
     <item name="cancel_pickup" type="id" />
     <item name="arrive_pickup" type="id" />
     <item name="complete_pickup" type="id" />
+    <item name="resume_pickup" type="id" />
+    <item name="start_sharing" type="id" />
 </resources>

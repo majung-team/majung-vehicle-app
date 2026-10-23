@@ -149,6 +149,7 @@ class VehiclePickupTest {
             selected = app.destination.selection.current(SystemClock.elapsedRealtime())
             selected != null
         })
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
         try {
             instrumentation.runOnMainSync {
                 controller.create(selected!!)
@@ -204,18 +205,19 @@ class VehiclePickupTest {
             api.request("PUT", "/$id/readiness", token, JSONObject().put("readiness", "READY").put("sequence", 1))
             instrumentation.runOnMainSync { controller.refresh() }
             assertTrue("Passenger readiness not reflected", await(10_000) { controller.readiness == "READY" && !controller.busy })
-            verifyStablePolling(controller)
+            verifyStablePolling(controller, scenario)
             instrumentation.runOnMainSync { controller.cancel() }
             assertTrue("Cancellation failed", await(10_000) { controller.status == "CANCELLED" && !controller.busy })
             assertTrue("End must hide place", api.request("GET", "/$id", token).isNull("place"))
         } finally {
             instrumentation.runOnMainSync { if (controller.canCancel) controller.cancel(); app.destination.disconnect() }
+            scenario.close()
         }
     }
 
-    private fun verifyStablePolling(controller: PickupController) {
+    private fun verifyStablePolling(controller: PickupController, scenario: ActivityScenario<MainActivity>) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        run {
             instrumentation.waitForIdleSync()
             var detailsHeight = 0
             var cancelTop = 0

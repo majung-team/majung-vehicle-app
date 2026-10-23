@@ -49,6 +49,17 @@ class PickupRecoveryTest {
                 main.runOnMainSync { controller.restoreSession(); assertTrue(!controller.canCreate && !controller.canArrive) }
                 await { controller.online && controller.status == "ACTIVE" }
                 assertTrue(controller.place != null)
+                main.runOnMainSync {
+                    assertTrue(controller.needsSharingConfirmation)
+                    val reader = DestinationReader(context)
+                    val now = SystemClock.elapsedRealtime()
+                    reader.telemetry.location(37.0, 127.0, now, java.time.Instant.now())
+                    reader.telemetry.destination(controller.place!!, 120, now, java.time.Instant.now())
+                    controller.syncVehicle(reader)
+                    assertTrue(store().load()?.vehicleSequence == 9L)
+                    controller.confirmRecoveredSharing()
+                    assertTrue(!controller.needsSharingConfirmation)
+                }
                 assertTrue(store().load()?.vehicleSequence == 9L)
             }
             ReplyServer(200, """{"status":"COMPLETED","place":null,"participant":null}""").use { server ->
