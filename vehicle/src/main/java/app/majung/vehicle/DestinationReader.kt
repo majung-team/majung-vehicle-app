@@ -6,6 +6,7 @@ import android.os.Looper
 import android.os.SystemClock
 import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.navi.data.CurrentLocationInfo
+import ai.pleos.playground.navi.data.DrivingInfo
 import ai.pleos.playground.navi.data.DestinationInfo
 import ai.pleos.playground.navi.data.RouteStartInfo
 import ai.pleos.playground.navi.helper.NaviHelper
@@ -17,6 +18,16 @@ class DestinationReader(private val context: Context) {
     val selection = DestinationSelection()
     val telemetry = VehicleTelemetry()
     var telemetryChanged: (() -> Unit)? = null
+    // Debug diagnostics contain timings and equality flags only, never SDK payloads.
+    var timingObserver: ((SdkTimingEvent) -> Unit)? = null
+    private var lastLocationValue: Pair<Double, Double>? = null
+    private var lastDestinationValue: Triple<Double, Double, Long>? = null
+    private var lastDrivingEta: Long? = null
+
+    private fun timing(type: SdkTimingType, changed: Boolean? = null) {
+        if (BuildConfig.DEBUG) timingObserver?.invoke(SdkTimingEvent(type, SystemClock.elapsedRealtime(), changed))
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private var helper: NaviHelper? = null
     private var listener: NaviHelperEventListener? = null
@@ -38,12 +49,23 @@ class DestinationReader(private val context: Context) {
                 handler.post { if (generation == version && connected) action() }
             }
             override fun onCurrentLocationInfo(currentLocationInfo: CurrentLocationInfo) = update {
+                val value = currentLocationInfo.latitude to currentLocationInfo.longitude
+                timing(SdkTimingType.LOCATION, lastLocationValue?.let { it != value })
+                lastLocationValue = value
                 if (routing) return@update
                 telemetry.location(currentLocationInfo.latitude, currentLocationInfo.longitude,
                     SystemClock.elapsedRealtime(), Instant.now())
                 telemetryChanged?.invoke()
             }
+            override fun onDrivingInfo(drivingInfo: DrivingInfo) = update {
+                val value = drivingInfo.destination.duration.toLong()
+                timing(SdkTimingType.DRIVING_ETA, lastDrivingEta?.let { it != value })
+                lastDrivingEta = value
+            }
             override fun onDestinationInfo(destinationInfo: DestinationInfo) = update {
+                val value = Triple(destinationInfo.latitude, destinationInfo.longitude, destinationInfo.remainTime.toLong())
+                timing(SdkTimingType.DESTINATION_ETA, lastDestinationValue?.let { it != value })
+                lastDestinationValue = value
                 if (routing) return@update
                 selection.receive(destinationInfo.name, destinationInfo.latitude,
                     destinationInfo.longitude, SystemClock.elapsedRealtime())
@@ -57,6 +79,7 @@ class DestinationReader(private val context: Context) {
                     "내비게이션에서 목적지를 선택해주세요" else "내비게이션 목적지를 확인했어요"
             }
             override fun onRouteStarted(routeStartInfo: RouteStartInfo) = update {
+                timing(SdkTimingType.ROUTE_STARTED)
                 routing = true
                 selection.invalidate()
                 telemetry.invalidate()
@@ -64,6 +87,7 @@ class DestinationReader(private val context: Context) {
                 status = "경로 탐색 중 · 완료 후 목적지를 다시 확인해주세요"
             }
             override fun onDestinationChanged() = update {
+                timing(SdkTimingType.DESTINATION_CHANGED)
                 routing = true
                 selection.invalidate()
                 telemetry.invalidate()
@@ -71,14 +95,17 @@ class DestinationReader(private val context: Context) {
                 status = "목적지가 바뀌었어요 · 다시 확인해주세요"
             }
             override fun onRoutingCompleted() = update {
+                timing(SdkTimingType.ROUTING_COMPLETED)
                 routing = false
                 query()
             }
             override fun onReRouteEnded() = update {
+                timing(SdkTimingType.REROUTE_ENDED)
                 routing = false
                 query()
             }
             override fun onRouteCancelled() = update {
+                timing(SdkTimingType.ROUTE_CANCELLED)
                 routing = false
                 selection.invalidate()
                 telemetry.invalidate()
@@ -86,6 +113,7 @@ class DestinationReader(private val context: Context) {
                 status = "경로가 취소됐어요"
             }
             override fun onError(errorCode: NaviErrorCode) = update {
+                timing(SdkTimingType.ERROR)
                 selection.invalidate()
                 telemetry.invalidate()
                 telemetryChanged?.invoke()
@@ -98,6 +126,7 @@ class DestinationReader(private val context: Context) {
                 handler.post {
                     if (generation == version) {
                         connected = true
+                        timing(SdkTimingType.CONNECTED)
                         instance.addListener(callbacks)
                         query()
                     }
@@ -111,7 +140,9 @@ class DestinationReader(private val context: Context) {
     fun pollTelemetry() {
         if (!connected || routing) return
         try {
+            timing(SdkTimingType.LOCATION_REQUEST)
             helper?.getCurrentLocationInfo()
+            timing(SdkTimingType.DESTINATION_REQUEST)
             helper?.getDestinationInfo()
         } catch (_: Exception) {
             telemetry.invalidate()
@@ -123,13 +154,20 @@ class DestinationReader(private val context: Context) {
         selection.invalidate()
         if (!connected || routing) return
         status = "선택한 목적지 확인 중"
-        try { helper?.getDestinationInfo() }
+        try {
+            timing(SdkTimingType.DESTINATION_REQUEST)
+            helper?.getDestinationInfo()
+        }
         catch (_: Exception) {
             status = "목적지 조회 실패 · 다시 확인해주세요"
         }
     }
 
     fun disconnect() {
+        timing(SdkTimingType.DISCONNECTED)
+        lastLocationValue = null
+        lastDestinationValue = null
+        lastDrivingEta = null
         generation++
         connected = false
         routing = false
