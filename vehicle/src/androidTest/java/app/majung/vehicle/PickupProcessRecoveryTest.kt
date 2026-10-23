@@ -1,6 +1,10 @@
 package app.majung.vehicle
 
 import android.os.SystemClock
+import android.graphics.Bitmap
+import android.widget.Button
+import androidx.test.core.app.ActivityScenario
+import java.io.File
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import java.time.Instant
@@ -42,8 +46,25 @@ class PickupProcessRecoveryTest {
         // Application.onCreate automatically loads and verifies the stored session in this new process.
         await { app.pickup.online && app.pickup.status == "ACTIVE" }
         val saved = store.load() ?: throw AssertionError("Stored session missing")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<Button>(R.id.resume_pickup).visibility == android.view.View.VISIBLE)
+                assertTrue(app.pickup.needsSharingConfirmation && !app.sharingRunning)
+            }
+            if (InstrumentationRegistry.getArguments().getString("captureEvidence") == "true") {
+                SystemClock.sleep(500)
+                main.uiAutomation.takeScreenshot()?.let { bitmap ->
+                    File(app.filesDir, "pickup-resume.png").outputStream().use {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                    bitmap.recycle()
+                }
+            }
+        }
         try {
             main.runOnMainSync {
+                assertTrue(app.pickup.needsSharingConfirmation)
+                app.pickup.confirmRecoveredSharing()
                 val now = SystemClock.elapsedRealtime()
                 app.destination.telemetry.location(37.0, 127.0, now, Instant.now())
                 app.destination.telemetry.destination(app.pickup.place!!, 110, now, Instant.now())

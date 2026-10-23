@@ -43,7 +43,9 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         })
         pickupText.updateText(listOfNotNull(
             pickup.place?.let { "이번 픽업 장소: ${it.label}" }, phase,
-            if (pickup.status in setOf("ACTIVE", "ARRIVED")) pickup.vehicleMessage else null,
+            if (pickup.needsSharingConfirmation) "재개 확인 전에는 위치·ETA를 보내지 않아요"
+                else if (pickup.status in setOf("ACTIVE", "ARRIVED")) app.sharingMessage else null,
+            if (pickup.status in setOf("ACTIVE", "ARRIVED") && app.sharingRunning) pickup.vehicleMessage else null,
             pickup.participantName?.let { "$it 님 · $readiness" }, pickup.message.takeIf { it.isNotBlank() }
         ).joinToString("\n\n"))
     }

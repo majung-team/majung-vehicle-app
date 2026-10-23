@@ -23,3 +23,5 @@ vehicle/는 실제 앱, probe/는 SDK 진단용이다. 현재 debug API는 에�
 [차량 화면 코드 구조](docs/vehicle-screen.md)에 영역별 파일, render 연결 방식과 함께 수정할 지점을 정리했다.
 
 [픽업 저장·재실행 복구](docs/pickup-recovery.md): 접근 정보의 암호화 저장, 서버 상태 재확인, 종료·권한 거절 시 삭제와 검증 방법.
+
+[화면 밖 위치·ETA 공유](docs/background-sharing.md): 서비스 실행 조건, 권한, 화면 종료와 프로세스 종료의 차이, 재개 확인과 시험 방법.
