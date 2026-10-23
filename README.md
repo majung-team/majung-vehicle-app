@@ -27,3 +27,5 @@ vehicle/는 실제 앱, probe/는 SDK 진단용이다. 현재 debug API는 에�
 [화면 밖 위치·ETA 공유](docs/background-sharing.md): 서비스 실행 조건, 권한, 화면 종료와 프로세스 종료의 차이, 재개 확인과 시험 방법.
 
 [SDK 콜백 간격 측정](docs/sdk-callback-timing.md): 10분 실측, 5초 조회 응답과 경로 재요청·재연결 결과.
+
+[경로 재요청 후 공유 복구](docs/route-recovery.md): 완료 콜백이 없을 때 경로·목적지 재확인, 취소 후 위치 숨김과 검증 범위.
