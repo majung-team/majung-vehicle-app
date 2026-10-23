@@ -43,7 +43,7 @@ class MainActivity : Activity() {
         status = PickupStatusSection(app, views)
         participant = PickupParticipantSection(app, views)
         completion = PickupCompletionSection(app, views)
-        views.addView(views.label("좌표를 입력할 필요가 없어요.\n승인 후 SDK 위치·남은 시간을 서버로 전달해요.\n화면을 떠나면 공유를 멈춰요. 장소 변경은 아직 지원하지 않아요.\n앱 프로세스가 종료되면 초대·운전자 접근 정보는 복원되지 않아요.", 14f))
+        views.addView(views.label("좌표를 입력할 필요가 없어요.\n승인 후 SDK 위치·남은 시간을 서버로 전달해요.\n화면을 떠나면 공유를 멈춰요. 장소 변경은 아직 지원하지 않아요.\n앱을 다시 열면 저장된 접근 정보로 서버 상태를 확인해요.", 14f))
         setContentView(ScrollView(this).apply { addView(layout) })
     }
 

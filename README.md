@@ -21,3 +21,5 @@ vehicle/는 실제 앱, probe/는 SDK 진단용이다. 현재 debug API는 에�
 [개정 명세 대조와 작업 순서](docs/revised-plan.md)를 확인한다. 아직 구현하지 않은 기능과 현재 기준 동작을 구분해 적었다.
 
 [차량 화면 코드 구조](docs/vehicle-screen.md)에 영역별 파일, render 연결 방식과 함께 수정할 지점을 정리했다.
+
+[픽업 저장·재실행 복구](docs/pickup-recovery.md): 접근 정보의 암호화 저장, 서버 상태 재확인, 종료·권한 거절 시 삭제와 검증 방법.

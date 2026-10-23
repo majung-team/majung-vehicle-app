@@ -6,8 +6,9 @@ import android.os.SystemClock
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
-/** One application-owned session. Credentials stay in memory, not saved state or preferences. */
-class PickupController(private val api: PickupApiClient = PickupApiClient()) {
+/** One application-owned session; persistent credentials are injected through a session store. */
+class PickupController(private val api: PickupApiClient = PickupApiClient(),
+                       private val sessionStore: PickupSessionStore = MemoryPickupSessionStore()) {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private var driverToken: String? = null
@@ -43,8 +44,65 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
     var message = ""
         private set
     var changed: (() -> Unit)? = null
+    private var restoringSession = false
+    private var savedSession: SavedPickupSession? = null
+    private var storageCleanupFailed = false
 
-    val canCreate: Boolean get() = !busy && pickupId == null && !uncertainCreate
+    fun restoreSession() {
+        if (busy || pickupId != null || restoringSession) return
+        restoringSession = true
+        busy = true
+        worker.execute {
+            val result = runCatching { sessionStore.load() }
+            handler.post {
+                busy = false
+                result.fold(onSuccess = { saved ->
+                    if (saved == null) { restoringSession = false; changed?.invoke(); return@fold }
+                    resetVehiclePublisher()
+                    pickupId = saved.pickupId
+                    driverToken = saved.driverToken
+                    inviteToken = saved.inviteToken
+                    vehicleSequence = saved.vehicleSequence
+                    savedSession = saved
+                    status = "RESTORING"
+                    online = false
+                    message = "진행 중인 픽업을 서버에서 확인하고 있어요."
+                    refresh()
+                }, onFailure = {
+                    restoringSession = false
+                    if (clearSavedSession()) message = "저장된 접근 정보를 읽을 수 없어 지웠어요."
+                })
+                changed?.invoke()
+            }
+        }
+    }
+
+    private fun persistSession(): Boolean {
+        val id = pickupId ?: return true
+        val token = driverToken ?: return true
+        val saved = SavedPickupSession(id, token, inviteToken, vehicleSequence)
+        if (saved == savedSession) return true
+        return try { sessionStore.save(saved); savedSession = saved; true }
+        catch (_: Exception) {
+            message = "접근 정보를 안전하게 저장하지 못했어요. 앱을 닫기 전에 픽업을 종료해주세요."
+            false
+        }
+    }
+
+    private fun clearSavedSession(): Boolean {
+        return try {
+            sessionStore.clear()
+            savedSession = null
+            storageCleanupFailed = false
+            true
+        } catch (_: Exception) {
+            storageCleanupFailed = true
+            message = "저장된 접근 정보를 지우지 못했어요. 새 픽업을 만들 수 없어요."
+            false
+        }
+    }
+
+    val canCreate: Boolean get() = !busy && !restoringSession && !storageCleanupFailed && pickupId == null && !uncertainCreate
     val canApprove: Boolean get() = !busy && online && status == "WAITING_APPROVAL" && participantId != null
     val canArrive: Boolean get() = !busy && online && status == "ACTIVE"
     val canComplete: Boolean get() = !busy && online && status == "ARRIVED"
@@ -65,6 +123,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
             status = "INVITING"
             message = "픽업을 만들었어요. 초대 링크로 참여한 사람을 확인해주세요."
             uncertainCreate = false
+            persistSession()
         }, creating = true)
     }
 
@@ -105,6 +164,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
 
     fun prepareNextPickup() {
         if (busy || status !in ended) return
+        if (!clearSavedSession()) { changed?.invoke(); return }
+        restoringSession = false
         controlGeneration++
         resetVehiclePublisher()
         pickupId = null
@@ -144,8 +205,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
             if (now < nextVehicleSend) return
         }
         if (vehicleInFlight) return
-        vehicleInFlight = true
         val sequence = ++vehicleSequence
+        if (!persistSession()) { changed?.invoke(); return }
+        vehicleInFlight = true
         val generation = vehicleGeneration
         if (sample != null) nextVehicleSend = now + 3000 else nextInvalidationSend = now + 3000
         val body = JSONObject().put("sequence", sequence)
@@ -193,20 +255,25 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
 
     private fun receiveSnapshot(data: JSONObject) {
         status = data.getString("status")
+        restoringSession = false
+        data.optJSONObject("place")?.let {
+            place = PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
+        }
         val participant = data.optJSONObject("participant")
         participantId = participant?.optString("participantId")
         participantName = participant?.optString("displayName")
         readiness = participant?.optString("readiness") ?: ""
         if (status != "INVITING") inviteToken = null
         if (status in ended) {
+            clearSavedSession()
             resetVehiclePublisher()
             driverToken = null
             inviteToken = null
             participantId = null
             participantName = null
             place = null
-            message = "픽업 공유가 종료됐어요. 이 앱의 접근 정보도 지웠어요."
-        }
+            if (!storageCleanupFailed) message = "픽업 공유가 종료됐어요. 이 앱의 접근 정보도 지웠어요."
+        } else persistSession()
     }
 
     private fun runRequest(call: () -> JSONObject, accept: (JSONObject) -> Unit,
@@ -241,7 +308,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
                     message = if (creating && uncertainCreate)
                         "생성 결과를 확인하지 못했어요. 중복 생성을 막기 위해 자동 재시도하지 않아요."
                     else "서버와 연결하지 못했어요. 다시 확인해주세요."
-                    if (error is ApiRejected && error.status in setOf(401, 403, 404)) {
+                    if (!creating && error is ApiRejected && error.status in setOf(401, 403, 404, 410)) {
+                        clearSavedSession()
+                        restoringSession = false
                         resetVehiclePublisher()
                         driverToken = null
                         inviteToken = null
@@ -249,7 +318,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient()) {
                         status = "EXPIRED"
                         place = null
                         participantName = null
-                        message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
+                        if (!storageCleanupFailed) message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
                     }
                 })
                 changed?.invoke()

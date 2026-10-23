@@ -25,6 +25,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             else -> "아직 준비 상태를 바꾸지 않았어요"
         }
         val phase = when (pickup.status) {
+            "RESTORING" -> "서버에서 픽업 상태를 확인 중이에요"
             "INVITING" -> "탑승자 참여를 기다리고 있어요"
             "WAITING_APPROVAL" -> "참여 요청을 확인해주세요"
             "ACTIVE" -> "픽업 진행 중"
