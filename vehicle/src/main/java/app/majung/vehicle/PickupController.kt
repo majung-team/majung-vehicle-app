@@ -244,14 +244,15 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             handler.post {
                 if (generation != vehicleGeneration || id != pickupId || status in ended) return@post
                 vehicleInFlight = false
-                result.fold(onSuccess = {
+                result.fold(onSuccess = { response ->
                     vehicleKnownEmpty = sample == null
-                    vehicleMessage = if (sample == null) "서버의 이전 위치·ETA를 지웠어요"
-                        else "SDK 위치·ETA를 서버에 전달했어요"
-                }, onFailure = {
+                    vehicleMessage = VehicleSharingFeedback.accepted(
+                        sample != null, response.optString("freshness"), response.optLong("validForMillis", 0)
+                    )
+                }, onFailure = { error ->
                     // A timed-out request may have committed: invalidate until acknowledged.
                     vehicleKnownEmpty = false
-                    vehicleMessage = "차량 정보 전송을 확인하지 못했어요. 이전 정보는 서버에서 만료돼요."
+                    vehicleMessage = VehicleSharingFeedback.rejected((error as? ApiRejected)?.code)
                 })
                 notifyChanged()
                 // Do not wait for the next poll if the SDK was invalidated during an upload.

@@ -60,8 +60,8 @@ class PickupSharingService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification = Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_sharing)
-                .setContentTitle("마중 · 픽업 공유 중")
-                .setContentText("차량 위치와 도착 예상 시간을 공유해요. 탑승 확인·취소 시 종료돼요.")
+                .setContentTitle("마중 · 픽업 공유 서비스")
+                .setContentText("공유 상태는 앱에서 확인해주세요. 탑승 확인·취소 시 서비스가 종료돼요.")
                 .setContentIntent(openApp)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -74,7 +74,7 @@ class PickupSharingService : Service() {
             }
             started = true
             app.sharingRunning = true
-            app.sharingMessage = "화면 밖에서도 위치·ETA 공유 중 · 탑승 확인·취소 시 종료"
+            app.sharingMessage = "화면 밖 공유 서비스 실행 중 · 실제 공유 상태는 전송 결과에서 확인"
             app.pickup.addObserver(stateChanged)
             handler.post(tick)
             app.pickup.changed?.invoke()
