@@ -177,6 +177,32 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
     }
 
+    private var sdkArrivalAttempt = 0
+    private var sdkArrivalUntil = 0L
+    private var sdkArrivalPickup: String? = null
+
+    fun arriveFromSdk(confirmedPlace: PickupPlace) {
+        if (needsSharingConfirmation || status != "ACTIVE" || place?.sameCoordinates(confirmedPlace) != true) return
+        if (sdkArrivalPickup == pickupId && SystemClock.elapsedRealtime() < sdkArrivalUntil) return
+        sdkArrivalPickup = pickupId
+        sdkArrivalUntil = SystemClock.elapsedRealtime() + 30000
+        sdkArrivalAttempt = 0
+        sendSdkArrival()
+    }
+
+    private fun sendSdkArrival() {
+        if (sdkArrivalPickup != pickupId || status != "ACTIVE" || needsSharingConfirmation ||
+            SystemClock.elapsedRealtime() >= sdkArrivalUntil || sdkArrivalAttempt >= 3) return
+        if (busy) { handler.postDelayed(::sendSdkArrival, 1000); return }
+        val token = driverToken ?: return
+        val path = "/$pickupId/arrival"
+        sdkArrivalAttempt++
+        runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
+        // Arrival is idempotent on the server. Retry a lost acknowledgement at most twice;
+        // never send an event to a subsequent pickup or after recovered sharing was stopped.
+        handler.postDelayed(::sendSdkArrival, 6000)
+    }
+
     fun complete() {
         if (!canComplete) return
         val path = "/$pickupId/completion"

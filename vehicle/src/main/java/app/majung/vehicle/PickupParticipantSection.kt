@@ -15,13 +15,13 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                 val clipboard = views.context.getSystemService(ClipboardManager::class.java)
                 clipboard.setPrimaryClip(ClipData.newPlainText("마중 개발용 초대", link))
                 AlertDialog.Builder(views.context).setMessage("이 Mac의 브라우저에서 붙여넣어주세요. 실제 휴대전화용 주소는 아직 없어요.")
-                    .setPositiveButton("확인", null).show()
+                    .setPositiveButton("확인", null).show().also(views::trackDialog)
             }
         }
         approveButton = views.button("참여자 확인하고 공유 시작") {
             AlertDialog.Builder(views.context).setMessage("초대한 사람이 맞나요? 확인하면 이번 픽업의 장소를 공유해요.")
-                .setPositiveButton("확인하고 시작") { _, _ -> app.pickup.approve() }
-                .setNegativeButton("돌아가기", null).show()
+                .setPositiveButton("확인하고 시작") { _, _ -> if (views.canInteract) app.pickup.approve() }
+                .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
         views.button("서버 상태 다시 확인") { app.pickup.refresh() }
     }

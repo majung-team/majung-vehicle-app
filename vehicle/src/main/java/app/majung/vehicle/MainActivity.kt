@@ -17,6 +17,9 @@ import android.widget.ScrollView
 class MainActivity : Activity() {
     private val app: VehicleApplication get() = application as VehicleApplication
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var driving: DrivingRestrictionMonitor
+    private lateinit var views: VehicleViews
+    private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
     private lateinit var status: PickupStatusSection
     private lateinit var participant: PickupParticipantSection
@@ -41,7 +44,10 @@ class MainActivity : Activity() {
             setPadding(32, 24, 32, 24)
             setBackgroundColor(Color.rgb(246, 247, 239))
         }
-        val views = VehicleViews(this, layout, ::render)
+        driving = DrivingRestrictionMonitor(this) { if (::creation.isInitialized) render() }
+        views = VehicleViews(this, layout, ::render) { driving.allowed }
+        restrictionText = views.label("차량의 조작 허용 상태를 확인하고 있어요", 18f)
+        views.addView(restrictionText)
         views.addView(views.label("마중 · 차량에서 약속 만들기", 26f))
         views.addView(views.label("주차 중에 사용하는 개발 확인 화면\n내비게이션에서 목적지를 고른 뒤 확인해주세요.\n버튼을 누르면 선택한 장소가 로컬 개발 서버에 저장돼요.", 16f))
         creation = PickupCreationSection(app, views)
@@ -60,6 +66,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        driving.start()
         app.pickup.changed = ::render
         // A waypoint request may open the navigation app. Revalidate on return;
         // do not start a location service before a pickup is approved.
@@ -81,6 +88,7 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        driving.stop()
         handler.removeCallbacks(tick)
         app.pickup.changed = null
         if (!app.sharingRunning && !startRequested) app.destination.disconnect()
@@ -88,6 +96,7 @@ class MainActivity : Activity() {
     }
 
     private fun requestSharingPermission() {
+        if (!driving.allowed) return
         if (!PickupSharingService.hasLocationPermission(this)) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 32)
         } else {
@@ -111,6 +120,7 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        views.beginRender()
         creation.render()
         status.render()
         participant.render()
@@ -119,7 +129,7 @@ class MainActivity : Activity() {
         resumeButton.visibility = if (app.pickup.needsSharingConfirmation) android.view.View.VISIBLE else android.view.View.GONE
         resumeButton.isEnabled = app.pickup.online && !app.pickup.busy
         sharingButton.visibility = if (sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning) android.view.View.VISIBLE else android.view.View.GONE
-        if (resumed && sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning && !startRequested && PickupSharingService.hasLocationPermission(this)) {
+        if (resumed && driving.allowed && sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning && !startRequested && PickupSharingService.hasLocationPermission(this)) {
             startRequested = true
             try {
                 startForegroundService(Intent(this, PickupSharingService::class.java))
@@ -131,5 +141,8 @@ class MainActivity : Activity() {
                 app.sharingMessage = "위치 권한을 확인한 뒤 다시 시작해주세요"
             }
         }
+        restrictionText.updateText(if (driving.allowed) "차량이 화면 조작을 허용한 상태예요" else
+            "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
+        views.applyRestrictions()
     }
 }

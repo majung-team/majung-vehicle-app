@@ -5,6 +5,7 @@ plugins {
 android {
     namespace = "app.majung.vehicle"
     compileSdk = 34
+    useLibrary("android.car")
     defaultConfig {
         applicationId = "app.majung.vehicle"
         minSdk = 28

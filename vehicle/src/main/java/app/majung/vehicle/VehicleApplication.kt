@@ -18,6 +18,8 @@ class VehicleApplication : Application() {
         destination = DestinationReader(this)
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this))
         pickup.restoreSession()
+        destination.pickupPlace = { pickup.place }
+        destination.pickupArrived = pickup::arriveFromSdk
         destination.telemetryChanged = {
             if (sharingRunning) pickup.syncVehicle(destination)
         }
