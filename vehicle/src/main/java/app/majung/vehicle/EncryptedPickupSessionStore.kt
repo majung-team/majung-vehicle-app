@@ -37,13 +37,17 @@ class EncryptedPickupSessionStore(context: Context) : PickupSessionStore {
         require(invite == null || invite.matches(Regex("[A-Za-z0-9_-]{43}")))
         val sequence = data.getLong("vehicleSequence")
         require(sequence >= 0 && sequence < Long.MAX_VALUE)
-        return SavedPickupSession(id, driver, invite, sequence)
+        val navigationReference = if (!data.has("navigationReference") || data.isNull("navigationReference")) null
+            else data.getString("navigationReference")
+        require(navigationReference == null || navigationReference.isNotBlank() && navigationReference.length <= 256)
+        return SavedPickupSession(id, driver, invite, sequence, navigationReference)
     }
 
     @Synchronized override fun save(session: SavedPickupSession) {
         val data = JSONObject().put("version", 1).put("pickupId", session.pickupId)
             .put("driverToken", session.driverToken).put("inviteToken", session.inviteToken ?: JSONObject.NULL)
             .put("vehicleSequence", session.vehicleSequence)
+            .put("navigationReference", session.navigationReference ?: JSONObject.NULL)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key(true))
         cipher.updateAAD(aad)

@@ -71,7 +71,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         finalDestinationButton = views.button("픽업 장소는 최종 목적지 사용") { app.destination.useFinalDestination(); render() }
         createButton = views.button("이 장소에서 태우기") {
             val selected = app.destination.selection.current(SystemClock.elapsedRealtime()) ?: return@button
-            app.pickup.create(selected)
+            app.pickup.create(selected, app.destination.referenceFor(selected))
         }.apply {
             id = R.id.create_pickup
             setTextColor(Color.WHITE)

@@ -47,6 +47,7 @@ class DestinationReader(private val context: Context) {
     private var routeReceivedAt = 0L
     private var desiredPickup: PickupPlace? = null
     private var selectedSdkPlace: SdkPickupPlace? = null
+    private val knownSdkPlaces = linkedMapOf<String, SdkPickupPlace>()
     private var insertion: WaypointInsertion? = null
     private var requiredInsertion: WaypointInsertion? = null
     private var recentCallback: ((List<SdkPickupPlace>) -> Unit)? = null
@@ -83,9 +84,29 @@ class DestinationReader(private val context: Context) {
         routeValidation.ready && age in 0 until 10000
     }
 
+    fun referenceFor(place: PickupPlace): String? {
+        val stop = currentStops()?.resolve(place) ?: return null
+        if (stop.kind != NavigationStopKind.WAYPOINT) return null
+        return knownSdkPlaces.values.filter { it.place.sameCoordinates(place) }.singleOrNull()?.poiId
+    }
+
+    /** Restore only with the server-confirmed place and our encrypted session reference. */
+    fun restorePickupReference(place: PickupPlace?, reference: String?) {
+        if (place == null || reference.isNullOrBlank()) return
+        if (desiredPickup?.sameCoordinates(place) == true && selectedSdkPlace?.poiId == reference) return
+        if (!NavigationStop(place, 0, NavigationStopKind.WAYPOINT).usable) return
+        val restored = SdkPickupPlace(place, reference, "", "0")
+        desiredPickup = place
+        selectedSdkPlace = restored
+        knownSdkPlaces[reference] = restored
+        invalidateRoute()
+        if (connected) pollTelemetry()
+    }
+
     fun useFinalDestination() {
         desiredPickup = null
         selectedSdkPlace = null
+        knownSdkPlaces.clear()
         insertion = null
         requiredInsertion = null
         handler.removeCallbacks(insertionTimeout)
@@ -116,10 +137,12 @@ class DestinationReader(private val context: Context) {
         if (insertion != null) return false
         if (previous.waypoints.size >= 2) { fail(NavigationFailure.WAYPOINT_LIMIT); return false }
         if (previous.all.any { it.place.sameCoordinates(place) }) { fail(NavigationFailure.DUPLICATE_PLACE); return false }
+        val requestPlace = selected.withRequestIdentity()
         insertion = WaypointInsertion(place, previous)
         requiredInsertion = insertion
         desiredPickup = place
-        selectedSdkPlace = selected
+        selectedSdkPlace = requestPlace
+        knownSdkPlaces[requestPlace.poiId] = requestPlace
         invalidateRoute()
         status = "경유지 추가 후 장소를 확인하고 있어요"
         failure = null
@@ -127,8 +150,8 @@ class DestinationReader(private val context: Context) {
         handler.postDelayed(insertionTimeout, 45000)
         val requested = requestSdk {
             requireNotNull(helper).addWaypoint(RequestWaypointInfo(latitude = place.latitude, longitude = place.longitude,
-                poiName = place.label, waypointIndex = WaypointIndex.FIRST, poiId = selected.poiId,
-                address = selected.address, poiSubId = selected.poiSubId))
+                poiName = place.label, waypointIndex = WaypointIndex.FIRST, poiId = requestPlace.poiId,
+                address = requestPlace.address, poiSubId = requestPlace.poiSubId, poiProvider = requestPlace.poiProvider))
         }
         if (requested) handler.postDelayed(validationRetry, 5000)
         return requested
@@ -204,9 +227,9 @@ class DestinationReader(private val context: Context) {
                 }
                 val stops = NavigationStops(
                     NavigationStop(finalPlace!!, final.remainTime.toLong(), NavigationStopKind.DESTINATION),
-                    WaypointCoordinates.resolve(waypointInfoList.mapIndexed { index, point ->
+                    WaypointCoordinates.resolveKnown(waypointInfoList.mapIndexed { index, point ->
                         SdkWaypoint(waypointPlaces[index], point.remainTime.toLong(), point.poiId)
-                    }, selectedSdkPlace))
+                    }, knownSdkPlaces.values.toList()))
                 if (!routeValidation.receiveRoute(stops.all.map { it.place }, now)) {
                     if (!routeValidation.ready) {
                         route = null
@@ -235,6 +258,7 @@ class DestinationReader(private val context: Context) {
                     requiredInsertion = null
                 }
                 handler.removeCallbacks(insertionTimeout)
+                knownSdkPlaces.keys.retainAll(waypointInfoList.map { it.poiId }.toSet())
                 failure = null
                 handler.removeCallbacks(validationRetry)
                 selection.receive(target.place.label, target.place.latitude, target.place.longitude, now)
@@ -251,7 +275,7 @@ class DestinationReader(private val context: Context) {
                 callback(recentDestinationInfoList.take(20).mapNotNull {
                     val place = validPlace(it.name, it.latitude, it.longitude, SystemClock.elapsedRealtime())
                         ?.takeIf { point -> point.latitude != 0.0 || point.longitude != 0.0 }
-                    place?.let { point -> SdkPickupPlace(point, it.poiId, it.address, it.poiSubId ?: "0") }
+                    place?.let { point -> SdkPickupPlace(point, it.poiId, it.address, it.poiSubId ?: "0", it.poiProvider) }
                 }.distinctBy { it.place.latitude to it.place.longitude })
             }
             override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) = update {

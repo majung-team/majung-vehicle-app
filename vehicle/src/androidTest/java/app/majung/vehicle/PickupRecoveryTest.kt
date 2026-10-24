@@ -13,7 +13,7 @@ import org.junit.Test
 class PickupRecoveryTest {
     private val context get() = ApplicationProvider.getApplicationContext<VehicleApplication>()
     private val main get() = InstrumentationRegistry.getInstrumentation()
-    private fun saved() = SavedPickupSession(UUID.randomUUID().toString(), "A".repeat(43), "B".repeat(43), 9)
+    private fun saved() = SavedPickupSession(UUID.randomUUID().toString(), "A".repeat(43), "B".repeat(43), 9, "majung:" + UUID.randomUUID())
     private fun store() = EncryptedPickupSessionStore(context)
     private fun await(condition: () -> Boolean) {
         val end = SystemClock.elapsedRealtime() + 8000
@@ -33,6 +33,7 @@ class PickupRecoveryTest {
             val file = File(context.noBackupFilesDir, "pickup-session.bin")
             val bytes = file.readBytes()
             assertTrue(!String(bytes, Charsets.ISO_8859_1).contains(value.driverToken))
+            assertTrue(!String(bytes, Charsets.ISO_8859_1).contains(value.navigationReference!!))
             assertTrue(store().load() == value)
             bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()
             file.writeBytes(bytes)
@@ -49,6 +50,7 @@ class PickupRecoveryTest {
                 main.runOnMainSync { controller.restoreSession(); assertTrue(!controller.canCreate && !controller.canArrive) }
                 await { controller.online && controller.status == "ACTIVE" }
                 assertTrue(controller.place != null)
+                assertTrue(controller.navigationReference == value.navigationReference)
                 main.runOnMainSync {
                     assertTrue(controller.needsSharingConfirmation)
                     val reader = DestinationReader(context)
@@ -66,7 +68,7 @@ class PickupRecoveryTest {
                 val controller = controller(server)
                 main.runOnMainSync { controller.restoreSession() }
                 await { controller.status == "COMPLETED" && !controller.busy }
-                assertTrue(controller.place == null && store().load() == null)
+                assertTrue(controller.place == null && controller.navigationReference == null && store().load() == null)
             }
         } finally { store().clear() }
     }

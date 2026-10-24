@@ -30,6 +30,7 @@ class PickupSharingService : Service() {
                 stopSelf()
                 return
             }
+            app.destination.restorePickupReference(app.pickup.place, app.pickup.navigationReference)
             if (ticks % 3 == 0) app.pickup.refresh()
             if (ticks % 5 == 0) {
                 app.destination.connect()

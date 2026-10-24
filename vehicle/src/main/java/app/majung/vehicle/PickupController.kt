@@ -30,6 +30,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         private set
     var place: PickupPlace? = null
         private set
+    var navigationReference: String? = null
+        private set
     var status = ""
         private set
     var participantName: String? = null
@@ -81,6 +83,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                     driverToken = saved.driverToken
                     inviteToken = saved.inviteToken
                     vehicleSequence = saved.vehicleSequence
+                    navigationReference = saved.navigationReference
                     savedSession = saved
                     status = "RESTORING"
                     online = false
@@ -98,7 +101,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private fun persistSession(): Boolean {
         val id = pickupId ?: return true
         val token = driverToken ?: return true
-        val saved = SavedPickupSession(id, token, inviteToken, vehicleSequence)
+        val saved = SavedPickupSession(id, token, inviteToken, vehicleSequence, navigationReference)
         if (saved == savedSession) return true
         return try { sessionStore.save(saved); savedSession = saved; true }
         catch (_: Exception) {
@@ -126,7 +129,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     val canComplete: Boolean get() = !busy && online && status == "ARRIVED"
     val canCancel: Boolean get() = !busy && online && pickupId != null && status !in ended
 
-    fun create(selectedPlace: PickupPlace) {
+    fun create(selectedPlace: PickupPlace, waypointReference: String? = null) {
         if (!canCreate) return
         uncertainCreate = true
         runRequest({ api.create(selectedPlace) }, { result ->
@@ -138,6 +141,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             driverToken = owner
             inviteToken = invitation
             place = selectedPlace
+            navigationReference = waypointReference
             status = "INVITING"
             message = "픽업을 만들었어요. 초대 링크로 참여한 사람을 확인해주세요."
             uncertainCreate = false
@@ -192,6 +196,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         participantId = null
         participantName = null
         place = null
+        navigationReference = null
         readiness = ""
         status = ""
         message = ""
@@ -291,6 +296,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             participantId = null
             participantName = null
             place = null
+            navigationReference = null
             if (!storageCleanupFailed) message = "픽업 공유가 종료됐어요. 이 앱의 접근 정보도 지웠어요."
         } else persistSession()
     }
@@ -337,6 +343,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                         needsSharingConfirmation = false
                         status = "EXPIRED"
                         place = null
+                        navigationReference = null
                         participantName = null
                         if (!storageCleanupFailed) message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
                     }

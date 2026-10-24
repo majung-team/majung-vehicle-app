@@ -1,7 +1,8 @@
 package app.majung.vehicle
 
-import ai.pleos.playground.navi.data.RouteStartInfo
-import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
+import ai.pleos.playground.navi.data.RequestWaypointInfo
+import ai.pleos.playground.navi.data.RouteWithWaypointsRequest
+import ai.pleos.playground.navi.constants.WaypointIndex
 import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import android.graphics.Bitmap
@@ -24,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Real SDK probe: a response without matching coordinates must never create a pickup. */
+/** Real SDK and API: external-ID and app-issued-ID pickups, recovery and foreign-route rejection. */
 class WaypointPickupTest {
     @Test fun verifyWaypointIdentityBeforePickupCreation() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("verifyWaypoint") == "true")
@@ -33,10 +34,12 @@ class WaypointPickupTest {
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val api = PickupApiClient()
         var control: NaviHelper? = null
+        var restoredReader: DestinationReader? = null
         var connected = false
-        var routeStarts = 0
         var selectedSdkPlace: SdkPickupPlace? = null
         val useIdentity = InstrumentationRegistry.getArguments().getString("withoutWaypointIdentity") != "true"
+        val keepForRestart = InstrumentationRegistry.getArguments().getString("keepPickupForRestart") == "true" && !useIdentity
+        var keepSession = false
         val report = JSONObject()
         val counts = mutableMapOf<SdkTimingType,Int>()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -48,11 +51,6 @@ class WaypointPickupTest {
                 }
                 await { connected && !app.pickup.busy }
                 main.runOnMainSync {
-                    control!!.addListener(object : NaviHelperEventListener {
-                        override fun onRouteStarted(routeStartInfo: RouteStartInfo) {
-                            Handler(Looper.getMainLooper()).post { routeStarts++ }
-                        }
-                    })
                     if (app.pickup.canCancel) app.pickup.cancel()
                 }
                 await { !app.pickup.busy }
@@ -63,7 +61,9 @@ class WaypointPickupTest {
                     control!!.requestRoute(RouteInfo(latitude = 37.48544722, longitude = 127.03636666,
                         poiName = "42dot", poiId = "36khp37hh8gqcm5nqhe5", address = "서울시 강남구 남부순환로 2621", poiSubId = "0"))
                 }
-                await { routeStarts > 0 }
+                // Only wait for the navigation window to open. Route readiness below
+                // still requires actual SDK state/destination/waypoint responses.
+                SystemClock.sleep(3000)
                 main.runOnMainSync {
                     app.startActivity(android.content.Intent(app, MainActivity::class.java)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
@@ -74,18 +74,16 @@ class WaypointPickupTest {
                     app.destination.selection.current(SystemClock.elapsedRealtime()) != null }
                 main.runOnMainSync {
                     app.destination.loadRecentPlaces { places ->
-                        selectedSdkPlace = places.firstOrNull { it.poiId.isNotBlank() }
+                        selectedSdkPlace = places.firstOrNull { it.poiId == "36khp37hh8gqcm5nqhe5" }
                     }
                 }
                 await { selectedSdkPlace != null }
                 val requested = selectedSdkPlace!!.place
-                var routeBeforeFinal = 0
                 main.runOnMainSync {
-                    routeBeforeFinal = routeStarts
                     control!!.requestRoute(RouteInfo(latitude = 37.566535, longitude = 126.977969,
                         poiName = "SDK 최종 목적지", poiId = "", address = "", poiSubId = "0"))
                 }
-                await { routeStarts > routeBeforeFinal }
+                SystemClock.sleep(3000)
                 main.runOnMainSync {
                     app.startActivity(android.content.Intent(app, MainActivity::class.java)
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
@@ -121,28 +119,20 @@ class WaypointPickupTest {
                     report.put("finalDestinationPreserved", true)
                 }
                 val matched = current?.resolve(requested)?.kind == NavigationStopKind.WAYPOINT
-                assertEquals("Unexpected SDK waypoint identity result", useIdentity, matched)
+                assertTrue("Selected waypoint was not confirmed", matched)
                 report.put("resolvedPickupCoordinatesMatched", matched)
                     .put("failureCode", app.destination.failure?.name)
-                if (matched) {
-                    main.runOnMainSync { assertNotNull(app.destination.selection.current(SystemClock.elapsedRealtime())) }
-                    report.put("sdkOutcome", "SDK_POI_IDENTITY_MATCHED")
-                        .put("finalEtaSeconds", current!!.destination.durationSeconds)
-                        .put("waypointEtaSeconds", current!!.resolve(requested)!!.durationSeconds)
-                } else {
-                    assertEquals(NavigationFailure.WAYPOINT_COORDINATES_UNAVAILABLE, app.destination.failure)
-                    assertFalse(app.destination.addingWaypoint)
-                    scenario.onActivity {
-                        assertFalse(it.findViewById<Button>(R.id.create_pickup).isEnabled)
-                        assertNull(app.destination.selection.current(SystemClock.elapsedRealtime()))
-                        assertNull(app.pickup.pickupId)
-                    }
-                    capture(app, "waypoint-unverified.png")
-                    report.put("sdkOutcome", "COORDINATES_UNAVAILABLE")
-                        .put("unverifiedCreationBlocked", true)
-                    // Switching back is an explicit user action, not an automatic ETA fallback.
-                    main.runOnMainSync { app.destination.useFinalDestination() }
-                    await { app.destination.selection.current(SystemClock.elapsedRealtime())?.sameCoordinates(original!!) == true }
+                main.runOnMainSync { assertNotNull(app.destination.selection.current(SystemClock.elapsedRealtime())) }
+                report.put("sdkOutcome", if (useIdentity) "SDK_POI_IDENTITY_MATCHED" else "APP_IDENTITY_MATCHED")
+                    .put("inputHadProviderId", useIdentity)
+                    .put("finalEtaSeconds", current!!.destination.durationSeconds)
+                    .put("waypointEtaSeconds", current!!.resolve(requested)!!.durationSeconds)
+                var expectedReference: String? = null
+                main.runOnMainSync {
+                    expectedReference = app.destination.referenceFor(requested)
+                    assertNotNull(expectedReference)
+                    assertTrue(if (useIdentity) expectedReference == selectedSdkPlace!!.poiId
+                        else expectedReference!!.startsWith("majung:"))
                 }
                 await {
                     var enabled = false
@@ -182,6 +172,52 @@ class WaypointPickupTest {
                     report.put("sharedEtaSeconds", live!!.getLong("durationSeconds"))
                         .put("sharedTarget", stop.kind.name)
                 }
+                val saved = EncryptedPickupSessionStore(app).load()!!
+                assertEquals(expectedReference, saved.navigationReference)
+                report.put("identitySavedInEncryptedSession", true)
+                if (keepForRestart) {
+                    keepSession = true
+                    report.put("preparedForProcessRestart", true).put("result", "passed")
+                    return@use
+                }
+                if (!useIdentity) {
+                    scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+                    main.runOnMainSync { app.stopService(android.content.Intent(app, PickupSharingService::class.java)) }
+                    await { !app.sharingRunning }
+                    val placeJson = api.request("GET", "/$id", saved.driverToken).getJSONObject("place")
+                    val confirmed = PickupPlace(placeJson.getString("label"), placeJson.getDouble("latitude"), placeJson.getDouble("longitude"))
+                    main.runOnMainSync {
+                        restoredReader = DestinationReader(app)
+                        restoredReader!!.restorePickupReference(confirmed, saved.navigationReference)
+                        restoredReader!!.connect()
+                    }
+                    await { restoredReader!!.telemetry.current(confirmed, SystemClock.elapsedRealtime()) != null }
+                    main.runOnMainSync {
+                        assertEquals(NavigationStopKind.WAYPOINT, restoredReader!!.currentStops()!!.resolve(confirmed)!!.kind)
+                        report.put("restoredWaypointEtaSeconds", restoredReader!!.currentStops()!!.resolve(confirmed)!!.durationSeconds)
+                        restoredReader!!.disconnect()
+                        restoredReader = null
+                    }
+                    report.put("identityRestoredFromEncryptedSession", true)
+                    scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                    await { app.sharingRunning && app.destination.telemetry.current(confirmed, SystemClock.elapsedRealtime()) != null }
+                    main.runOnMainSync {
+                        control!!.requestRouteWithWaypoints(RouteWithWaypointsRequest(
+                            RouteInfo(original!!.latitude, original!!.longitude, poiName = original!!.label, poiId = "", address = "", poiSubId = "0"),
+                            listOf(RequestWaypointInfo(requested.latitude + 0.01, requested.longitude + 0.01,
+                                requested.label, WaypointIndex.FIRST, "foreign:" + java.util.UUID.randomUUID(), "", "0"))))
+                    }
+                    await { app.destination.failure == NavigationFailure.WAYPOINT_COORDINATES_UNAVAILABLE }
+                    var hidden = false
+                    val hideDeadline = SystemClock.elapsedRealtime() + 15000
+                    while (SystemClock.elapsedRealtime() < hideDeadline) {
+                        val state = api.request("GET", "/$id/vehicle-state", token)
+                        if (state.optString("freshness") != "FRESH" && state.isNull("latitude")) { hidden = true; break }
+                        SystemClock.sleep(250)
+                    }
+                    assertTrue("Foreign waypoint reused previous pickup telemetry", hidden)
+                    report.put("foreignIdentityRejected", true).put("previousSharedTelemetryHidden", true)
+                }
                 report.put("result", "passed")
             } finally {
                 main.runOnMainSync {
@@ -191,10 +227,11 @@ class WaypointPickupTest {
                 }
                 File(app.filesDir, "waypoint-pickup-summary.json").writeText(report.toString(2))
                 main.runOnMainSync {
+                    restoredReader?.disconnect()
                     control?.release()
-                    if (app.pickup.canCancel) app.pickup.cancel()
+                    if (!keepSession && app.pickup.canCancel) app.pickup.cancel()
                 }
-                val until = SystemClock.elapsedRealtime() + 10000
+                val until = SystemClock.elapsedRealtime() + if (keepSession) 0 else 10000
                 while (app.sharingRunning && SystemClock.elapsedRealtime() < until) SystemClock.sleep(100)
                 main.runOnMainSync {
                     app.stopService(android.content.Intent(app, PickupSharingService::class.java))
