@@ -29,4 +29,6 @@ Pleos 2.1.0 에뮬레이터에서는 android.car API가 모듈로 제공된다. 
 - Android 화면 시험: 제한 상태 전환을 시험 입력으로 주어 열린 대화상자 종료·버튼 차단·허용 후 복구 확인.
 - Android HTTP 시험: 다른 장소 도착 무시, 첫 도착 요청 503 시 ACTIVE 유지, 제한된 재시도 후 ARRIVED, 이후 중복 전송 없음.
 - 실제 SDK의 이동·경유지 도착 콜백은 아직 재현하지 못했다. 경유지 변경 콜백이 도착 콜백보다 먼저 와 경로를 무효화하면 보수적으로 자동 도착을 생략할 수 있다. 이를 실차 자동 도착 완료로 표시하지 않는다.
-- 공식 주행 제한 ON/OFF 명령의 hmg_car_service가 현재 에뮬레이터에 없어 해당 실전환 시험은 건너뛴다. 상태 조회·시험 입력 검증과 실제 주행 전환 시험을 구분한다.
+- 공식 주행 제한 ON/OFF 명령의 hmg_car_service는 현재 에뮬레이터에 없어 해당 명령 시험만 건너뛰었다.
+- 대신 공식 Virtual Console에서 실제 기어를 P → D → P로 변경했다. 앱의 실제 CarUxRestrictionsManager가 허용 → 제한 → 허용을 읽었으며 Android 관찰 시험 1개가 통과했다. [집계 결과](evidence/driving-transition-2026-10-24.json)는 불리언만 보관한다. 실제 도로 주행이나 실차 검증은 아니다.
+- [Virtual Console P 복귀 화면](media/virtual-console-parked.png)을 함께 보관한다. 콘솔은 adb forward tcp:8088 tcp:8088 후 로컬 브라우저에서 연다. 시험 종료 후 P로 복귀했다.
