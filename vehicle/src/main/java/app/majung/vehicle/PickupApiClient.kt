@@ -4,7 +4,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-class ApiRejected(val status: Int) : Exception("서버 요청 거절")
+class ApiRejected(val status: Int, val code: String? = null) : Exception("서버 요청 거절")
 
 /** Blocking IO; callers must use the controller's worker. Never log bodies or tokens. */
 class PickupApiClient(private val origin: String = BuildConfig.PICKUP_API) {
@@ -27,7 +27,14 @@ class PickupApiClient(private val origin: String = BuildConfig.PICKUP_API) {
                 connection.outputStream.use { it.write(bytes) }
             }
             val status = connection.responseCode
-            if (status !in 200..299) throw ApiRejected(status)
+            if (status !in 200..299) {
+                val code = runCatching {
+                    connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use {
+                        JSONObject(it.readText().take(8192)).optString("code").takeIf { value -> value.isNotBlank() }
+                    }
+                }.getOrNull()
+                throw ApiRejected(status, code)
+            }
             return connection.inputStream.bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
         } finally { connection.disconnect() }
     }
