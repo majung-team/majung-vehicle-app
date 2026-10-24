@@ -2,10 +2,10 @@ package app.majung.vehicle
 
 /** A missing completion event never opens the gate by elapsed time alone. */
 class RouteValidation {
-    private enum class Awaiting { NONE, STATE, DESTINATION }
+    private enum class Awaiting { NONE, STATE, DESTINATION, WAYPOINT }
     private var awaiting = Awaiting.NONE
     private var requestedAt = 0L
-    private var candidate: PickupPlace? = null
+    private var candidate: List<PickupPlace>? = null
     private var candidateAt = 0L
     var ready = false
         private set
@@ -33,19 +33,30 @@ class RouteValidation {
         return true
     }
 
-    fun receiveDestination(place: PickupPlace?, now: Long): Boolean {
+    fun beginWaypointResponse(now: Long): Boolean {
         if (!expected(Awaiting.DESTINATION, now)) return false
+        awaiting = Awaiting.WAYPOINT
+        requestedAt = now
+        return true
+    }
+
+    fun receiveDestination(place: PickupPlace?, now: Long): Boolean =
+        receiveRoute(place?.let { listOf(it) }, now)
+
+    fun receiveRoute(places: List<PickupPlace>?, now: Long): Boolean {
+        val kind = if (awaiting == Awaiting.WAYPOINT) Awaiting.WAYPOINT else Awaiting.DESTINATION
+        if (!expected(kind, now)) return false
         awaiting = Awaiting.NONE
-        if (place == null) { invalidate(); return false }
-        if (ready && candidate == place) return true
+        if (places.isNullOrEmpty()) { invalidate(); return false }
+        if (ready && candidate == places) return true
         ready = false
         val previous = candidate
-        if (previous == place && now - candidateAt >= CONFIRMATION_GAP_MS) {
+        if (previous == places && now - candidateAt >= CONFIRMATION_GAP_MS) {
             ready = true
             return true
         }
-        if (previous != place) {
-            candidate = place
+        if (previous != places) {
+            candidate = places.toList()
             candidateAt = now
         }
         return false

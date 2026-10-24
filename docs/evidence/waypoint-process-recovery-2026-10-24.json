@@ -1,0 +1,9 @@
+{
+  "sharedTarget": "WAYPOINT",
+  "sharedEtaSeconds": 1500,
+  "finalEtaSeconds": 4020,
+  "newProcessRestoredIdentity": true,
+  "sharingRequiredUserConfirmation": true,
+  "sequenceAdvanced": true,
+  "result": "passed"
+}

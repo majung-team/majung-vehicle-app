@@ -30,7 +30,7 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
         cancelButton.id = R.id.cancel_pickup
         nextButton = views.button("새 픽업 준비") {
             app.pickup.prepareNextPickup()
-            app.destination.query()
+            app.destination.useFinalDestination()
         }
     }
 

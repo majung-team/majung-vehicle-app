@@ -2,7 +2,8 @@ package app.majung.vehicle
 
 /** Location and passenger names are deliberately not part of the saved session. */
 data class SavedPickupSession(val pickupId: String, val driverToken: String,
-                              val inviteToken: String?, val vehicleSequence: Long) {
+                              val inviteToken: String?, val vehicleSequence: Long,
+                              val navigationReference: String? = null) {
     override fun toString(): String = "SavedPickupSession(redacted)"
 }
 

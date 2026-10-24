@@ -7,7 +7,7 @@ MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 
 | --- | --- |
 | `MainActivity.kt` | 루트 레이아웃, 영역 배치, onStart/onStop, 1초 화면 갱신, 서비스 미실행 시 3초 픽업 조회, 위치 권한·재개 확인 |
 | `PickupSharingService.kt` | 화면 밖 SDK 연결·5초 조회·전송, 서버 상태 조회와 종료 감지 |
-| `PickupCreationSection.kt` | 내비 연결·목적지 확인·픽업 생성 버튼과 사용 가능 여부 |
+| `PickupCreationSection.kt` | 내비 연결·최근 장소 선택·경유지 추가·픽업 생성 버튼과 사용 가능 여부 |
 | `PickupParticipantSection.kt` | 초대 링크 복사·참여 승인 확인 창·서버 상태 다시 확인 |
 | `PickupStatusSection.kt` | 연결 상태, 픽업 진행·장소·준비 상태·차량 정보·안내 문구 |
 | `PickupCompletionSection.kt` | 도착·탑승 완료·취소 확인 창, 다음 픽업 준비 |
@@ -34,10 +34,27 @@ Activity가 멈추면 화면 콜백과 타이머만 해제한다. 공유 서비�
 화면 영역은 같은 루트 LinearLayout에 기존 순서로 붙인다. 레이아웃을 감싸는 컨테이너를 추가하지 않아 여백·버튼 위치를 유지한다.
 기존 `connection_status`, `pickup_details`, `arrive_pickup`, `complete_pickup`, `cancel_pickup` ID도 유지한다.
 
-## 확인 결과
+## 화면 영역 분리 당시 확인 결과
 
 - 차량 단위 시험 8개, debug APK·androidTest APK 빌드, lint 통과.
 - 공식 에뮬레이터의 기존 통합 시험 2개 통과: 목적지 생성·참여 승인·SDK 위치/ETA 전달·해제/재연결·준비 상태·취소, 도착·탑승 완료·종료 후 접근 차단.
 - 반복 조회 중 본문 높이·버튼 위치·취소 가능 상태가 유지되는 기존 검사도 통과.
 
 시험 환경은 같은 Mac의 Pleos 에뮬레이터와 로컬 API다. 실차·실제 휴대전화·주행 중 UI 허용 여부를 검증한 결과는 아니다.
+
+## 픽업 경유지 확인
+
+`DestinationReader`가 SDK 응답을 받아 아래 코드로 장소와 ETA를 확인한다.
+화면은 결과를 표시하고, `PickupController`는 확인된 장소로만 픽업을 생성한다.
+
+| 파일 | 담당 |
+| --- | --- |
+| `SdkPickupPlace.kt` | 선택 장소의 좌표·ID 보관, ID 없는 장소는 마중 식별자 발급, 응답 ID 대조 후 누락 좌표 연결 |
+| `NavigationStops.kt` | 최종 목적지·경유지 구분, 좌표로 ETA 조회, 기존 경로 유지 확인 |
+| `WaypointInsertion.kt` | 요청한 경유지 하나가 추가되고 기존 목적지·경유지가 유지됐는지 확인 |
+| `RouteValidation.kt` | 두 차례 경로 확인, 응답 대기와 확인 간격 관리 |
+| `NavigationFailure.kt`, `NavigationRequest.kt` | 오류별 화면 안내와 SDK 요청 예외 구분 |
+| `VehicleTelemetry.kt` | 확정된 픽업 장소의 ETA와 최신 위치가 함께 있을 때만 전송할 값 생성 |
+
+SDK가 반환한 좌표를 수정한 것으로 표현하지 않는다.
+장소 ID로 연결할 수 있는 범위와 시험 결과는 [경유지 좌표 누락 대응](waypoint-coordinates.md)에 정리했다.
