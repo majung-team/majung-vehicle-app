@@ -6,4 +6,6 @@
     <item name="complete_pickup" type="id" />
     <item name="resume_pickup" type="id" />
     <item name="start_sharing" type="id" />
+    <item name="add_pickup_waypoint" type="id" />
+    <item name="create_pickup" type="id" />
 </resources>

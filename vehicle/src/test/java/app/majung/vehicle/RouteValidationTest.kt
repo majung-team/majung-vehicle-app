@@ -62,6 +62,19 @@ class RouteValidationTest {
         assertTrue(cycle(gate, 20000, place))
     }
 
+    @Test fun destinationAndWaypointHaveSeparateDeadlinesAndDuplicateDestinationIsIgnored() {
+        val gate = RouteValidation()
+        assertTrue(gate.requestState(0))
+        assertTrue(gate.receiveState(true, 1))
+        assertTrue(gate.beginWaypointResponse(3000))
+        assertFalse(gate.beginWaypointResponse(3001))
+        assertFalse(gate.receiveRoute(listOf(place), 6000))
+        assertTrue(gate.requestState(8000))
+        assertTrue(gate.receiveState(true, 8001))
+        assertTrue(gate.beginWaypointResponse(11000))
+        assertTrue(gate.receiveRoute(listOf(place), 14000))
+    }
+
     @Test fun duplicatePollDoesNotResetInFlightResponseButTimeoutClosesReadyGate() {
         val gate = RouteValidation()
         cycle(gate, 0)

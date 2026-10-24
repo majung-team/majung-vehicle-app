@@ -61,6 +61,9 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         app.pickup.changed = ::render
+        // A waypoint request may open the navigation app. Revalidate on return;
+        // do not start a location service before a pickup is approved.
+        if (app.destination.addingWaypoint) app.destination.connect()
         render()
         handler.postDelayed(tick, 1000)
     }
