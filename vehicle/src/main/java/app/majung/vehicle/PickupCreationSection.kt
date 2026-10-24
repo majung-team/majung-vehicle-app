@@ -48,23 +48,24 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         card.addView(routeDetails)
         views.addView(card)
         addWaypointButton = views.button("최근 내비 장소를 경유지로 추가") {
-            if (!app.pickup.canCreate) return@button
+            if (!views.canInteract || !app.pickup.canCreate) return@button
             app.destination.loadRecentPlaces { places ->
-                if (!app.pickup.canCreate) return@loadRecentPlaces
+                if (!views.canInteract || !app.pickup.canCreate) return@loadRecentPlaces
                 if (places.isEmpty()) {
                     AlertDialog.Builder(views.context).setMessage("확인할 수 있는 최근 장소가 없어요. 내비게이션에서 장소를 검색한 뒤 다시 확인해주세요.")
-                        .setPositiveButton("확인", null).show()
+                        .setPositiveButton("확인", null).show().also(views::trackDialog)
                 } else {
                     AlertDialog.Builder(views.context).setTitle("어디서 태울까요?")
                         .setItems(places.map { it.place.label }.toTypedArray()) { _, index ->
+                            if (!views.canInteract) return@setItems
                             val place = places[index]
                             AlertDialog.Builder(views.context)
                                 .setMessage("${place.place.label}을 픽업 경유지로 추가할까요? 기존 최종 목적지는 유지해요.")
                                 .setPositiveButton("경유지로 추가") { _, _ ->
-                                    if (app.pickup.canCreate) app.destination.addPickupWaypoint(place)
+                                    if (views.canInteract && app.pickup.canCreate) app.destination.addPickupWaypoint(place)
                                     render()
-                                }.setNegativeButton("돌아가기", null).show()
-                        }.setNegativeButton("돌아가기", null).show()
+                                }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+                        }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
                 }
             }
         }.apply { id = R.id.add_pickup_waypoint }

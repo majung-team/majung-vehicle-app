@@ -9,6 +9,7 @@ import ai.pleos.playground.navi.constants.NaviMode
 import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.navi.data.CurrentLocationInfo
 import ai.pleos.playground.navi.data.DrivingInfo
+import ai.pleos.playground.navi.data.DestinationArrivedInfo
 import ai.pleos.playground.navi.data.DestinationInfo
 import ai.pleos.playground.navi.data.WaypointInfo
 import ai.pleos.playground.navi.data.WaypointChangedInfo
@@ -25,6 +26,8 @@ import java.time.Instant
 class DestinationReader(private val context: Context) {
     val selection = DestinationSelection()
     val telemetry = VehicleTelemetry()
+    var pickupArrived: ((PickupPlace) -> Unit)? = null
+    var pickupPlace: (() -> PickupPlace?)? = null
     var telemetryChanged: (() -> Unit)? = null
     // Debug diagnostics contain timings and equality flags only, never SDK payloads.
     var timingObserver: ((SdkTimingEvent) -> Unit)? = null
@@ -82,6 +85,14 @@ class DestinationReader(private val context: Context) {
     fun currentStops(): NavigationStops? = route?.takeIf {
         val age = SystemClock.elapsedRealtime() - routeReceivedAt
         routeValidation.ready && age in 0 until 10000
+    }
+
+    private fun confirmArrival(index: Int?, name: String) {
+        val selected = pickupPlace?.invoke() ?: return
+        val now = SystemClock.elapsedRealtime()
+        val evidence = PickupArrivalEvidence.resolve(currentStops(), selected, index, name,
+            telemetry.current(selected, now)) ?: return
+        pickupArrived?.invoke(evidence)
     }
 
     fun referenceFor(place: PickupPlace): String? {
@@ -285,7 +296,17 @@ class DestinationReader(private val context: Context) {
                 status = "경유지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요"
             }
             override fun onWayPointArrived(waypointArrivedInfo: WaypointArrivedInfo) = update {
-                // Arrival handling belongs to 5.1. Never treat an index alone as a pickup identity.
+                val index = when (waypointArrivedInfo.index) {
+                    WaypointIndex.FIRST -> 0
+                    WaypointIndex.SECOND -> 1
+                    else -> -1
+                }
+                confirmArrival(index, waypointArrivedInfo.name)
+                invalidateRoute()
+                handler.postDelayed(validationRetry, 5000)
+            }
+            override fun onDestinationArrived(destinationArrivedInfo: DestinationArrivedInfo) = update {
+                confirmArrival(null, destinationArrivedInfo.name)
                 invalidateRoute()
                 handler.postDelayed(validationRetry, 5000)
             }
