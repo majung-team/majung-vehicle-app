@@ -49,7 +49,7 @@ Activity가 멈추면 화면 콜백과 타이머만 해제한다. 공유 서비�
 
 | 파일 | 담당 |
 | --- | --- |
-| `SdkPickupPlace.kt` | SDK 최근 장소의 좌표·장소 ID 보관, 같은 ID가 하나일 때만 누락 좌표 연결 |
+| `SdkPickupPlace.kt` | 선택 장소의 좌표·ID 보관, ID 없는 장소는 마중 식별자 발급, 응답 ID 대조 후 누락 좌표 연결 |
 | `NavigationStops.kt` | 최종 목적지·경유지 구분, 좌표로 ETA 조회, 기존 경로 유지 확인 |
 | `WaypointInsertion.kt` | 요청한 경유지 하나가 추가되고 기존 목적지·경유지가 유지됐는지 확인 |
 | `RouteValidation.kt` | 두 차례 경로 확인, 응답 대기와 확인 간격 관리 |

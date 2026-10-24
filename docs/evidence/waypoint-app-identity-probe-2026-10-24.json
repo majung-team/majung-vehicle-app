@@ -1,0 +1,13 @@
+{
+  "environment": {
+    "emulator": "Pleos Connect 2.1.0 ARM64",
+    "NaviHelper": "3.0.5"
+  },
+  "inputHadProviderId": false,
+  "appIdentityNamespace": "majung",
+  "waypointResponses": 4,
+  "exactIdentityMatches": 4,
+  "zeroCoordinateResponses": 4,
+  "sdkRecentPlaceConfirmedIdentityAndCoordinates": true,
+  "result": "passed"
+}

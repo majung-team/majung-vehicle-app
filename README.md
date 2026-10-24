@@ -30,4 +30,4 @@ vehicle/는 실제 앱, probe/는 SDK 진단용이다. 현재 debug API는 에�
 
 [경로 재요청 후 공유 복구](docs/route-recovery.md): 완료 콜백이 없을 때 경로·목적지 재확인, 취소 후 위치 숨김과 검증 범위.
 
-[경유지 좌표 누락 대응](docs/waypoint-coordinates.md): SDK 장소 ID로 픽업 경유지·ETA 연결, ID 없는 응답 차단, 예외 처리와 에뮬레이터 시험 결과.
+[경유지 좌표 누락 대응](docs/waypoint-coordinates.md): ID 없는 장소의 식별자 자동 발급, 픽업 경유지·ETA 연결, 재실행 복구와 에뮬레이터 시험 결과.
