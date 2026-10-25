@@ -1,0 +1,13 @@
+{
+  "physicalPhone": false,
+  "publicHttps": true,
+  "vehicleCredentialEncrypted": true,
+  "beforeApprovalBlocked": true,
+  "sdkTelemetryFresh": true,
+  "readinessDelivered": true,
+  "manualArrivalDelivered": true,
+  "afterCompletionBlocked": true,
+  "pickupCredentialRemoved": true,
+  "vehicleRegistrationRetained": true,
+  "result": "passed"
+}

@@ -11,7 +11,9 @@
 
 JDK 25, Android SDK API 34, 공식 Pleos 에뮬레이터가 필요하다.
 `local.properties`에 개인 sdk.dir를 설정한 뒤 `./gradlew :vehicle:testDebugUnitTest :vehicle:assembleDebug :vehicle:lintDebug`를 실행한다.
-vehicle/는 실제 앱, probe/는 SDK 진단용이다. 현재 debug API는 에뮬레이터의 10.0.2.2:8080이다.
+vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에뮬레이터의 10.0.2.2:8080이다. 공개 서버는 `-PpickupApi=https://majung.cloud`로 선택한다.
+
+[차량 최초 등록과 공개 서버 연결](docs/vehicle-registration.md)에 코드 입력, 안전한 권한 저장, 오류 처리와 실제 확인 범위를 정리했다.
 
 ## 협업
 

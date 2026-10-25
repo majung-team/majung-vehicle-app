@@ -19,6 +19,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var driving: DrivingRestrictionMonitor
     private lateinit var views: VehicleViews
+    private lateinit var registrationSection: VehicleRegistrationSection
     private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
     private lateinit var status: PickupStatusSection
@@ -49,7 +50,8 @@ class MainActivity : Activity() {
         restrictionText = views.label("차량의 조작 허용 상태를 확인하고 있어요", 18f)
         views.addView(restrictionText)
         views.addView(views.label("마중 · 차량에서 약속 만들기", 26f))
-        views.addView(views.label("주차 중에 사용하는 개발 확인 화면\n내비게이션에서 목적지를 고른 뒤 확인해주세요.\n버튼을 누르면 선택한 장소가 로컬 개발 서버에 저장돼요.", 16f))
+        views.addView(views.label("주차 중에 사용하는 개발 확인 화면\n내비게이션에서 목적지를 고른 뒤 확인해주세요.\n확인한 장소로 픽업을 만들고 탑승자를 초대해요.", 16f))
+        registrationSection = VehicleRegistrationSection(app, views)
         creation = PickupCreationSection(app, views)
         status = PickupStatusSection(app, views)
         participant = PickupParticipantSection(app, views)
@@ -59,7 +61,7 @@ class MainActivity : Activity() {
             requestSharingPermission()
         }
         resumeButton.id = R.id.resume_pickup
-        sharingButton = views.button("화면 밖에서도공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
+        sharingButton = views.button("화면 밖에서도 공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
         views.addView(views.label("좌표를 입력할 필요가 없어요.\n승인 후 SDK 위치·남은 시간을 서버로 전달해요.\n위치 권한 허용 후에는 화면을 내려도 공유를 유지해요. 장소 변경은 아직 지원하지 않아요.\n앱을 다시 열면 저장된 접근 정보로 서버 상태를 확인해요.", 14f))
         setContentView(ScrollView(this).apply { addView(layout) })
     }
@@ -121,6 +123,7 @@ class MainActivity : Activity() {
 
     private fun render() {
         views.beginRender()
+        registrationSection.render()
         creation.render()
         status.render()
         participant.render()

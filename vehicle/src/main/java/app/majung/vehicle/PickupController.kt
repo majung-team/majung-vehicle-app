@@ -8,7 +8,8 @@ import java.util.concurrent.Executors
 
 /** One application-owned session; persistent credentials are injected through a session store. */
 class PickupController(private val api: PickupApiClient = PickupApiClient(),
-                       private val sessionStore: PickupSessionStore = MemoryPickupSessionStore()) {
+                       private val sessionStore: PickupSessionStore = MemoryPickupSessionStore(),
+                       private val registration: VehicleRegistrationController? = null) {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private var driverToken: String? = null
@@ -123,7 +124,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }
     }
 
-    val canCreate: Boolean get() = !busy && !restoringSession && !storageCleanupFailed && pickupId == null && !uncertainCreate
+    val canCreate: Boolean get() = !busy && !restoringSession && !storageCleanupFailed && pickupId == null && !uncertainCreate && registration?.canCreate != false
     val canApprove: Boolean get() = !busy && online && status == "WAITING_APPROVAL" && participantId != null
     val canArrive: Boolean get() = !busy && online && status == "ACTIVE"
     val canComplete: Boolean get() = !busy && online && status == "ARRIVED"
@@ -132,7 +133,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     fun create(selectedPlace: PickupPlace, waypointReference: String? = null) {
         if (!canCreate) return
         uncertainCreate = true
-        runRequest({ api.create(selectedPlace) }, { result ->
+        runRequest({ api.create(selectedPlace, registration?.vehicleToken) }, { result ->
             val id = result.getString("pickupId")
             val owner = result.getString("driverToken")
             val invitation = result.getString("inviteToken")
@@ -234,9 +235,11 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     fun invitationForHostBrowser(): String? {
         val id = pickupId ?: return null
         val token = inviteToken ?: return null
-        // Emulator-only workflow. Never infer a public address from this link.
-        return if (BuildConfig.DEBUG && status == "INVITING") "http://127.0.0.1:8080/#join/$id/$token" else null
+        val origin = BuildConfig.PICKUP_WEB_ORIGIN
+        return if (origin.isNotBlank() && status == "INVITING") "$origin/#join/$id/$token" else null
     }
+
+    fun invitationForSharingBrowser(): String? = invitationForHostBrowser()?.replace("/#join/", "/#share/")
 
     fun syncVehicle(reader: DestinationReader) {
         if (needsSharingConfirmation || status !in setOf("ACTIVE", "ARRIVED")) return
@@ -356,6 +359,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                 }, onFailure = { error ->
                     refreshError = readOnly
                     online = false
+                    if (creating) registration?.rejectCreation(error)
                     if (creating && error is ApiRejected && error.status in 400..499) uncertainCreate = false
                     message = if (creating && uncertainCreate)
                         "생성 결과를 확인하지 못했어요. 중복 생성을 막기 위해 자동 재시도하지 않아요."

@@ -1,23 +1,24 @@
 # 차량 화면 코드 구조
 
 MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 각 영역은 별도 클래스에서 만든다.
-화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. [화면 밖 공유](background-sharing.md)를 연결했다. 자동 연결·QR·주행 중 최소 표시는 후속 기능이다.
+화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. [화면 밖 공유](background-sharing.md)를 연결했다. 차량 등록과 HTTPS 공유 QR을 연결했다. 화면 전체 디자인과 주행 중 최소 표시는 후속 작업이다.
 
 | 파일 | 담당 |
 | --- | --- |
 | `MainActivity.kt` | 루트 레이아웃, 영역 배치, onStart/onStop, 1초 화면 갱신, 서비스 미실행 시 3초 픽업 조회, 위치 권한·재개 확인 |
 | `PickupSharingService.kt` | 화면 밖 SDK 연결·5초 조회·전송, 서버 상태 조회와 종료 감지 |
 | `PickupCreationSection.kt` | 내비 연결·최근 장소 선택·경유지 추가·픽업 생성 버튼과 사용 가능 여부 |
-| `PickupParticipantSection.kt` | 초대 링크 복사·참여 승인 확인 창·서버 상태 다시 확인 |
+| `VehicleRegistrationSection.kt` | 최초 등록 코드 입력·저장 결과·서버 상태 재확인 |
+| `PickupParticipantSection.kt` | 초대 링크 복사·HTTPS 공유 QR·참여 승인 확인 창·서버 상태 다시 확인 |
 | `PickupStatusSection.kt` | 연결 상태, 픽업 진행·장소·준비 상태·차량 정보·안내 문구 |
 | `PickupCompletionSection.kt` | 도착·탑승 완료·취소 확인 창, 다음 픽업 준비 |
 | `VehicleViews.kt` | 공통 라벨·버튼 스타일, 버튼 동작 후 render 호출, 내용이 바뀔 때만 TextView 갱신 |
 
 ## 영역 연결 방법
 
-네 영역은 `VehicleApplication`과 `VehicleViews`를 받아 생성한다. 생성자의 init에서 해당 영역의 뷰를 기존 순서로 추가한다.
+각 영역은 `VehicleApplication`과 `VehicleViews`를 받아 생성한다. 생성자의 init에서 해당 영역의 뷰를 기존 순서로 추가한다.
 각 영역의 `render()`는 앱의 현재 상태를 읽어 문구·버튼 활성화·표시 여부를 갱신한다.
-`MainActivity.render()`는 네 영역의 render를 호출한다. 서버 요청과 픽업 상태 전이는 기존 `PickupController`가 담당한다.
+`MainActivity.render()`는 각 영역의 render를 호출한다. 서버 요청과 픽업 상태 전이는 기존 `PickupController`가 담당한다.
 각 영역이 별도 타이머나 API 클라이언트를 만들지 않는다.
 
 `VehicleViews.button()`으로 만든 버튼은 동작 실행 뒤 MainActivity의 render를 호출한다.
