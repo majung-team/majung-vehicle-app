@@ -9,8 +9,12 @@ class ApiRejected(val status: Int, val code: String? = null) : Exception("서버
 /** Blocking IO; callers must use the controller's worker. Never log bodies or tokens. */
 class PickupApiClient(private val origin: String = BuildConfig.PICKUP_API) {
     fun request(method: String, path: String = "", token: String? = null, body: JSONObject? = null): JSONObject {
+        return requestApi(method, "/pickups$path", token, body)
+    }
+
+    fun requestApi(method: String, path: String, token: String? = null, body: JSONObject? = null): JSONObject {
         check(origin.isNotEmpty()) { "외부 배포 서버가 아직 설정되지 않았어요" }
-        val connection = URL("$origin/api/v1/pickups$path").openConnection() as HttpURLConnection
+        val connection = URL("$origin/api/v1$path").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
             connection.instanceFollowRedirects = false
@@ -39,6 +43,6 @@ class PickupApiClient(private val origin: String = BuildConfig.PICKUP_API) {
         } finally { connection.disconnect() }
     }
 
-    fun create(place: PickupPlace): JSONObject = request("POST", body = JSONObject().put("place",
+    fun create(place: PickupPlace, vehicleToken: String? = null): JSONObject = request("POST", token = vehicleToken, body = JSONObject().put("place",
         JSONObject().put("label", place.label).put("latitude", place.latitude).put("longitude", place.longitude)))
 }

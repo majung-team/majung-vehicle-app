@@ -5,6 +5,8 @@ import android.app.Application
 class VehicleApplication : Application() {
     lateinit var destination: DestinationReader
         private set
+    lateinit var registration: VehicleRegistrationController
+        private set
     lateinit var pickup: PickupController
         private set
 
@@ -16,7 +18,10 @@ class VehicleApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         destination = DestinationReader(this)
-        pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this))
+        registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
+        pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
+        registration.changed = { pickup.changed?.invoke() }
+        registration.refresh()
         pickup.restoreSession()
         destination.pickupPlace = { pickup.place }
         destination.pickupArrived = pickup::arriveFromSdk
