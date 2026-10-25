@@ -1,0 +1,10 @@
+{
+  "realSdk": true,
+  "publicHttps": true,
+  "browserParticipant": true,
+  "physicalPhone": false,
+  "readyReachedVehicle": true,
+  "manualArrival": true,
+  "completed": true,
+  "result": "passed"
+}
