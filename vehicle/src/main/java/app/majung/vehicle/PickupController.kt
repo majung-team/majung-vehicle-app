@@ -150,6 +150,31 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }, creating = true)
     }
 
+    private var uncertainRequestId: String? = null
+    fun canStartRequested(id: String): Boolean = canCreate || (!busy && pickupId == null && uncertainRequestId == id)
+
+    fun startRequested(requestId: String, requestedPlace: PickupPlace, waypointReference: String?) {
+        if (!canStartRequested(requestId)) return
+        val token=registration?.vehicleToken ?: return
+        uncertainRequestId=requestId
+        uncertainCreate=true
+        // Starting the same accepted request is recoverable on the server; it cannot create a second pickup.
+        runRequest({ api.requestApi("POST", "/vehicles/ride-requests/$requestId/start", token) }, { result ->
+            uncertainCreate=false
+            uncertainRequestId=null
+            resetVehiclePublisher()
+            pickupId=result.getString("pickupId")
+            driverToken=result.getString("driverToken")
+            inviteToken=null
+            place=requestedPlace
+            navigationReference=waypointReference
+            receiveSnapshot(result.getJSONObject("pickup"))
+            needsSharingConfirmation=true
+            message="마중 요청을 픽업으로 연결했어요. 경로를 확인한 뒤 계속하기를 눌러 공유해주세요."
+            persistSession()
+        }, creating = true)
+    }
+
     fun refresh() {
         val id = pickupId ?: return
         val token = driverToken ?: return

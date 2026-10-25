@@ -19,6 +19,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var driving: DrivingRestrictionMonitor
     private lateinit var views: VehicleViews
+    private lateinit var accountSection: VehicleAccountSection
     private lateinit var registrationSection: VehicleRegistrationSection
     private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
@@ -33,6 +34,7 @@ class MainActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             render()
+            if (ticks % 10 == 0) app.account.refresh()
             if (++ticks % 3 == 0 && !app.sharingRunning) app.pickup.refresh()
             handler.postDelayed(this, 1000)
         }
@@ -52,6 +54,7 @@ class MainActivity : Activity() {
         views.addView(views.label("마중 · 차량에서 약속 만들기", 26f))
         views.addView(views.label("주차 중에 사용하는 개발 확인 화면\n내비게이션에서 목적지를 고른 뒤 확인해주세요.\n확인한 장소로 픽업을 만들고 탑승자를 초대해요.", 16f))
         registrationSection = VehicleRegistrationSection(app, views)
+        accountSection = VehicleAccountSection(app, views)
         creation = PickupCreationSection(app, views)
         status = PickupStatusSection(app, views)
         participant = PickupParticipantSection(app, views)
@@ -70,6 +73,8 @@ class MainActivity : Activity() {
         super.onStart()
         driving.start()
         app.pickup.changed = ::render
+        app.account.changed = ::render
+        app.account.refresh()
         // A waypoint request may open the navigation app. Revalidate on return;
         // do not start a location service before a pickup is approved.
         if (app.destination.addingWaypoint) app.destination.connect()
@@ -93,6 +98,7 @@ class MainActivity : Activity() {
         driving.stop()
         handler.removeCallbacks(tick)
         app.pickup.changed = null
+        app.account.changed = null
         if (!app.sharingRunning && !startRequested) app.destination.disconnect()
         super.onStop()
     }
@@ -124,6 +130,7 @@ class MainActivity : Activity() {
     private fun render() {
         views.beginRender()
         registrationSection.render()
+        accountSection.render()
         creation.render()
         status.render()
         participant.render()

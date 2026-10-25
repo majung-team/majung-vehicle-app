@@ -7,6 +7,8 @@ class VehicleApplication : Application() {
         private set
     lateinit var registration: VehicleRegistrationController
         private set
+    lateinit var account: VehicleAccountController
+        private set
     lateinit var pickup: PickupController
         private set
 
@@ -20,7 +22,8 @@ class VehicleApplication : Application() {
         destination = DestinationReader(this)
         registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
-        registration.changed = { pickup.changed?.invoke() }
+        account = VehicleAccountController(PickupApiClient(), registration)
+        registration.changed = { account.registrationChanged(); pickup.changed?.invoke() }
         registration.refresh()
         pickup.restoreSession()
         destination.pickupPlace = { pickup.place }
