@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
     private lateinit var status: PickupStatusSection
+    private lateinit var voice: PickupVoiceSection
     private lateinit var participant: PickupParticipantSection
     private lateinit var completion: PickupCompletionSection
     private lateinit var sharingButton: Button
@@ -57,6 +58,7 @@ class MainActivity : Activity() {
         accountSection = VehicleAccountSection(app, views)
         creation = PickupCreationSection(app, views)
         status = PickupStatusSection(app, views)
+        voice = PickupVoiceSection(app, views)
         participant = PickupParticipantSection(app, views)
         completion = PickupCompletionSection(app, views)
         resumeButton = views.button("이전 픽업 계속하기") {
@@ -133,6 +135,7 @@ class MainActivity : Activity() {
         accountSection.render()
         creation.render()
         status.render()
+        voice.render()
         participant.render()
         completion.render()
         val sharing = app.pickup.status in setOf("ACTIVE", "ARRIVED")
