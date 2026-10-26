@@ -36,4 +36,4 @@ vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에�
 
 ## 탑승자가 먼저 보내는 요청
 
-차량 QR이나 기존 연결 없이 운전자를 검색해 장소와 함께 요청한다. 운전자는 여러 요청을 수락해 대기에 넣고 현재 픽업을 마친 뒤 차례대로 시작한다. [사용 방법과 현재 검증 범위](docs/vehicle-account-requests.md)를 참고한다. 새 흐름의 공개 배포 상태는 PR 반영과 구분한다.
+차량 QR이나 기존 연결 없이 운전자를 검색해 장소와 함께 요청한다. 운전자는 여러 요청을 수락해 대기에 넣고 현재 픽업을 마친 뒤 차례대로 시작한다. [사용 방법](docs/vehicle-account-requests.md)과 [SDK 연동 시험](docs/queued-pickup-sdk-test.md)을 참고한다.
