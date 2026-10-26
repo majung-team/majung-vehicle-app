@@ -46,3 +46,9 @@ vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에�
 [주행 중 픽업 요약](docs/driving-summary.md): 시스템 제한에 따른 정차 화면 숨김, 준비 상태·ETA 표시와 실제 전환 시험.
 
 [준비 상태 수신 확인](docs/readiness-receipt.md)
+
+## 화면과 설치 파일
+
+[픽업·요청·설정 화면](docs/service-screens.md) · [Release APK 서명 빌드](docs/release-signing.md)
+
+사용할 때는 Releases의 APK를 공식 Pleos 에뮬레이터에 설치한다. 탑승자는 https://majung.cloud 에서 시작한다. 차량 최초 등록과 운전자 계정 연결은 처음 한 번 필요하다.
