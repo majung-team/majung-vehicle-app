@@ -73,8 +73,16 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("challenge",challenge).put("account",JSONObject().put("status","AWAITING_ACCOUNT").put("challengeId",challenge.getString("challengeId")))
         }
     }
-    fun confirm() {
-        val id=state.optString("challengeId").takeIf { it.isNotBlank() } ?: return
+    fun confirm(expectedChallengeId: String, expectedMajungId: String) {
+        if (busy) return
+        if (expectedChallengeId.isBlank() || expectedMajungId.isBlank() ||
+            state.optString("status") != "AWAITING_VEHICLE_CONFIRMATION" ||
+            state.optString("challengeId") != expectedChallengeId || state.optString("majungId") != expectedMajungId) {
+            message="연결 요청이 바뀌었어요. 운전자 계정을 다시 확인해주세요"
+            changed?.invoke()
+            return
+        }
+        val id=expectedChallengeId
         execute { token -> JSONObject().put("account",api.requestApi("POST","/vehicles/account-link/confirm",token,JSONObject().put("challengeId",id))) }
     }
     fun changeRequest(id: String, action: String) {
