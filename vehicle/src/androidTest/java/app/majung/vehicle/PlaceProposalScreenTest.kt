@@ -40,6 +40,8 @@ class PlaceProposalScreenTest {
             assertTrue(restored)
             main.runOnMainSync { app.pickup.confirmRecoveredSharing() }
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                app.startActivity(android.content.Intent(app, MainActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                 val until = SystemClock.elapsedRealtime() + 15000
                 var found = false
                 while (!found && SystemClock.elapsedRealtime() < until) {
@@ -52,11 +54,21 @@ class PlaceProposalScreenTest {
                         val all = buttons(activity.window.decorView)
                         val proposal = all.singleOrNull { it.text.toString() == "제안 장소 확인 · 시험 새 픽업" && it.visibility == View.VISIBLE }
                         val confirm = all.singleOrNull { it.text.toString() == "새 장소 확정" && it.visibility == View.VISIBLE }
-                        if (proposal != null && confirm != null) { assertFalse(confirm.isEnabled); found = true }
+                        if (proposal != null && confirm != null && activity.hasWindowFocus()) { assertFalse(confirm.isEnabled); found = true }
                     }
                     if (!found) SystemClock.sleep(200)
                 }
                 assertTrue("Proposal controls were not visible", found)
+                scenario.onActivity { activity ->
+                    val controls = activity.findViewById<View>(R.id.parked_controls)
+                    val visible = android.graphics.Rect(); controls.getGlobalVisibleRect(visible)
+                    val metrics = if (android.os.Build.VERSION.SDK_INT >= 30) activity.windowManager.currentWindowMetrics.bounds.toShortString() else "legacy"
+                    File(app.filesDir,"service-layout-metrics.json").writeText(JSONObject()
+                        .put("decorWidth",activity.window.decorView.width).put("controlsWidth",controls.width)
+                        .put("visible",visible.toShortString()).put("window",metrics).toString())
+                }
+                main.waitForIdleSync()
+                main.uiAutomation.waitForIdle(500, 5000)
                 val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
                 try { File(app.filesDir, "place-proposal-screen.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } }
                 finally { bitmap.recycle() }

@@ -9,6 +9,8 @@ import android.widget.Button
 internal class PickupParticipantSection(private val app: VehicleApplication, private val views: VehicleViews) {
     private val inviteButton: Button
     private val qrButton: Button
+    private val inlineQr: android.widget.ImageView
+    private var inlineQrLink: String? = null
     private var qrDialog: AlertDialog? = null
     private var qrLink: String? = null
     private val approveButton: Button
@@ -43,6 +45,13 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                     .setPositiveButton("확인", null).show().also(views::trackDialog)
             }
         }
+        inlineQr = android.widget.ImageView(views.context).apply {
+            adjustViewBounds = true
+            maxHeight = (240 * resources.displayMetrics.density).toInt()
+            contentDescription = "운전자 휴대전화로 열어 탑승자에게 전달하는 초대 QR"
+            setPadding(16,16,16,16)
+        }
+        views.addView(inlineQr)
         approveButton = views.button("참여자 확인하고 공유 시작") {
             AlertDialog.Builder(views.context).setMessage("초대한 사람이 맞나요? 확인하면 이번 픽업의 장소를 공유해요.")
                 .setPositiveButton("확인하고 시작") { _, _ -> if (views.canInteract) app.pickup.approve() }
@@ -75,8 +84,20 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     }
 
     fun render() {
+        val inviting = app.pickup.status == "INVITING"
+        inviteButton.visibility = if (inviting) View.VISIBLE else View.GONE
+        qrButton.visibility = if (inviting) View.VISIBLE else View.GONE
+        disconnectButton.visibility = if (app.pickup.canDisconnect) View.VISIBLE else View.GONE
         inviteButton.isEnabled = app.pickup.invitationForHostBrowser() != null
         val currentLink = app.pickup.invitationForSharingBrowser()
+        val displayQr = currentLink?.takeIf { inviting && it.startsWith("https://") }
+        if (displayQr != inlineQrLink) {
+            inlineQrLink = displayQr
+            if (displayQr == null) inlineQr.setImageDrawable(null)
+            else try { inlineQr.setImageBitmap(InvitationQr.create(displayQr)) } catch (_: Exception) { inlineQrLink = null }
+        }
+        inlineQr.visibility = if (displayQr != null && inlineQrLink != null) View.VISIBLE else View.GONE
+
         qrButton.isEnabled = currentLink?.startsWith("https://") == true
         if (qrLink != null && qrLink != currentLink) { qrDialog?.dismiss(); qrDialog = null; qrLink = null }
         // New participants connect without approval; the button only serves pickups an older server left waiting.

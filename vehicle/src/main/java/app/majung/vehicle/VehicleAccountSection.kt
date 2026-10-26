@@ -64,6 +64,10 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setItems(items.map { "${it.optString("nickname")} · ${it.getJSONObject("place").optString("label")} · ${stateLabel(it.optString("status"))}" }.toTypedArray()) { _,index -> if (views.canInteract) details(items[index]) }
             .setNegativeButton("닫기",null).show().also(views::trackDialog)
     }
+    private val requestRows = android.widget.LinearLayout(views.context).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+    }.also(views::addView)
+    private var renderedRequests = ""
     private val refresh=views.button("계정·마중 요청 새로 확인") { app.account.refresh() }
     private fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
@@ -96,12 +100,33 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             views.trackDialog(shown)
         }
     }
-    fun render() {
+    fun render(settings: Boolean = false) {
         status.updateText(app.account.message+"\n받은 요청·진행 중인 픽업 ${app.account.requests.size}건")
+        issue.visibility = if (settings) View.VISIBLE else View.GONE
+        qr.visibility = if (settings) View.VISIBLE else View.GONE
+        invite.visibility = if (settings) View.GONE else View.VISIBLE
+        inbox.visibility = if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
+        requestRows.visibility = if (settings) View.GONE else View.VISIBLE
+        val requestSignature = app.account.requests.joinToString { it.toString() }
+        if (requestSignature != renderedRequests) {
+            renderedRequests = requestSignature
+            requestRows.removeAllViews()
+            app.account.requests.sortedBy { when(it.optString("status")) { "PENDING" -> 0; "ACTIVE" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
+                val row = android.widget.Button(views.context).apply {
+                    text = "${item.optString("nickname")} · ${stateLabel(item.optString("status"))}\n${item.getJSONObject("place").optString("label")}"
+                    isAllCaps = false; textSize = 19f; gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                    setTextColor(android.graphics.Color.rgb(32,40,46))
+                    setPadding(20,16,20,16)
+                    backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+                    setOnClickListener { if (views.canInteract && !app.account.busy) details(item) }
+                }
+                requestRows.addView(row, android.widget.LinearLayout.LayoutParams(-1,(96*views.context.resources.displayMetrics.density).toInt()).apply { topMargin = (8*views.context.resources.displayMetrics.density).toInt() })
+            }
+        }
         val state=app.account.state.optString("status")
         issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
-        qr.visibility=if (app.account.qrLink!=null) View.VISIBLE else View.GONE
-        confirm.visibility=if (state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
+        qr.visibility=if (settings && app.account.qrLink!=null) View.VISIBLE else View.GONE
+        confirm.visibility=if (settings && state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
         confirm.isEnabled=!app.account.busy
         invite.isEnabled=state=="LINKED" && !app.account.busy && selectedPlace()!=null
         inbox.isEnabled=state=="LINKED" && !app.account.busy
