@@ -7,23 +7,34 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 
-/** The system UX policy gates this parked screen. No speed/gear guesses or debug bypass. */
+/** The system UX policy selects parked controls or a read-only summary. */
 internal class DrivingRestrictionMonitor(private val context: Context, private val changed: () -> Unit) {
     private val access = DrivingAccess()
     private var car: Car? = null
     private var manager: CarUxRestrictionsManager? = null
     private var active = false
     private var generation = 0
+    val known: Boolean get() = active && access.known
+    var stringLimit = 0
+        private set
+    var itemLimit = 0
+        private set
     val allowed: Boolean get() {
         if (!active) return false
         try {
-            val current = manager?.currentCarUxRestrictions ?: return false
+            val current = manager?.currentCarUxRestrictions ?: run { access.unavailable(); return false }
             accept(current)
         } catch (_: Exception) { access.unavailable() }
         return access.allowed
     }
     private fun accept(value: CarUxRestrictions) {
         access.update(true, value.isRequiresDistractionOptimization, value.activeRestrictions)
+        stringLimit = if (value.activeRestrictions and CarUxRestrictions.UX_RESTRICTIONS_LIMIT_STRING_LENGTH != 0) {
+            value.maxRestrictedStringLength.coerceAtLeast(0)
+        } else 40
+        itemLimit = if (value.activeRestrictions and CarUxRestrictions.UX_RESTRICTIONS_LIMIT_CONTENT != 0) {
+            value.maxCumulativeContentItems.coerceAtLeast(0)
+        } else 3
     }
     fun start() {
         if (active) return
