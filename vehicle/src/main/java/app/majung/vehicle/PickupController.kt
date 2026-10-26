@@ -15,6 +15,10 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var driverToken: String? = null
     private var inviteToken: String? = null
     private var participantId: String? = null
+    private var readinessSequence = 0L
+    private var receivedReadinessSequence = 0L
+    private var supportsReadinessReceipt = false
+    private var receiptInFlight = false
     // Pickups started from an accepted ride request are managed in the request list, not by invitation.
     private var requestedPickup = false
     private var uncertainCreate = false
@@ -374,6 +378,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         participantId = participant?.optString("participantId")
         participantName = participant?.optString("displayName")
         readiness = participant?.optString("readiness") ?: ""
+        readinessSequence = participant?.optLong("readinessSequence", 0) ?: 0
+        receivedReadinessSequence = participant?.optLong("readinessReceivedSequence", 0) ?: 0
+        supportsReadinessReceipt = participant?.has("readinessReceivedSequence") == true
         if (status != "INVITING") inviteToken = null
         if (status in ended) {
             clearSavedSession()
@@ -386,6 +393,32 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             navigationReference = null
             if (!storageCleanupFailed) message = "픽업 공유가 종료됐어요. 이 앱의 접근 정보도 지웠어요."
         } else persistSession()
+    }
+
+    // Confirms application receipt, including background sharing; this does not mean the driver read it.
+    private fun acknowledgeReadiness() {
+        if (!online || receiptInFlight || !supportsReadinessReceipt ||
+            status !in setOf("ACTIVE", "ARRIVED") || readinessSequence <= receivedReadinessSequence) return
+        val id = pickupId ?: return
+        val passenger = participantId ?: return
+        val token = driverToken ?: return
+        val sequence = readinessSequence
+        val generation = vehicleGeneration
+        receiptInFlight = true
+        worker.execute {
+            val result = runCatching {
+                api.request("PUT", "/$id/readiness-receipt", token,
+                    JSONObject().put("participantId", passenger).put("sequence", sequence))
+            }
+            handler.post {
+                receiptInFlight = false
+                // Do not apply an earlier passenger/pickup's response to a new session.
+                if (generation == vehicleGeneration && id == pickupId && passenger == participantId && result.isSuccess) {
+                    receivedReadinessSequence = maxOf(receivedReadinessSequence, sequence)
+                }
+                // A lost receipt is retried only after the next successful snapshot read.
+            }
+        }
     }
 
     private fun runRequest(call: () -> JSONObject, accept: (JSONObject) -> Unit,
@@ -437,6 +470,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                     }
                 })
                 notifyChanged()
+                if (readOnly) acknowledgeReadiness()
             }
         }
     }
