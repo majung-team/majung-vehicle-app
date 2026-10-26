@@ -21,7 +21,11 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
             AlertDialog.Builder(views.context).setMessage("탑승자가 차에 탔나요? 픽업을 완료하면 위치 공유가 종료돼요.")
                 .setPositiveButton("탑승 확인하고 완료") { _, _ -> if (views.canInteract) app.pickup.complete() }
                 .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
-        }.apply { id = R.id.complete_pickup }
+        }.apply {
+            id = R.id.complete_pickup
+            setTextColor(android.graphics.Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.rgb(36,79,115))
+        }
         cancelButton = views.button("픽업 취소 · 공유 종료") {
             AlertDialog.Builder(views.context).setMessage("픽업을 취소하고 위치 공유를 종료할까요?")
                 .setPositiveButton("픽업 취소") { _, _ -> if (views.canInteract) app.pickup.cancel() }
@@ -36,6 +40,9 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
 
     fun render() {
         val pickup = app.pickup
+        arriveButton.visibility = if (pickup.status == "ACTIVE") android.view.View.VISIBLE else android.view.View.GONE
+        completeButton.visibility = if (pickup.status == "ARRIVED") android.view.View.VISIBLE else android.view.View.GONE
+        cancelButton.visibility = if (pickup.canCancel) android.view.View.VISIBLE else android.view.View.GONE
         arriveButton.isEnabled = pickup.canArrive
         completeButton.isEnabled = pickup.canComplete
         cancelButton.isEnabled = pickup.canCancel

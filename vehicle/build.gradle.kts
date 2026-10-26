@@ -13,6 +13,15 @@ if (publicApi != null) {
     }
 }
 
+val buildRevision = providers.environmentVariable("MAJUNG_BUILD_SHA").orNull ?: "local"
+require(buildRevision == "local" || Regex("[0-9a-f]{40}").matches(buildRevision)) { "Invalid build revision" }
+
+val signingStore = providers.environmentVariable("MAJUNG_SIGNING_STORE_FILE").orNull
+val signingPassword = providers.environmentVariable("MAJUNG_SIGNING_STORE_PASSWORD").orNull
+val signingAlias = providers.environmentVariable("MAJUNG_SIGNING_KEY_ALIAS").orNull
+val signingKeyPassword = providers.environmentVariable("MAJUNG_SIGNING_KEY_PASSWORD").orNull
+val hasReleaseSigning = listOf(signingStore, signingPassword, signingAlias, signingKeyPassword).all { !it.isNullOrBlank() }
+
 android {
     namespace = "app.majung.vehicle"
     compileSdk = 34
@@ -21,17 +30,27 @@ android {
         applicationId = "app.majung.vehicle"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = 2
+        versionName = "0.2.0-preview"
+        buildConfigField("String", "SOURCE_REVISION", "\"$buildRevision\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { buildConfig = true }
+    if (hasReleaseSigning) {
+        signingConfigs.create("majungRelease") {
+            storeFile = file(requireNotNull(signingStore))
+            storePassword = signingPassword
+            keyAlias = signingAlias
+            keyPassword = signingKeyPassword
+        }
+    }
     buildTypes {
         debug {
             buildConfigField("String", "PICKUP_API", "\"${publicApi ?: "http://10.0.2.2:8080"}\"")
             buildConfigField("String", "PICKUP_WEB_ORIGIN", "\"${publicApi ?: "http://127.0.0.1:8080"}\"")
         }
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("majungRelease")
             // A release needs an explicitly selected HTTPS origin and signing configuration.
             buildConfigField("String", "PICKUP_API", "\"${publicApi ?: ""}\"")
             buildConfigField("String", "PICKUP_WEB_ORIGIN", "\"${publicApi ?: ""}\"")
@@ -51,4 +70,14 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("junit:junit:4.13.2")
+}
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    doFirst {
+        require(publicApi != null) { "Release APK needs -PpickupApi=https://majung.cloud" }
+        require(buildRevision != "local") { "Release APK needs a source revision; use tools/build-release.py" }
+        require(hasReleaseSigning && file(requireNotNull(signingStore)).isFile) {
+            "Release APK needs the four MAJUNG_SIGNING_* environment variables; keep signing files outside this repository"
+        }
+    }
 }

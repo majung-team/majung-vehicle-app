@@ -1,52 +1,87 @@
 package app.majung.vehicle
 
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.os.SystemClock
+import android.view.Gravity
+import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.ceil
 
 internal class PickupStatusSection(private val app: VehicleApplication, private val views: VehicleViews) {
-    private val connectionText: TextView
-    private val pickupText: TextView
-
-    init {
-        connectionText = views.label("", 14f).apply {
-            id = R.id.connection_status
-            setLines(1)
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        }
-        views.addView(connectionText)
-        pickupText = views.label("", 18f).apply { id = R.id.pickup_details }
-        views.addView(pickupText)
+    private val connectionText = views.label("", 14f).apply {
+        id = R.id.connection_status; maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
     }
-
+    private val pickupText = views.label("", 22f).apply {
+        id = R.id.pickup_details; minLines = 1; maxLines = 2
+        setTextColor(Color.rgb(36,79,115))
+    }
+    private val passenger = views.label("",16f).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }
+    private val readiness = views.label("", 32f).apply { setTypeface(typeface, Typeface.BOLD); minLines = 2; maxLines = 2 }
+    private val eta = views.label("", 46f).apply {
+        setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(36,79,115)); gravity = Gravity.END
+        minLines = 2; maxLines = 2
+    }
+    private val sharing = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
+    private val problem = views.label("", 17f).apply { setTextColor(Color.rgb(145,81,27)) }
+    init {
+        views.addView(connectionText)
+        val card = LinearLayout(views.context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(28.dp,20.dp,28.dp,20.dp)
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE); cornerRadius = 16.dp.toFloat(); setStroke(1.dp,Color.rgb(215,222,223))
+            }
+        }
+        card.addView(pickupText)
+        card.addView(passenger)
+        val summary = LinearLayout(views.context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        summary.addView(readiness,LinearLayout.LayoutParams(0,-2,1f))
+        summary.addView(eta,LinearLayout.LayoutParams(0,-2,1f))
+        card.addView(summary); card.addView(sharing); card.addView(problem)
+        views.addView(card)
+    }
     fun render() {
         val pickup = app.pickup
-        val readiness = when (pickup.readiness) {
-            "READY" -> "준비 완료"
-            "PREPARING" -> "출발 준비 중"
-            else -> "아직 준비 상태를 바꾸지 않았어요"
-        }
-        val phase = when (pickup.status) {
-            "RESTORING" -> "서버에서 픽업 상태를 확인 중이에요"
-            "INVITING" -> "탑승자 연결을 기다리고 있어요"
-            "WAITING_APPROVAL" -> "참여 요청을 확인해주세요"
-            "ACTIVE" -> if (pickup.participantName != null) "탑승자 연결됨 · 픽업 진행 중" else "픽업 진행 중"
-            "ARRIVED" -> "약속 장소에 도착했어요. 탑승 확인 전까지 위치 공유를 유지해요."
-            "INVITE_EXPIRED" -> "초대가 만료됐어요. 픽업 취소 후 새 약속을 준비해주세요."
-            "COMPLETED" -> "탑승 확인 완료 · 위치 공유 종료"
-            "CANCELLED", "EXPIRED" -> "위치 공유 종료"
-            else -> "아직 만든 픽업이 없어요"
-        }
         connectionText.updateText(when {
             pickup.busy -> "요청 처리 중…"
-            pickup.pickupId == null -> "픽업을 만들면 서버와 연결해요"
+            pickup.pickupId == null -> ""
             pickup.online -> "서버 연결됨"
-            else -> "서버 연결 확인 필요"
+            else -> "연결을 다시 확인하고 있어요"
         })
-        pickupText.updateText(listOfNotNull(
-            pickup.place?.let { "이번 픽업 장소: ${it.label}" }, phase,
-            if (pickup.needsSharingConfirmation) "재개 확인 전에는 위치·ETA를 보내지 않아요"
-                else if (pickup.status in setOf("ACTIVE", "ARRIVED")) app.sharingMessage else null,
-            if (pickup.status in setOf("ACTIVE", "ARRIVED") && app.sharingRunning) pickup.vehicleMessage else null,
-            pickup.participantName?.let { "$it 님 · $readiness" }, pickup.message.takeIf { it.isNotBlank() }
-        ).joinToString("\n\n"))
+        pickupText.updateText(pickup.place?.label ?: "이번 픽업")
+        passenger.updateText(pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기")
+        readiness.updateText(when(pickup.status) {
+            "INVITING", "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
+            "ARRIVED" -> "도착했어요"
+            "COMPLETED" -> "탑승 완료"
+            "CANCELLED", "EXPIRED" -> "공유 종료"
+            else -> when(pickup.readiness) {
+                "READY" -> "탑승자\n준비 완료"
+                "PREPARING" -> "탑승자가\n준비 중이에요"
+                else -> "준비 상태를\n기다리고 있어요"
+            }
+        })
+        val seconds = pickup.place?.let { app.destination.telemetry.current(it,SystemClock.elapsedRealtime())?.durationSeconds }
+        eta.updateText(when {
+            pickup.status == "ARRIVED" -> "탑승\n확인 대기"
+            pickup.status !in setOf("ACTIVE","ARRIVED") -> ""
+            seconds == null -> "도착 시간\n확인 중"
+            seconds < 60 -> "곧\n도착"
+            else -> "약 ${ceil(seconds/60.0).toInt()}분"
+        })
+        sharing.updateText(when {
+            pickup.needsSharingConfirmation -> "계속하기를 누르기 전에는 위치를 공유하지 않아요."
+            pickup.status == "ARRIVED" -> "탑승할 때까지 위치 공유를 유지해요. 탑승했다면 완료해주세요."
+            pickup.status == "ACTIVE" && app.sharingRunning -> pickup.vehicleMessage
+            pickup.status == "ACTIVE" -> "위치 공유를 시작하면 탑승자가 도착 시간을 확인할 수 있어요."
+            pickup.status == "INVITING" -> "QR을 휴대전화로 열어 초대하거나, 마중 요청 메뉴에서 연결된 사람에게 보내주세요."
+            else -> "픽업이 끝나면 위치 공유도 끝나요."
+        })
+        problem.updateText(pickup.message)
+        problem.visibility = if(pickup.message.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
     }
+    private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
 }

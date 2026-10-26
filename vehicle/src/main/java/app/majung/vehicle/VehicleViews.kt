@@ -13,6 +13,13 @@ import android.widget.TextView
 internal class VehicleViews(val context: Context, private val container: LinearLayout,
                            private val onAction: () -> Unit,
                            private val actionAllowed: () -> Boolean = { true }) {
+    private var target = container
+    fun section(): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        container.addView(this, LinearLayout.LayoutParams(-1, -2))
+        target = this
+    }
+    fun useRoot() { target = container }
     private val buttons = mutableListOf<Button>()
     private val lockedButtons = linkedMapOf<Button, Boolean>()
     fun beginRender() {
@@ -32,20 +39,34 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             dialogs.toList().forEach { it.dismiss() }
         }
     }
-    fun addView(view: View) { container.addView(view) }
+    fun addView(view: View) { target.addView(view) }
 
     fun label(value: String, size: Float): TextView = TextView(context).apply {
         text = value
         textSize = size
-        setTextColor(Color.rgb(25, 59, 52))
+        setTextColor(Color.rgb(32,40,46))
         setPadding(0, 12, 0, 12)
     }
 
     fun button(title: String, action: () -> Unit): Button = Button(context).apply {
         text = title
+        isAllCaps = false
+        textSize = 19f
+        gravity = android.view.Gravity.CENTER
+        setTextColor(Color.rgb(36, 79, 115))
+        backgroundTintList = null
+        background = android.graphics.drawable.StateListDrawable().apply {
+            fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
+                setColor(color); cornerRadius = 10.dp.toFloat(); setStroke(1.dp, Color.rgb(215,222,223))
+            }
+            addState(intArrayOf(-android.R.attr.state_enabled), shape(Color.rgb(239,242,244)))
+            addState(intArrayOf(android.R.attr.state_pressed), shape(Color.rgb(215,226,235)))
+            addState(intArrayOf(), shape(Color.WHITE))
+        }
+        setPadding(16.dp, 12.dp, 16.dp, 12.dp)
         setOnClickListener { if (canInteract) action(); onAction() }
         buttons.add(this)
-        container.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 60.dp))
+        target.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 64.dp).apply { topMargin = 8.dp })
     }
 
     private val Int.dp: Int get() = (this * context.resources.displayMetrics.density).toInt()
