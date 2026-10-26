@@ -10,4 +10,5 @@
     <item name="create_pickup" type="id" />
     <item name="voice_status" type="id" />
     <item name="toggle_voice" type="id" />
+    <item name="invite_connected_passenger" type="id" />
 </resources>
