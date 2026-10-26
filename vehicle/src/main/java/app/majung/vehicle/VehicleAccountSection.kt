@@ -24,6 +24,38 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setMessage("${state.optString("nickname")} · ${state.optString("majungId")}\n운전자 본인의 계정인지 확인해주세요.")
             .setPositiveButton("연결 승인") { _,_ -> if (views.canInteract) app.account.confirm() }.setNegativeButton("돌아가기",null).show().also(views::trackDialog)
     }
+    private val invite = views.button("연결된 탑승자에게 초대 보내기") {
+        val selected = selectedPlace() ?: return@button
+        app.account.loadContacts { if (views.canInteract && selectedPlace()?.sameCoordinates(selected) == true) showContacts(selected) }
+    }.apply { id = R.id.invite_connected_passenger }
+    private fun selectedPlace(): PickupPlace? {
+        val selected = app.destination.selection.current(android.os.SystemClock.elapsedRealtime()) ?: return null
+        return selected.takeIf { app.destination.currentStops()?.resolve(it) != null && !app.destination.addingWaypoint }
+    }
+    private fun showContacts(place: PickupPlace) {
+        val items = app.account.contacts
+        val page = app.account.contactsPage
+        val dialog = AlertDialog.Builder(views.context).setTitle("누구를 ${place.label}에서 태울까요?")
+            .setMessage(if (items.isEmpty()) "연결된 사람이 없어요. 휴대전화의 ‘내 연결’에서 먼저 사람을 연결하거나 기존 QR 초대를 이용해주세요." else null)
+            .setNegativeButton("닫기", null)
+        if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")} · ${it.optString("majungId")}" }.toTypedArray()) { _, index ->
+            if (!views.canInteract || selectedPlace()?.sameCoordinates(place) != true) return@setItems
+            val person = items[index]
+            AlertDialog.Builder(views.context).setTitle("${person.optString("nickname")} 님께 초대할까요?")
+                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘내 연결’에서 수락하면 픽업 대기에 들어가요. 웹을 닫아두면 알림이 오지 않아요.")
+                .setPositiveButton("초대 보내기") { _, _ ->
+                    if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true)
+                        app.account.invite(person.getString("connectionId"), place)
+                }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+        }
+        if (page > 0) dialog.setNeutralButton("이전 사람들") { _, _ ->
+            if (views.canInteract) app.account.loadContacts(page - 1) { if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true) showContacts(place) }
+        }
+        if (items.size == 20 && page < 50) dialog.setPositiveButton("다음 사람들") { _, _ ->
+            if (views.canInteract) app.account.loadContacts(page + 1) { if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true) showContacts(place) }
+        }
+        dialog.show().also(views::trackDialog)
+    }
     private val inbox=views.button("받은 마중 요청과 픽업 대기 목록") {
         val items=app.account.requests
         if (items.isEmpty()) {
@@ -37,9 +69,10 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
         val id=item.getString("requestId")
         val dialog=AlertDialog.Builder(views.context).setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")
-            .setMessage("${item.optString("majungId")}\n요청 장소 · ${place.label}\n수락해도 현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요.")
+            .setMessage("${item.optString("majungId")}\n만날 장소 · ${place.label}\n" + if (item.optString("status")=="INVITED") "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요." else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요.")
             .setNegativeButton("돌아가기",null)
         when (item.optString("status")) {
+            "INVITED" -> dialog.setPositiveButton("초대 취소") { _, _ -> if (views.canInteract) app.account.cancelInvitation(id) }
             "PENDING" -> dialog.setPositiveButton("수락하고 대기에 추가") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"accept") }
                 .setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
             "QUEUED" -> {
@@ -70,9 +103,10 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         qr.visibility=if (app.account.qrLink!=null) View.VISIBLE else View.GONE
         confirm.visibility=if (state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
         confirm.isEnabled=!app.account.busy
+        invite.isEnabled=state=="LINKED" && !app.account.busy && selectedPlace()!=null
         inbox.isEnabled=state=="LINKED" && !app.account.busy
         refresh.isEnabled=!app.account.busy && app.registration.vehicleToken!=null
         if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
     }
-    private fun stateLabel(state: String)=when(state) { "PENDING"->"응답 대기"; "QUEUED"->"픽업 대기"; "ACTIVE"->"픽업 진행 중"; else->state }
+    private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"응답 대기"; "QUEUED"->"픽업 대기"; "ACTIVE"->"픽업 진행 중"; else->state }
 }
