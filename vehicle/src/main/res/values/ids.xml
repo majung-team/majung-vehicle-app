@@ -8,4 +8,5 @@
     <item name="start_sharing" type="id" />
     <item name="add_pickup_waypoint" type="id" />
     <item name="create_pickup" type="id" />
+    <item name="invite_connected_passenger" type="id" />
 </resources>
