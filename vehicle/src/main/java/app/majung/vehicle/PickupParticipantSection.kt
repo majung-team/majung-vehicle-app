@@ -12,6 +12,8 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private var qrDialog: AlertDialog? = null
     private var qrLink: String? = null
     private val approveButton: Button
+    private val changePlaceButton: Button
+    private val confirmPlaceButton: Button
     private val disconnectButton: Button
 
     init {
@@ -51,6 +53,24 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                 .setPositiveButton("끊기") { _, _ -> if (views.canInteract) app.pickup.disconnectParticipant() }
                 .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
+        changePlaceButton = views.button("제안 장소를 내비에서 확인") {
+            val old = app.pickup.place ?: return@button
+            val next = app.pickup.placeProposal ?: return@button
+            val proposal = app.pickup.proposalId
+            AlertDialog.Builder(views.context).setTitle("${next.label}로 바꿀까요?")
+                .setMessage("최종 목적지와 다른 경유지는 유지하고 추천 경로를 다시 찾아요. 내비 확인 후 ‘새 장소 확정’을 눌러야 탑승자의 장소도 바뀌어요.")
+                .setPositiveButton("내비 경로 확인") { _, _ ->
+                    if (views.canInteract && app.pickup.status == "ACTIVE" && app.pickup.proposalId == proposal &&
+                        !app.destination.changePickupPlace(old, next, proposal ?: return@setPositiveButton)) {
+                        app.destination.reviewProposedPlace(next, proposal)
+                        AlertDialog.Builder(views.context).setMessage("기존 경로를 다시 바꾸지는 않았어요. 이미 제안 장소가 내비에 있다면 다시 확인해요. 경로와 최종 목적지가 맞는지 확인한 뒤 새 장소를 확정해주세요.")
+                            .setPositiveButton("확인", null).show().also(views::trackDialog)
+                    }
+                }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+        }
+        confirmPlaceButton = views.button("새 장소 확정") {
+            if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
+        }
         views.button("서버 상태 다시 확인") { app.pickup.refresh() }
     }
 
@@ -62,6 +82,16 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         // New participants connect without approval; the button only serves pickups an older server left waiting.
         approveButton.visibility = if (app.pickup.canApprove) View.VISIBLE else View.GONE
         approveButton.isEnabled = app.pickup.canApprove
+        val proposed = app.pickup.placeProposal
+        val canChange = app.pickup.status == "ACTIVE" && app.pickup.online && !app.pickup.busy &&
+            !app.pickup.needsSharingConfirmation && app.pickup.proposalId != null && proposed != null
+        changePlaceButton.visibility = if (canChange) View.VISIBLE else View.GONE
+        confirmPlaceButton.visibility = changePlaceButton.visibility
+        changePlaceButton.text = proposed?.let { "제안 장소 확인 · ${it.label}" } ?: "제안 장소를 내비에서 확인"
+        changePlaceButton.isEnabled = canChange
+        confirmPlaceButton.isEnabled = canChange && proposed != null &&
+            app.destination.verifiedPlaceChange(proposed) != null &&
+            app.destination.telemetry.current(proposed, android.os.SystemClock.elapsedRealtime()) != null
         disconnectButton.isEnabled = app.pickup.canDisconnect
     }
 }
