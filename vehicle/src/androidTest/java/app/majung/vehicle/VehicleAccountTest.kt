@@ -35,7 +35,7 @@ class VehicleAccountTest {
             instrumentation.runOnMainSync { account.refresh() }; await { !account.busy }
             assertEquals("AWAITING_VEHICLE_CONFIRMATION",account.state.optString("status"))
             assertEquals(0,fixture.confirmations.get())
-            instrumentation.runOnMainSync { account.confirm() }; await { !account.busy }
+            instrumentation.runOnMainSync { account.confirm(account.state.getString("challengeId"),account.state.getString("majungId")) }; await { !account.busy }
             assertEquals(1,fixture.confirmations.get()); assertNull(account.qrLink)
             instrumentation.runOnMainSync { account.refresh() }; await { !account.busy }
             assertEquals(2,account.requests.size)
@@ -44,6 +44,25 @@ class VehicleAccountTest {
             instrumentation.runOnMainSync { account.refresh() }; await { !account.busy }
             assertEquals(1,fixture.accepts.get())
             assertTrue(fixture.authorityCorrect.get())
+        }
+    }
+    @Test fun staleConfirmationNeverApprovesTheReplacementChallenge() {
+        Fixture().use { fixture ->
+            fixture.claimed.set(true)
+            val api=PickupApiClient(fixture.origin); val registration=registered(api)
+            lateinit var account: VehicleAccountController
+            instrumentation.runOnMainSync { account=VehicleAccountController(api,registration); account.refresh() }
+            await { !account.busy }
+            val shownId=account.state.getString("challengeId")
+            val shownMember=account.state.getString("majungId")
+            fixture.challenge=UUID.randomUUID().toString()
+            instrumentation.runOnMainSync { account.refresh() }; await { !account.busy }
+            instrumentation.runOnMainSync { account.confirm(shownId,shownMember) }
+            assertEquals(0,fixture.confirmations.get())
+            assertTrue(account.message.contains("다시 확인"))
+            instrumentation.runOnMainSync { account.confirm(account.state.getString("challengeId"),shownMember) }
+            await { !account.busy }
+            assertEquals(1,fixture.confirmations.get())
         }
     }
     @Test fun malformedAndFailedMutationResponsesDoNotCrashOrRetry() {
@@ -156,7 +175,7 @@ class VehicleAccountTest {
         private val server=ServerSocket(0)
         val origin="http://127.0.0.1:${server.localPort}"
         private val running=AtomicBoolean(true)
-        private val challenge=UUID.randomUUID().toString()
+        var challenge=UUID.randomUUID().toString()
         private var queued=false
         private val worker=Thread {
             while(running.get()) try { server.accept().use { socket ->
@@ -179,7 +198,7 @@ class VehicleAccountTest {
                     }
                     path.endsWith("/challenges") -> if(malformed.get()) "{}" else "{\"challengeId\":\"$challenge\",\"code\":\"${"Q".repeat(43)}\"}"
                     path.endsWith("/confirm") -> { confirmations.incrementAndGet(); linked.set(true); "{\"status\":\"LINKED\",\"nickname\":\"가상운전자\",\"majungId\":\"MJ-0000000000\"}" }
-                    path.endsWith("/account-link") -> if(linked.get()) "{\"status\":\"LINKED\",\"nickname\":\"가상운전자\",\"majungId\":\"MJ-0000000000\"}" else "{\"status\":\"${if(claimed.get()) "AWAITING_VEHICLE_CONFIRMATION" else "AWAITING_ACCOUNT"}\",\"challengeId\":\"$challenge\"}"
+                    path.endsWith("/account-link") -> if(linked.get()) "{\"status\":\"LINKED\",\"nickname\":\"가상운전자\",\"majungId\":\"MJ-0000000000\"}" else "{\"status\":\"${if(claimed.get()) "AWAITING_VEHICLE_CONFIRMATION" else "AWAITING_ACCOUNT"}\",\"challengeId\":\"$challenge\",\"nickname\":\"가상운전자\",\"majungId\":\"MJ-0000000000\"}"
                     path.endsWith("/accept") -> { accepts.incrementAndGet(); if(failAccept.get()) { status=503; "{\"code\":\"TEMPORARY\"}" } else { queued=true; "{}" } }
                     path.endsWith("/ride-requests") -> "{\"requests\":[{\"requestId\":\"request-one\",\"nickname\":\"가상탑승자A\",\"majungId\":\"MJ-1111111111\",\"place\":{\"label\":\"시험 장소 A\",\"latitude\":37.1,\"longitude\":127.1},\"status\":\"ACTIVE\"},{\"requestId\":\"request-two\",\"nickname\":\"가상탑승자B\",\"majungId\":\"MJ-2222222222\",\"place\":{\"label\":\"시험 장소 B\",\"latitude\":37.2,\"longitude\":127.2},\"status\":\"${if(queued) "QUEUED" else "PENDING"}\"}]}"
                     else -> "{}"

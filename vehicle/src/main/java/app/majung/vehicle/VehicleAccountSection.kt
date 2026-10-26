@@ -20,9 +20,11 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }
     private val confirm=views.button("요청한 운전자 계정 확인") {
         val state=app.account.state
+        val challengeId=state.optString("challengeId")
+        val majungId=state.optString("majungId")
         AlertDialog.Builder(views.context).setTitle("이 계정을 차량에 연결할까요?")
             .setMessage("${state.optString("nickname")} · ${state.optString("majungId")}\n운전자 본인의 계정인지 확인해주세요.")
-            .setPositiveButton("연결 승인") { _,_ -> if (views.canInteract) app.account.confirm() }.setNegativeButton("돌아가기",null).show().also(views::trackDialog)
+            .setPositiveButton("연결 승인") { _,_ -> if (views.canInteract) app.account.confirm(challengeId, majungId) }.setNegativeButton("돌아가기",null).show().also(views::trackDialog)
     }
     private val invite = views.button("연결된 탑승자에게 초대 보내기") {
         val selected = selectedPlace() ?: return@button
