@@ -12,8 +12,10 @@ import android.os.Looper
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.FrameLayout
+import android.view.View
 
-/** Parked development screen, not an approved driving UI. No coordinate entry. */
+/** Parked controls and a separate read-only surface follow the live system UX policy. */
 class MainActivity : Activity() {
     private val app: VehicleApplication get() = application as VehicleApplication
     private val handler = Handler(Looper.getMainLooper())
@@ -21,6 +23,8 @@ class MainActivity : Activity() {
     private lateinit var views: VehicleViews
     private lateinit var accountSection: VehicleAccountSection
     private lateinit var registrationSection: VehicleRegistrationSection
+    private lateinit var parkedScreen: ScrollView
+    private lateinit var drivingSection: DrivingPickupSection
     private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
     private lateinit var status: PickupStatusSection
@@ -48,7 +52,7 @@ class MainActivity : Activity() {
             setPadding(32, 24, 32, 24)
             setBackgroundColor(Color.rgb(246, 247, 239))
         }
-        driving = DrivingRestrictionMonitor(this) { if (::creation.isInitialized) render() }
+        driving = DrivingRestrictionMonitor(this) { if (::creation.isInitialized && ::drivingSection.isInitialized) render() }
         views = VehicleViews(this, layout, ::render) { driving.allowed }
         restrictionText = views.label("차량의 조작 허용 상태를 확인하고 있어요", 18f)
         views.addView(restrictionText)
@@ -68,7 +72,13 @@ class MainActivity : Activity() {
         resumeButton.id = R.id.resume_pickup
         sharingButton = views.button("화면 밖에서도 공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
         views.addView(views.label("좌표를 입력할 필요가 없어요.\n승인 후 SDK 위치·남은 시간을 서버로 전달해요.\n위치 권한 허용 후에는 화면을 내려도 공유를 유지해요. 장소 변경은 아직 지원하지 않아요.\n앱을 다시 열면 저장된 접근 정보로 서버 상태를 확인해요.", 14f))
-        setContentView(ScrollView(this).apply { addView(layout) })
+        parkedScreen = ScrollView(this).apply { id = R.id.parked_controls; addView(layout); visibility = View.GONE }
+        drivingSection = DrivingPickupSection(this, app)
+        drivingSection.render(false, 0, 0)
+        setContentView(FrameLayout(this).apply {
+            addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
+            addView(drivingSection.root, FrameLayout.LayoutParams(-1, -1))
+        })
     }
 
     override fun onStart() {
@@ -157,5 +167,9 @@ class MainActivity : Activity() {
         restrictionText.updateText(if (driving.allowed) "차량이 화면 조작을 허용한 상태예요" else
             "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
         views.applyRestrictions()
+        val parked = driving.allowed
+        parkedScreen.visibility = if (parked) View.VISIBLE else View.GONE
+        drivingSection.root.visibility = if (parked) View.GONE else View.VISIBLE
+        drivingSection.render(driving.known, driving.stringLimit, driving.itemLimit)
     }
 }

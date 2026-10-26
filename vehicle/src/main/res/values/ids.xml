@@ -11,4 +11,9 @@
     <item name="voice_status" type="id" />
     <item name="toggle_voice" type="id" />
     <item name="invite_connected_passenger" type="id" />
+    <item name="parked_controls" type="id" />
+    <item name="driving_summary" type="id" />
+    <item name="driving_phase" type="id" />
+    <item name="driving_readiness" type="id" />
+    <item name="driving_eta" type="id" />
 </resources>
