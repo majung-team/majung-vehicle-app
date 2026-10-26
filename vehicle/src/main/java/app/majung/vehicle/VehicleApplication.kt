@@ -11,6 +11,8 @@ class VehicleApplication : Application() {
         private set
     lateinit var pickup: PickupController
         private set
+    internal lateinit var voice: PickupVoiceGuide
+        private set
 
     var sharingRunning: Boolean = false
         internal set
@@ -23,6 +25,8 @@ class VehicleApplication : Application() {
         registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
         account = VehicleAccountController(PickupApiClient(), registration)
+        voice = PickupVoiceGuide(this, pickup)
+        voice.changed = { pickup.changed?.invoke() }
         registration.changed = { account.registrationChanged(); pickup.changed?.invoke() }
         registration.refresh()
         pickup.restoreSession()
