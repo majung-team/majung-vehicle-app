@@ -93,8 +93,7 @@ class PublicHttpsPickupTest {
                 assertEquals(403, (before as ApiRejected).status)
                 summary.put("beforeApprovalBlocked", true)
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await { app.pickup.status == "ACTIVE" }
                 api.request("PUT", "/$id/readiness", guestToken, JSONObject().put("readiness", "READY").put("sequence", 1))
                 main.runOnMainSync { app.pickup.refresh() }

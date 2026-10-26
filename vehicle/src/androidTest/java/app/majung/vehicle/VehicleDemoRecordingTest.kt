@@ -43,12 +43,7 @@ class VehicleDemoRecordingTest {
                 assertTrue("Invitation missing", invitation != null)
                 File(folder, "invitation.json").writeText(JSONObject().put("inviteLink", invitation).toString())
                 phase("inviting")
-                await("Passenger did not join", 180_000) { controller.canApprove }
-                phase("waiting-approval")
-                gate("approve")
-                press(scenario, "참여자 확인하고 공유 시작")
-                confirm("확인하고 시작")
-                await("Approval failed") { controller.status == "ACTIVE" && !controller.busy }
+                await("Passenger did not connect", 180_000) { controller.status == "ACTIVE" && !controller.busy }
                 phase("active")
                 await("Passenger not ready", 180_000) { controller.readiness == "READY" }
                 phase("passenger-ready")

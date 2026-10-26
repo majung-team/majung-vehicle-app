@@ -65,8 +65,7 @@ class RouteRecoveryTest {
                     .put("inviteToken", parts[2]).put("displayName", "경로 복구 확인"))
                 val token = guest.getString("participantToken")
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 phase("sharing_service")
                 await { app.sharingRunning }
                 fun vehicle(): JSONObject {

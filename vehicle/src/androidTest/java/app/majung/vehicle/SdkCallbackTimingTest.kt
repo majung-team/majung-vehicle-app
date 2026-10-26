@@ -89,8 +89,7 @@ class SdkCallbackTimingTest {
                     .put("inviteToken", parts[2]).put("displayName", "간격 측정"))
                 guestToken = guest.getString("participantToken")
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await { app.sharingRunning }
                 observe("polling_foreground", 120)
                 scenario.moveToState(Lifecycle.State.CREATED)

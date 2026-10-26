@@ -155,8 +155,7 @@ class WaypointPickupTest {
                     .put("inviteToken", parts[2]).put("displayName", "경유지 확인"))
                 val token = guest.getString("participantToken")
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await { app.sharingRunning }
                 var live: JSONObject? = null
                 val until = SystemClock.elapsedRealtime() + 30000

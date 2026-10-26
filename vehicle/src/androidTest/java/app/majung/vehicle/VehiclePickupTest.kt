@@ -46,9 +46,7 @@ class VehiclePickupTest {
                 .put("inviteToken", parts[2]).put("displayName", "시연 탑승자"))
             val token = guest.getString("participantToken")
             instrumentation.runOnMainSync { controller.refresh() }
-            assertTrue("Participant not found", await(10_000) { controller.canApprove })
-            instrumentation.runOnMainSync { controller.approve() }
-            assertTrue("Approval failed", await(10_000) { controller.canArrive })
+            assertTrue("Participant not connected", await(10_000) { controller.canArrive })
             api.request("PUT", "/$id/readiness", token, JSONObject().put("readiness", "READY").put("sequence", 1))
 
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -169,12 +167,8 @@ class VehiclePickupTest {
             val guest = api.request("POST", "/$id/participants", body = JSONObject()
                 .put("inviteToken", parts[2]).put("displayName", "에뮬레이터 시험"))
             val token = guest.getString("participantToken")
-            val before = api.request("GET", "/$id", token)
-            assertTrue("Place must remain private before approval", before.isNull("place"))
             instrumentation.runOnMainSync { controller.refresh() }
-            assertTrue("Join not reflected in vehicle", await(10_000) { controller.canApprove })
-            instrumentation.runOnMainSync { controller.approve() }
-            assertTrue("Approval failed", await(10_000) { controller.status == "ACTIVE" && !controller.busy })
+            assertTrue("Join not reflected in vehicle", await(10_000) { controller.status == "ACTIVE" && !controller.busy })
             val sharedPlace = api.request("GET", "/$id", token).getJSONObject("place")
             assertEquals(selected!!.label, sharedPlace.getString("label"))
             assertTrue("Latitude differs from SDK destination", kotlin.math.abs(selected!!.latitude - sharedPlace.getDouble("latitude")) < 0.000000001)
@@ -248,10 +242,8 @@ class VehiclePickupTest {
         try {
             invitation.writeText(JSONObject().put("inviteLink", link).toString())
             assertTrue("Browser did not join", await(120_000) {
-                if (controller.canApprove) true else { controller.refresh(); false }
+                if (controller.status == "ACTIVE" && !controller.busy) true else { controller.refresh(); false }
             })
-            InstrumentationRegistry.getInstrumentation().runOnMainSync { controller.approve() }
-            assertTrue("Browser pickup approval failed", await(10_000) { controller.status == "ACTIVE" && !controller.busy })
             var lastPoll = 0L
             assertTrue("Browser evidence live phase timed out", await(120_000) {
                 if (SystemClock.elapsedRealtime() - lastPoll >= 5000) {

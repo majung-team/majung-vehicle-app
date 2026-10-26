@@ -32,6 +32,8 @@ vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에�
 
 [경로 재요청 후 공유 복구](docs/route-recovery.md): 완료 콜백이 없을 때 경로·목적지 재확인, 취소 후 위치 숨김과 검증 범위.
 
+[탑승자 자동 연결과 끊기](docs/auto-connect.md): 승인 없는 연결 표시, 탑승자 끊기와 새 초대, 확인 범위.
+
 [경유지 좌표 누락 대응](docs/waypoint-coordinates.md): ID 없는 장소의 식별자 자동 발급, 픽업 경유지·ETA 연결, 재실행 복구와 에뮬레이터 시험 결과.
 
 ## 탑승자가 먼저 보내는 요청

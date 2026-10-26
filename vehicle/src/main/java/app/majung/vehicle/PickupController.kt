@@ -15,6 +15,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var driverToken: String? = null
     private var inviteToken: String? = null
     private var participantId: String? = null
+    // Pickups started from an accepted ride request are managed in the request list, not by invitation.
+    private var requestedPickup = false
     private var uncertainCreate = false
     private var refreshing = false
     private var controlGeneration = 0
@@ -126,6 +128,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
 
     val canCreate: Boolean get() = !busy && !restoringSession && !storageCleanupFailed && pickupId == null && !uncertainCreate && registration?.canCreate != false
     val canApprove: Boolean get() = !busy && online && status == "WAITING_APPROVAL" && participantId != null
+    val canDisconnect: Boolean get() = !busy && online && status == "ACTIVE" && participantId != null && !requestedPickup
     val canArrive: Boolean get() = !busy && online && status == "ACTIVE"
     val canComplete: Boolean get() = !busy && online && status == "ARRIVED"
     val canCancel: Boolean get() = !busy && online && pickupId != null && status !in ended
@@ -144,7 +147,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             place = selectedPlace
             navigationReference = waypointReference
             status = "INVITING"
-            message = "픽업을 만들었어요. 초대 링크로 참여한 사람을 확인해주세요."
+            message = "픽업을 만들었어요. 초대 링크로 참여하면 바로 연결돼요."
             uncertainCreate = false
             persistSession()
         }, creating = true)
@@ -163,6 +166,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             uncertainCreate=false
             uncertainRequestId=null
             resetVehiclePublisher()
+            requestedPickup=true
             pickupId=result.getString("pickupId")
             driverToken=result.getString("driverToken")
             inviteToken=null
@@ -187,6 +191,33 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val path = "/$pickupId/participants/$participantId/approval"
         val token = driverToken ?: return
         runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
+    }
+
+    /** Disconnects the passenger who opened the invitation and shows a fresh invitation for the next person. */
+    fun disconnectParticipant() {
+        if (!canDisconnect) return
+        val path = "/$pickupId/participant"
+        val token = driverToken ?: return
+        runRequest({
+            try { api.request("DELETE", path, token) }
+            catch (rejected: ApiRejected) {
+                // The server owns this rule; remember it so the button stays hidden after a restart.
+                if (rejected.code == "RIDE_REQUEST_PICKUP") JSONObject().put("requestedPickup", true) else throw rejected
+            }
+        }, { result ->
+            if (result.optBoolean("requestedPickup")) {
+                requestedPickup = true
+                message = "마중 요청으로 시작한 픽업은 요청 목록에서 관리해주세요."
+                return@runRequest
+            }
+            inviteToken = result.getString("inviteToken")
+            status = "INVITING"
+            participantId = null
+            participantName = null
+            readiness = ""
+            message = "탑승자를 끊었어요. 새 초대로 다시 연결할 수 있어요."
+            persistSession()
+        })
     }
 
     fun cancel() {
@@ -318,6 +349,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     }
 
     private fun resetVehiclePublisher() {
+        requestedPickup = false
         vehicleGeneration++
         vehicleSequence = 0
         vehicleInFlight = false
