@@ -37,6 +37,12 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         private set
     var place: PickupPlace? = null
         private set
+    var placeVersion = 1L
+        private set
+    var placeProposal: PickupPlace? = null
+        private set
+    var proposalId: String? = null
+        private set
     var navigationReference: String? = null
         private set
     var status = ""
@@ -183,6 +189,29 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }, creating = true)
     }
 
+    fun confirmProposedPlace(reader: DestinationReader) {
+        if (busy || !online || status != "ACTIVE" || needsSharingConfirmation) return
+        val proposed = placeProposal ?: return
+        val proposal = proposalId ?: return
+        val id = pickupId ?: return
+        val token = driverToken ?: return
+        val selected = reader.verifiedPlaceChange(proposed) ?: return
+        val sample = reader.telemetry.current(proposed, SystemClock.elapsedRealtime()) ?: return
+        val version = placeVersion
+        val reference = reader.referenceFor(proposed)
+        runRequest({ api.request("PUT", "/$id/place-confirmation", token, JSONObject()
+            .put("proposalId", proposal).put("expectedPlaceVersion", version)
+            .put("place", JSONObject().put("label", proposed.label).put("latitude", proposed.latitude).put("longitude", proposed.longitude))
+            .put("durationSeconds", selected.durationSeconds).put("sourceTime", sample.observedAt.toString())) }, { result ->
+                receiveSnapshot(result)
+                if (place?.sameCoordinates(proposed) == true) {
+                    navigationReference = reference
+                    persistSession()
+                    message = "만날 장소를 바꿨어요. 새 경로의 위치와 시간을 공유해요."
+                }
+            })
+    }
+
     fun refresh() {
         val id = pickupId ?: return
         val token = driverToken ?: return
@@ -235,7 +264,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         if (!canArrive) return
         val path = "/$pickupId/arrival"
         val token = driverToken ?: return
-        runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
+        val version = placeVersion
+        runRequest({ api.request("POST", path, token, JSONObject().put("placeVersion", version)) }, ::receiveSnapshot)
     }
 
     private var sdkArrivalAttempt = 0
@@ -258,7 +288,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val token = driverToken ?: return
         val path = "/$pickupId/arrival"
         sdkArrivalAttempt++
-        runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
+        val version = placeVersion
+        runRequest({ api.request("POST", path, token, JSONObject().put("placeVersion", version)) }, ::receiveSnapshot)
         // Arrival is idempotent on the server. Retry a lost acknowledgement at most twice;
         // never send an event to a subsequent pickup or after recovered sharing was stopped.
         handler.postDelayed(::sendSdkArrival, 6000)
@@ -321,7 +352,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         vehicleInFlight = true
         val generation = vehicleGeneration
         if (sample != null) nextVehicleSend = now + 5000 else nextInvalidationSend = now + 3000
-        val body = JSONObject().put("sequence", sequence)
+        val body = JSONObject().put("sequence", sequence).put("placeVersion", placeVersion)
         if (sample != null) {
             body.put("latitude", sample.latitude).put("longitude", sample.longitude)
                 .put("durationSeconds", sample.durationSeconds).put("sourceTime", sample.observedAt.toString())
@@ -354,6 +385,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
 
     private fun resetVehiclePublisher() {
         requestedPickup = false
+        placeVersion = 1
+        placeProposal = null
+        proposalId = null
         vehicleGeneration++
         vehicleSequence = 0
         vehicleInFlight = false
@@ -364,6 +398,20 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     }
 
     private fun receiveSnapshot(data: JSONObject) {
+        val version = data.optLong("placeVersion", 1)
+        if (version != placeVersion) {
+            vehicleGeneration++
+            vehicleInFlight = false
+            vehicleKnownEmpty = true
+            nextVehicleSend = 0
+            sdkArrivalPickup = null
+        }
+        placeVersion = version
+        val proposal = data.optJSONObject("placeProposal")
+        proposalId = proposal?.optString("proposalId")?.takeIf { it.isNotBlank() && it != "null" }
+        placeProposal = proposal?.optJSONObject("place")?.let {
+            PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
+        }
         status = data.getString("status")
         if (restoringSession && status in setOf("ACTIVE", "ARRIVED")) {
             needsSharingConfirmation = true
@@ -453,7 +501,11 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                     if (creating && error is ApiRejected && error.status in 400..499) uncertainCreate = false
                     message = if (creating && uncertainCreate)
                         "생성 결과를 확인하지 못했어요. 중복 생성을 막기 위해 자동 재시도하지 않아요."
-                    else "서버와 연결하지 못했어요. 다시 확인해주세요."
+                    else when ((error as? ApiRejected)?.code) {
+                        "PLACE_CHANGED", "PROPOSAL_CHANGED" -> "장소 제안이 바뀌었어요. 새로 확인한 뒤 경로를 다시 확인해주세요."
+                        "ROUTE_UNVERIFIED", "FUTURE_SOURCE_TIME" -> "최신 내비 경로와 시간을 확인하지 못했어요. 차량 시간을 확인하고 다시 눌러주세요."
+                        else -> "서버와 연결하지 못했어요. 다시 확인해주세요."
+                    }
                     if (!creating && error is ApiRejected && error.status in setOf(401, 403, 404, 410)) {
                         clearSavedSession()
                         restoringSession = false

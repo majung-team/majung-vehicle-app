@@ -16,6 +16,8 @@ import ai.pleos.playground.navi.data.WaypointChangedInfo
 import ai.pleos.playground.navi.data.WaypointArrivedInfo
 import ai.pleos.playground.navi.data.RecentDestinationInfo
 import ai.pleos.playground.navi.data.RequestWaypointInfo
+import ai.pleos.playground.navi.data.RouteWithWaypointsRequest
+import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.data.RouteStateInfo
 import ai.pleos.playground.navi.data.RouteStartInfo
 import ai.pleos.playground.navi.helper.NaviHelper
@@ -52,6 +54,8 @@ class DestinationReader(private val context: Context) {
     private var selectedSdkPlace: SdkPickupPlace? = null
     private val knownSdkPlaces = linkedMapOf<String, SdkPickupPlace>()
     private var insertion: WaypointInsertion? = null
+    private var placeChange: PickupPlaceChange? = null
+    private var reviewedProposal: PickupPlace? = null
     private var requiredInsertion: WaypointInsertion? = null
     private var recentCallback: ((List<SdkPickupPlace>) -> Unit)? = null
     var failure: NavigationFailure? = null
@@ -103,7 +107,7 @@ class DestinationReader(private val context: Context) {
 
     /** Restore only with the server-confirmed place and our encrypted session reference. */
     fun restorePickupReference(place: PickupPlace?, reference: String?) {
-        if (place == null || reference.isNullOrBlank()) return
+        if (place == null || reference.isNullOrBlank() || placeChange != null || reviewedProposal != null) return
         if (desiredPickup?.sameCoordinates(place) == true && selectedSdkPlace?.poiId == reference) return
         if (!NavigationStop(place, 0, NavigationStopKind.WAYPOINT).usable) return
         val restored = SdkPickupPlace(place, reference, "", "0")
@@ -120,6 +124,8 @@ class DestinationReader(private val context: Context) {
         knownSdkPlaces.clear()
         insertion = null
         requiredInsertion = null
+        placeChange = null
+        reviewedProposal = null
         handler.removeCallbacks(insertionTimeout)
         invalidateRoute()
         query()
@@ -149,6 +155,8 @@ class DestinationReader(private val context: Context) {
         if (previous.waypoints.size >= 2) { fail(NavigationFailure.WAYPOINT_LIMIT); return false }
         if (previous.all.any { it.place.sameCoordinates(place) }) { fail(NavigationFailure.DUPLICATE_PLACE); return false }
         val requestPlace = selected.withRequestIdentity()
+        placeChange = null
+        reviewedProposal = null
         insertion = WaypointInsertion(place, previous)
         requiredInsertion = insertion
         desiredPickup = place
@@ -167,6 +175,62 @@ class DestinationReader(private val context: Context) {
         if (requested) handler.postDelayed(validationRetry, 5000)
         return requested
     }
+    fun verifiedPlaceChange(next: PickupPlace): NavigationStop? {
+        val stops = currentStops() ?: return null
+        val plan = placeChange?.takeIf { it.requested.sameCoordinates(next) }
+        if (plan != null) return plan.confirmed(stops)
+        return if (reviewedProposal?.sameCoordinates(next) == true) stops.resolve(next) else null
+    }
+
+    /** After process loss, review the existing route only; never rebuild an unknown route. */
+    fun reviewProposedPlace(next: PickupPlace, proposalId: String) {
+        if (!NavigationStop(next, 0, NavigationStopKind.WAYPOINT).usable) return
+        val selected = SdkPickupPlace(next, "majung:proposal:$proposalId", "", "0", "majung")
+        knownSdkPlaces[selected.poiId] = selected
+        selectedSdkPlace = selected
+        desiredPickup = next
+        reviewedProposal = next
+        placeChange = null
+        requiredInsertion = null
+        insertion = null
+        invalidateRoute()
+        query()
+    }
+
+    fun changePickupPlace(old: PickupPlace, next: PickupPlace, proposalId: String): Boolean {
+        val previous = currentStops() ?: return false
+        val plan = PickupPlaceChange.plan(previous, old, next) ?: return false
+        if (!connected || insertion != null) return false
+        val points = plan.waypoints.map { point ->
+            if (point.sameCoordinates(next)) SdkPickupPlace(next, "majung:proposal:$proposalId", "", "0", "majung") else
+            knownSdkPlaces.values.singleOrNull { it.place.sameCoordinates(point) }
+                ?: SdkPickupPlace(point, "", "", "0").withRequestIdentity()
+        }
+        points.forEach { knownSdkPlaces[it.poiId] = it }
+        val final = previous.destination.place
+        val finalIdentity = SdkPickupPlace(final, "", "", "0").withRequestIdentity()
+        reviewedProposal = null
+        placeChange = plan
+        requiredInsertion = null
+        desiredPickup = next
+        selectedSdkPlace = points.single { it.place.sameCoordinates(next) }
+        invalidateRoute()
+        status = "새 장소와 기존 경유지를 확인하고 있어요"
+        handler.removeCallbacks(insertionTimeout)
+        handler.postDelayed(insertionTimeout, 45000)
+        val sent = requestSdk {
+            requireNotNull(helper).requestRouteWithWaypoints(RouteWithWaypointsRequest(
+                RouteInfo(final.latitude, final.longitude, poiName = final.label, poiId = finalIdentity.poiId,
+                    address = "", poiSubId = "0", poiProvider = "majung"),
+                points.mapIndexed { index, point -> RequestWaypointInfo(point.place.latitude, point.place.longitude,
+                    point.place.label, if (index == 0) WaypointIndex.FIRST else WaypointIndex.SECOND,
+                    point.poiId, point.address, point.poiSubId, point.poiProvider) }
+            ))
+        }
+        if (sent) handler.postDelayed(validationRetry, 5000)
+        return sent
+    }
+
     private val routeValidation = RouteValidation()
     private val validationRetry = Runnable { pollTelemetry() }
 
@@ -253,7 +317,7 @@ class DestinationReader(private val context: Context) {
                 route = stops
                 routeReceivedAt = now
                 val pending = requiredInsertion
-                val target = if (pending != null) pending.confirmed(stops) else
+                val target = if (placeChange != null) placeChange?.confirmed(stops) else if (pending != null) pending.confirmed(stops) else
                     desiredPickup?.let { stops.resolve(it) } ?: if (desiredPickup == null) stops.resolve(stops.destination.place) else null
                 if (target == null) {
                     val reason = when {
