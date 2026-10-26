@@ -44,3 +44,5 @@ vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에�
 연결된 탑승자에게 QR 없이 보내는 [직접 초대](docs/direct-invitation.md)를 지원한다.
 
 [주행 중 픽업 요약](docs/driving-summary.md): 시스템 제한에 따른 정차 화면 숨김, 준비 상태·ETA 표시와 실제 전환 시험.
+
+[준비 상태 수신 확인](docs/readiness-receipt.md)
