@@ -29,8 +29,7 @@ class PickupSharingPermissionTest {
                 .put("inviteToken", parts[2]).put("displayName", "권한 시험"))
             try {
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 SystemClock.sleep(6000)
                 assertTrue(!app.sharingRunning)

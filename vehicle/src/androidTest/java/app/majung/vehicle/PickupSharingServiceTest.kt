@@ -26,14 +26,13 @@ class PickupSharingServiceTest {
             main.runOnMainSync { invitation = app.pickup.invitationForHostBrowser() }
             val parts = URI(invitation!!).fragment.split('/')
             val id = parts[1]
+            assertTrue("Must not start before a passenger connects", !app.sharingRunning)
             val guest = api.request("POST", "/$id/participants", body = JSONObject()
                 .put("inviteToken", parts[2]).put("displayName", "백그라운드 시험"))
             val token = guest.getString("participantToken")
             try {
                 main.runOnMainSync { app.pickup.refresh() }
-                await { app.pickup.canApprove }
-                assertTrue("Must not start before approval", !app.sharingRunning)
-                main.runOnMainSync { app.pickup.approve() }
+                await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await { app.sharingRunning }
                 var sequence = awaitFresh(api, id, token).getLong("sequence")
                 scenario.moveToState(Lifecycle.State.CREATED)

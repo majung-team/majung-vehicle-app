@@ -41,8 +41,7 @@ class PublicBrowserPickupTest {
                 main.runOnMainSync { invitation = JSONObject().put("joinUrl", app.pickup.invitationForHostBrowser())
                     .put("shareUrl", app.pickup.invitationForSharingBrowser()) }
                 java.io.File(app.filesDir, "public-browser-invite.json").writeText(invitation.toString())
-                await(240000) { app.pickup.canApprove }
-                main.runOnMainSync { app.pickup.approve() }
+                await(240000) { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await(15000) { app.pickup.status == "ACTIVE" }
                 await(240000) { app.pickup.readiness == "READY" && !app.pickup.busy }
                 main.runOnMainSync { app.pickup.arrive() }

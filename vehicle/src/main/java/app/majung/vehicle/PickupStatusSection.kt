@@ -26,9 +26,9 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         }
         val phase = when (pickup.status) {
             "RESTORING" -> "서버에서 픽업 상태를 확인 중이에요"
-            "INVITING" -> "탑승자 참여를 기다리고 있어요"
+            "INVITING" -> "탑승자 연결을 기다리고 있어요"
             "WAITING_APPROVAL" -> "참여 요청을 확인해주세요"
-            "ACTIVE" -> "픽업 진행 중"
+            "ACTIVE" -> if (pickup.participantName != null) "탑승자 연결됨 · 픽업 진행 중" else "픽업 진행 중"
             "ARRIVED" -> "약속 장소에 도착했어요. 탑승 확인 전까지 위치 공유를 유지해요."
             "INVITE_EXPIRED" -> "초대가 만료됐어요. 픽업 취소 후 새 약속을 준비해주세요."
             "COMPLETED" -> "탑승 확인 완료 · 위치 공유 종료"
