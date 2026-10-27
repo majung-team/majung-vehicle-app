@@ -46,6 +46,14 @@ class DestinationReader(private val context: Context) {
     private var listener: NaviHelperEventListener? = null
     private var generation = 0
     private var connected = false
+    var waitingForGuidance = false
+        private set
+    val preparationMessage: String get() = when {
+        !connected -> "내비게이션에 연결하고 있어요."
+        waitingForGuidance -> "내비에서 목적지를 검색하고 경로 안내를 시작해주세요."
+        routeValidation.confirmationDelay(SystemClock.elapsedRealtime()) > 0 -> "장소를 받았어요. 경로가 같은지 한 번 더 확인하고 있어요."
+        else -> "내비에서 안내 중인 장소와 경로를 확인하고 있어요."
+    }
     private var lastPreparationRequestAt = -5000L
     private var awaitingDestination: DestinationInfo? = null
     private var destinationReceivedAt = 0L
@@ -312,6 +320,11 @@ class DestinationReader(private val context: Context) {
                         selection.invalidate()
                         telemetry.invalidate()
                         telemetryChanged?.invoke()
+                        val delay = routeValidation.confirmationDelay(now)
+                        if (delay > 0) {
+                            handler.removeCallbacks(validationRetry)
+                            handler.postDelayed(validationRetry, delay)
+                        }
                     }
                     return@update
                 }
@@ -381,12 +394,18 @@ class DestinationReader(private val context: Context) {
                 // unverified; the published field description and observed value differ.
                 val guiding = routeStateInfo.termsAgreement && !routeStateInfo.isRouting &&
                     routeStateInfo.naviMode in setOf(NaviMode.ROUTE_GUIDING, NaviMode.SIMULATION_GUIDING)
+                val wasWaitingForGuidance = waitingForGuidance
+                waitingForGuidance = !guiding
                 timing(if (guiding) SdkTimingType.GUIDANCE_VALID else SdkTimingType.GUIDANCE_INVALID)
                 if (!guiding) cancelResponseTimeout()
                 val wasReady = routeValidation.ready
                 if (routeValidation.receiveState(guiding, SystemClock.elapsedRealtime())) {
                     timing(SdkTimingType.DESTINATION_REQUEST)
                     requestSdk { helper?.getDestinationInfo() }
+                } else if (guiding && wasWaitingForGuidance && !wasReady) {
+                    // Guidance became available between polls. Request a fresh validation;
+                    // the unsolicited state callback itself is not route evidence.
+                    pollTelemetry()
                 } else if (wasReady && !routeValidation.ready) {
                     selection.invalidate()
                     telemetry.invalidate()
@@ -464,6 +483,12 @@ class DestinationReader(private val context: Context) {
     fun pollTelemetry() {
         if (!connected || (failure != null && failure != NavigationFailure.RESPONSE_TIMEOUT)) return
         if (consecutiveTimeouts >= 3) return
+        val confirmationDelay = routeValidation.confirmationDelay(SystemClock.elapsedRealtime())
+        if (confirmationDelay > 0) {
+            handler.removeCallbacks(validationRetry)
+            handler.postDelayed(validationRetry, confirmationDelay)
+            return
+        }
         val wasReady = routeValidation.ready
         if (!routeValidation.requestState(SystemClock.elapsedRealtime())) return
         lastPreparationRequestAt = SystemClock.elapsedRealtime()
@@ -519,6 +544,7 @@ class DestinationReader(private val context: Context) {
         cancelResponseTimeout()
         handler.removeCallbacks(recentTimeout)
         connected = false
+        waitingForGuidance = false
         recentCallback = null
         invalidateRoute()
         val instance = helper

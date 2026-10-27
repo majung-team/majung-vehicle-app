@@ -1,5 +1,6 @@
 package app.majung.vehicle
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -86,4 +87,19 @@ class RouteValidationTest {
         assertTrue(gate.receiveState(true, 15001))
         assertFalse(gate.receiveDestination(place, 15002))
     }
+    @Test fun confirmationScheduleStartsAtResponseEvenWhenSecondResponseWouldBeFaster() {
+        val gate=RouteValidation()
+        assertTrue(gate.requestState(0))
+        assertTrue(gate.receiveState(true,100))
+        assertFalse(gate.receiveDestination(place,900))
+        assertEquals(900L,gate.confirmationDelay(5000))
+        assertEquals(0L,gate.confirmationDelay(5900))
+        assertTrue(gate.requestState(5900))
+        assertTrue(gate.receiveState(true,5901))
+        assertTrue(gate.receiveDestination(place,5902))
+        assertEquals(0L,gate.confirmationDelay(5903))
+        gate.invalidate()
+        assertEquals(0L,gate.confirmationDelay(6000))
+    }
+
 }
