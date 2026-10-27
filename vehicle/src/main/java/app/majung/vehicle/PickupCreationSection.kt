@@ -104,7 +104,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             failure != null -> failure.message
             else -> app.destination.preparationMessage
         })
-        placeName.updateText(place?.label ?: if (failure != null) "내비 장소를 확인해주세요" else "장소 확인 중")
+        placeName.updateText(place?.label ?: app.destination.previewPlaceLabel ?: if (failure != null) "내비 장소를 확인해주세요" else "장소 확인 중")
         val eta = stop?.durationSeconds?.takeIf { it >= 0 }?.let {
             if (it < 60) "1분 미만" else "약 ${ceil(it / 60.0).toInt()}분"
         } ?: "도착 시간 확인 중"

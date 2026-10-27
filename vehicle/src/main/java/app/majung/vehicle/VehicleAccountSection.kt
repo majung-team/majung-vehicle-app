@@ -6,6 +6,7 @@ import android.widget.ImageView
 import org.json.JSONObject
 
 internal class VehicleAccountSection(private val app: VehicleApplication,private val views: VehicleViews) {
+    private val people=VehiclePeopleSection(app,views,::showConnectionQr)
     private val status=views.label("",16f).also(views::addView)
     private var qrDialog: AlertDialog?=null
     private var shownQr: String?=null
@@ -48,7 +49,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         val dialog = AlertDialog.Builder(views.context).setTitle("누구를 ${place.label}에서 태울까요?")
             .setMessage(if (items.isEmpty()) "아직 연결된 사람이 없어요. ‘사람 연결하기’로 휴대전화에서 연결하거나, 픽업 화면의 QR 초대로 먼저 초대할 수 있어요." else null)
             .setNegativeButton("닫기", null)
-        if (items.isEmpty()) dialog.setPositiveButton("사람 연결하기") { _, _ -> showConnectionQr() }
+        if (items.isEmpty()) dialog.setPositiveButton("사람 연결하기") { _, _ -> people.open() }
         if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")} · ${it.optString("majungId")}" }.toTypedArray()) { _, index ->
             if (!invitationPlaceStillCurrent(place)) return@setItems
             val person = items[index]
@@ -59,7 +60,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                         app.account.invite(person.getString("connectionId"), place)
                 }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
-        if (page == 0 && items.isNotEmpty()) dialog.setNeutralButton("사람 추가") { _, _ -> showConnectionQr() }
+        if (page == 0 && items.isNotEmpty()) dialog.setNeutralButton("사람 추가") { _, _ -> people.open() }
         if (page > 0) dialog.setNeutralButton("이전 사람들") { _, _ ->
             if (views.canInteract) app.account.loadContacts(page - 1) { if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true) showContacts(place) }
         }
@@ -95,7 +96,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }.also(views::addView)
     private val emptyRequests=views.label("아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요.",19f).also(views::addView)
     private var renderedRequests = ""
-    private val manageConnections=views.button("사람 연결 · 내 연결 열기") { showConnectionQr() }
+    private val manageConnections=views.button("사람 찾기 · 연결 관리") { people.open() }
     private val refresh=views.button("요청 목록 새로고침") { app.account.refresh() }
     private fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }

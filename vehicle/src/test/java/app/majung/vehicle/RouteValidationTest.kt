@@ -102,4 +102,17 @@ class RouteValidationTest {
         assertEquals(0L,gate.confirmationDelay(6000))
     }
 
+    @Test fun measuredReadLatencyCanOverlapConfirmationWithoutOpeningEarly() {
+        val gate=RouteValidation()
+        assertTrue(gate.requestState(0)); assertTrue(gate.receiveState(true,1))
+        assertFalse(gate.receiveDestination(place,2000))
+        assertEquals(3100L,gate.confirmationRequestDelay(2000,2000))
+        assertTrue(gate.requestState(5100)); assertTrue(gate.receiveState(true,5101))
+        assertFalse(gate.receiveDestination(place,6900)) // faster than expected: stay locked
+        assertFalse(gate.ready)
+        assertTrue(gate.requestState(7100)); assertTrue(gate.receiveState(true,7101))
+        assertTrue(gate.receiveDestination(place,7200))
+        assertEquals(0L,gate.confirmationRequestDelay(7201,2000))
+    }
+
 }

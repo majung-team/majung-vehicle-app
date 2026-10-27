@@ -46,6 +46,8 @@ class DestinationReader(private val context: Context) {
     private var listener: NaviHelperEventListener? = null
     private var generation = 0
     private var connected = false
+    var previewPlaceLabel: String? = null
+        private set
     var waitingForGuidance = false
         private set
     val preparationMessage: String get() = when {
@@ -55,6 +57,8 @@ class DestinationReader(private val context: Context) {
         else -> "내비에서 안내 중인 장소와 경로를 확인하고 있어요."
     }
     private var lastPreparationRequestAt = -5000L
+    private var routeRequestStartedAt = 0L
+    private var routeResponseLatencyMs = 0L
     private var awaitingDestination: DestinationInfo? = null
     private var destinationReceivedAt = 0L
     private var route: NavigationStops? = null
@@ -249,6 +253,7 @@ class DestinationReader(private val context: Context) {
         routeValidation.invalidate()
         awaitingDestination = null
         route = null
+        previewPlaceLabel = null
         selection.invalidate()
         telemetry.invalidate()
         telemetryChanged?.invoke()
@@ -314,17 +319,20 @@ class DestinationReader(private val context: Context) {
                     WaypointCoordinates.resolveKnown(waypointInfoList.mapIndexed { index, point ->
                         SdkWaypoint(waypointPlaces[index], point.remainTime.toLong(), point.poiId)
                     }, knownSdkPlaces.values.toList()))
+                // Show the received name early, but never expose an actionable place or ETA
+                // until both route observations pass validation.
+                previewPlaceLabel = (desiredPickup?.let { stops.resolve(it)?.place }
+                    ?: if (desiredPickup == null) stops.destination.place else null)?.label
+                routeResponseLatencyMs = (now-routeRequestStartedAt).coerceIn(0L,3000L)
                 if (!routeValidation.receiveRoute(stops.all.map { it.place }, now)) {
                     if (!routeValidation.ready) {
                         route = null
                         selection.invalidate()
                         telemetry.invalidate()
                         telemetryChanged?.invoke()
-                        val delay = routeValidation.confirmationDelay(now)
-                        if (delay > 0) {
-                            handler.removeCallbacks(validationRetry)
-                            handler.postDelayed(validationRetry, delay)
-                        }
+                        val delay = routeValidation.confirmationRequestDelay(now,routeResponseLatencyMs)
+                        handler.removeCallbacks(validationRetry)
+                        handler.postDelayed(validationRetry, delay.coerceAtLeast(200L))
                     }
                     return@update
                 }
@@ -483,7 +491,7 @@ class DestinationReader(private val context: Context) {
     fun pollTelemetry() {
         if (!connected || (failure != null && failure != NavigationFailure.RESPONSE_TIMEOUT)) return
         if (consecutiveTimeouts >= 3) return
-        val confirmationDelay = routeValidation.confirmationDelay(SystemClock.elapsedRealtime())
+        val confirmationDelay = routeValidation.confirmationRequestDelay(SystemClock.elapsedRealtime(),routeResponseLatencyMs)
         if (confirmationDelay > 0) {
             handler.removeCallbacks(validationRetry)
             handler.postDelayed(validationRetry, confirmationDelay)
@@ -492,6 +500,7 @@ class DestinationReader(private val context: Context) {
         val wasReady = routeValidation.ready
         if (!routeValidation.requestState(SystemClock.elapsedRealtime())) return
         lastPreparationRequestAt = SystemClock.elapsedRealtime()
+        routeRequestStartedAt = lastPreparationRequestAt
         awaitingDestination = null
         if (wasReady && !routeValidation.ready) {
             selection.invalidate()
