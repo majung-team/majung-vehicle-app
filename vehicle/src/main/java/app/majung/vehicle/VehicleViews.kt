@@ -16,7 +16,13 @@ internal class VehicleViews(val context: Context, private val container: LinearL
     private var target = container
     fun section(): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        container.addView(this, LinearLayout.LayoutParams(-1, -2))
+        setPadding(24.dp, 20.dp, 24.dp, 24.dp)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(Color.WHITE)
+            cornerRadius = 20.dp.toFloat()
+            setStroke(1.dp, Color.rgb(221, 229, 235))
+        }
+        container.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20.dp })
         target = this
     }
     fun useRoot() { target = container }
@@ -40,33 +46,40 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         }
     }
     fun addView(view: View) { target.addView(view) }
+    fun prependView(view: View) { target.addView(view, 0) }
 
     fun label(value: String, size: Float): TextView = TextView(context).apply {
         text = value
         textSize = size
         setTextColor(Color.rgb(32,40,46))
-        setPadding(0, 12, 0, 12)
+        setPadding(0, 8.dp, 0, 8.dp)
+        setLineSpacing(3.dp.toFloat(), 1f)
     }
 
-    fun button(title: String, action: () -> Unit): Button = Button(context).apply {
+    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, action: () -> Unit): Button = Button(context).apply {
         text = title
         isAllCaps = false
-        textSize = 19f
+        textSize = 20f
+        maxLines = 2
+        minimumHeight = 72.dp
         gravity = android.view.Gravity.CENTER
-        setTextColor(Color.rgb(36, 79, 115))
+        setTextColor(android.content.res.ColorStateList(
+            arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(Color.rgb(133, 149, 162), if (primary) Color.WHITE else Color.rgb(30, 74, 106))))
         backgroundTintList = null
         background = android.graphics.drawable.StateListDrawable().apply {
             fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
                 setColor(color); cornerRadius = 10.dp.toFloat(); setStroke(1.dp, Color.rgb(215,222,223))
             }
             addState(intArrayOf(-android.R.attr.state_enabled), shape(Color.rgb(239,242,244)))
-            addState(intArrayOf(android.R.attr.state_pressed), shape(Color.rgb(215,226,235)))
-            addState(intArrayOf(), shape(Color.WHITE))
+            addState(intArrayOf(android.R.attr.state_pressed), shape(if (primary) Color.rgb(20, 61, 90) else Color.rgb(222, 235, 245)))
+            addState(intArrayOf(android.R.attr.state_focused), shape(if (primary) Color.rgb(50, 112, 155) else Color.rgb(222, 235, 245)).apply { setStroke(3.dp, Color.rgb(112, 190, 244)) })
+            addState(intArrayOf(), shape(if (primary) Color.rgb(31, 85, 123) else Color.rgb(247, 250, 252)))
         }
         setPadding(16.dp, 12.dp, 16.dp, 12.dp)
         setOnClickListener { if (canInteract) action(); onAction() }
         buttons.add(this)
-        target.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 64.dp).apply { topMargin = 8.dp })
+        (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8.dp })
     }
 
     private val Int.dp: Int get() = (this * context.resources.displayMetrics.density).toInt()

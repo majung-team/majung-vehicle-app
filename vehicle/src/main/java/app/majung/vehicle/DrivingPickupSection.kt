@@ -16,12 +16,12 @@ internal class DrivingPickupSection(context: Context, private val app: VehicleAp
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(40.dp(context), 28.dp(context), 40.dp(context), 28.dp(context))
-        setBackgroundColor(Color.rgb(247,248,247))
+        setBackgroundColor(Color.rgb(17,38,56))
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
     private val phase = label(context, 30f, true).apply { id = R.id.driving_phase }
     private val readiness = label(context, 25f, false).apply { id = R.id.driving_readiness }
-    private val eta = label(context, 38f, true).apply { id = R.id.driving_eta }
+    private val eta = label(context, 52f, true).apply { id = R.id.driving_eta }
 
     init { root.addView(phase); root.addView(readiness); root.addView(eta) }
 
@@ -42,7 +42,7 @@ internal class DrivingPickupSection(context: Context, private val app: VehicleAp
     }
     private fun label(context: Context, size: Float, bold: Boolean) = TextView(context).apply {
         textSize = size
-        setTextColor(Color.rgb(36,79,115))
+        setTextColor(if (bold) Color.WHITE else Color.rgb(182, 211, 231))
         setPadding(0, 12.dp(context), 0, 12.dp(context))
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END

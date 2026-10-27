@@ -7,6 +7,7 @@ import org.json.JSONObject
 
 internal class VehicleAccountSection(private val app: VehicleApplication,private val views: VehicleViews) {
     private val people=VehiclePeopleSection(app,views,::showConnectionQr)
+    private val heading = views.label("", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }.also(views::addView)
     private val status=views.label("",16f).also(views::addView)
     private var qrDialog: AlertDialog?=null
     private var shownQr: String?=null
@@ -130,7 +131,9 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         }
     }
     fun render(settings: Boolean = false) {
+        heading.updateText(if (settings) "운전자와 사람 연결" else "받은 요청 · ${app.account.requests.size}건")
         status.updateText(app.account.message+"\n받은 요청·진행 중인 픽업 ${app.account.requests.size}건")
+
         issue.visibility = if (settings && app.account.state.optString("status") != "LINKED") View.VISIBLE else View.GONE
         qr.visibility = if (settings) View.VISIBLE else View.GONE
         emptyRequests.visibility = if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
@@ -143,13 +146,22 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             app.account.requests.sortedBy { when(it.optString("status")) { "PENDING" -> 0; "ACTIVE" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
                 val row = android.widget.Button(views.context).apply {
                     text = "${item.optString("nickname")} · ${stateLabel(item.optString("status"))}\n${item.getJSONObject("place").optString("label")}"
-                    isAllCaps = false; textSize = 19f; gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                    isAllCaps = false; textSize = 20f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                     setTextColor(android.graphics.Color.rgb(32,40,46))
-                    setPadding(20,16,20,16)
-                    backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+                    setPadding(dp(24), dp(16), dp(24), dp(16))
+                    backgroundTintList = null
+                    background = android.graphics.drawable.StateListDrawable().apply {
+                        fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
+                            setColor(color); cornerRadius = dp(14).toFloat()
+                            setStroke(dp(1), android.graphics.Color.rgb(208, 225, 237))
+                        }
+                        addState(intArrayOf(android.R.attr.state_pressed), shape(android.graphics.Color.rgb(218, 236, 247)))
+                        addState(intArrayOf(android.R.attr.state_focused), shape(android.graphics.Color.rgb(218, 236, 247)).apply { setStroke(dp(3), android.graphics.Color.rgb(50, 112, 155)) })
+                        addState(intArrayOf(), shape(android.graphics.Color.rgb(241, 247, 251)))
+                    }
                     setOnClickListener { if (views.canInteract && !app.account.busy) details(item) }
                 }
-                requestRows.addView(row, android.widget.LinearLayout.LayoutParams(-1,(96*views.context.resources.displayMetrics.density).toInt()).apply { topMargin = (8*views.context.resources.displayMetrics.density).toInt() })
+                requestRows.addView(row, android.widget.LinearLayout.LayoutParams(-1,-2).apply { topMargin = (8*views.context.resources.displayMetrics.density).toInt() })
             }
         }
         val state=app.account.state.optString("status")
@@ -164,5 +176,6 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         refresh.isEnabled=!app.account.busy && app.registration.vehicleToken!=null
         if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
     }
+    private fun dp(value: Int) = (value * views.context.resources.displayMetrics.density).toInt()
     private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"응답 대기"; "QUEUED"->"픽업 대기"; "ACTIVE"->"픽업 진행 중"; else->state }
 }

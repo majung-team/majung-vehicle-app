@@ -10,6 +10,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val inviteButton: Button
     private val qrButton: Button
     private val inlineQr: android.widget.ImageView
+    private val invitationPanel: VehicleColumns
     private var inlineQrLink: String? = null
     private var qrDialog: AlertDialog? = null
     private var qrLink: String? = null
@@ -27,7 +28,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                     .setPositiveButton("확인", null).show().also(views::trackDialog)
             }
         }
-        qrButton = views.button("휴대전화로 초대 공유 · QR") {
+        qrButton = views.button("초대 QR 크게 보기") {
             val link = app.pickup.invitationForSharingBrowser()?.takeIf { it.startsWith("https://") } ?: return@button
             try {
                 val image = android.widget.ImageView(views.context).apply {
@@ -51,7 +52,12 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             contentDescription = "운전자 휴대전화로 열어 탑승자에게 전달하는 초대 QR"
             setPadding(16,16,16,16)
         }
-        views.addView(inlineQr)
+        invitationPanel = VehicleColumns(views.context)
+        invitationPanel.leading.addView(inlineQr, android.widget.LinearLayout.LayoutParams(-1, 280.dp))
+        invitationPanel.trailing.addView(views.label("휴대전화로 초대해주세요", 26f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+        invitationPanel.trailing.addView(views.label("1. 운전자 휴대전화로 QR 스캔\n2. 열린 화면에서 초대 링크 공유\n3. 탑승자가 참여하면 연결 완료", 20f))
+        invitationPanel.trailing.addView(views.label("QR을 열기만 해서는 픽업에 참여되지 않아요.", 17f))
+        views.prependView(invitationPanel)
         approveButton = views.button("참여자 확인하고 공유 시작") {
             AlertDialog.Builder(views.context).setMessage("초대한 사람이 맞나요? 확인하면 이번 픽업의 장소를 공유해요.")
                 .setPositiveButton("확인하고 시작") { _, _ -> if (views.canInteract) app.pickup.approve() }
@@ -80,8 +86,10 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         confirmPlaceButton = views.button("새 장소 확정") {
             if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
         }
-        views.button("서버 상태 다시 확인") { app.pickup.refresh() }
+        views.button("픽업 상태 새로고침") { app.pickup.refresh() }
     }
+
+    private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
 
     fun render() {
         val inviting = app.pickup.status == "INVITING"
@@ -97,6 +105,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             else try { inlineQr.setImageBitmap(InvitationQr.create(displayQr)) } catch (_: Exception) { inlineQrLink = null }
         }
         inlineQr.visibility = if (displayQr != null && inlineQrLink != null) View.VISIBLE else View.GONE
+        invitationPanel.visibility = inlineQr.visibility
 
         qrButton.isEnabled = currentLink?.startsWith("https://") == true
         if (qrLink != null && qrLink != currentLink) { qrDialog?.dismiss(); qrDialog = null; qrLink = null }
@@ -110,9 +119,10 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         confirmPlaceButton.visibility = changePlaceButton.visibility
         changePlaceButton.text = proposed?.let { "제안 장소 확인 · ${it.label}" } ?: "제안 장소를 내비에서 확인"
         changePlaceButton.isEnabled = canChange
-        confirmPlaceButton.isEnabled = canChange && proposed != null &&
-            app.destination.verifiedPlaceChange(proposed) != null &&
-            app.destination.telemetry.current(proposed, android.os.SystemClock.elapsedRealtime()) != null
+        confirmPlaceButton.isEnabled = canChange && proposed?.let {
+            app.destination.verifiedPlaceChange(it) != null &&
+                app.destination.telemetry.current(it, android.os.SystemClock.elapsedRealtime()) != null
+        } == true
         disconnectButton.isEnabled = app.pickup.canDisconnect
     }
 }
