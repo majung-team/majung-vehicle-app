@@ -39,6 +39,8 @@ class MainActivity : Activity() {
     private lateinit var participantGroup: LinearLayout
     private lateinit var completionGroup: LinearLayout
     private lateinit var accountGroup: LinearLayout
+    private lateinit var enrollmentGroup: LinearLayout
+    private lateinit var enrollmentSection: VehicleEnrollmentSection
     private lateinit var settingsGroup: LinearLayout
     private lateinit var voiceGroup: LinearLayout
     private lateinit var permissionGroup: LinearLayout
@@ -52,6 +54,7 @@ class MainActivity : Activity() {
         override fun run() {
             render()
             if (ticks % 10 == 0) app.account.refresh()
+            if (ticks % 3 == 0 && driving.allowed && app.registration.needsRegistration) app.enrollment.refresh()
             if (ticks % 5 == 0 && driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning) {
                 app.destination.connect()
                 app.destination.pollTelemetry()
@@ -92,6 +95,8 @@ class MainActivity : Activity() {
         stageTitle = views.label("", 30f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }
         stageDescription = views.label("", 17f)
         views.addView(stageTitle); views.addView(stageDescription)
+        enrollmentGroup = views.section()
+        enrollmentSection = VehicleEnrollmentSection(app, views)
         settingsGroup = views.section()
         registrationSection = VehicleRegistrationSection(app, views)
         accountGroup = views.section()
@@ -188,9 +193,9 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
-        if (app.pickup.pickupId == null && app.registration.needsRegistration && selectedTab == "pickup") selectedTab = "settings"
         views.beginRender()
         registrationSection.render()
+        enrollmentSection.render()
         accountSection.render(selectedTab == "settings")
         creation.render()
         status.render()
@@ -218,10 +223,12 @@ class MainActivity : Activity() {
         val hasPickup = app.pickup.pickupId != null
         val active = app.pickup.status in setOf("ACTIVE", "ARRIVED")
         fun show(view: View, visible: Boolean) { view.visibility = if (visible) View.VISIBLE else View.GONE }
+        val needsConnection = app.registration.needsRegistration
+        show(enrollmentGroup, needsConnection)
         show(settingsGroup, selectedTab == "settings")
         show(voiceGroup, selectedTab == "settings")
-        show(accountGroup, selectedTab == "requests" || selectedTab == "settings")
-        show(createGroup, selectedTab == "pickup" && !hasPickup)
+        show(accountGroup, !needsConnection && (selectedTab == "requests" || selectedTab == "settings"))
+        show(createGroup, selectedTab == "pickup" && !hasPickup && !needsConnection)
         show(statusGroup, selectedTab == "pickup" && hasPickup)
         show(participantGroup, selectedTab == "pickup" && hasPickup && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED"))
         show(completionGroup, selectedTab == "pickup" && hasPickup)
@@ -235,12 +242,12 @@ class MainActivity : Activity() {
                 "ARRIVED" -> "도착했어요"
                 "COMPLETED" -> "함께 만났어요"
                 "CANCELLED", "EXPIRED" -> "픽업이 끝났어요"
-                else -> "만날 장소를 골라주세요"
+                else -> if (needsConnection) "먼저 차량을 연결해주세요" else "만날 장소를 골라주세요"
             }
         })
         stageDescription.updateText(when (selectedTab) {
             "requests" -> "받은 요청을 확인하고 순서대로 픽업할 수 있어요."
-            "settings" -> "처음 한 번 차량을 등록하고 운전자 계정을 연결해주세요."
+            "settings" -> "휴대전화로 QR을 열고 본인 계정을 연결하면 바로 사용할 수 있어요."
             else -> if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
                 else if (hasPickup) "픽업을 마치면 위치 공유도 끝나요."
                 else "내비게이션의 목적지나 경유지에서 태울 수 있어요."

@@ -51,4 +51,4 @@ vehicle/는 차량 앱, probe/는 SDK 진단용이다. 기본 debug API는 에�
 
 [픽업·요청·설정 화면](docs/service-screens.md) · [Release APK 서명 빌드](docs/release-signing.md)
 
-사용할 때는 Releases의 APK를 공식 Pleos 에뮬레이터에 설치한다. 탑승자는 https://majung.cloud 에서 시작한다. 차량 최초 등록과 운전자 계정 연결은 처음 한 번 필요하다.
+사용할 때는 Releases의 APK를 공식 Pleos 에뮬레이터에 설치한다. 탑승자는 https://majung.cloud 에서 시작한다. 처음에는 차량의 ‘휴대전화로 시작하기’ QR로 카카오 계정을 연결한다. 관리자 등록 코드는 필요 없다. [첫 연결 안내](docs/vehicle-enrollment.md)를 참고한다.

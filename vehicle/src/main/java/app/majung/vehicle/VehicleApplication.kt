@@ -7,6 +7,8 @@ class VehicleApplication : Application() {
         private set
     lateinit var registration: VehicleRegistrationController
         private set
+    lateinit var enrollment: VehicleEnrollmentController
+        private set
     lateinit var account: VehicleAccountController
         private set
     lateinit var pickup: PickupController
@@ -25,10 +27,13 @@ class VehicleApplication : Application() {
         registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
         account = VehicleAccountController(PickupApiClient(), registration)
+        enrollment = VehicleEnrollmentController(PickupApiClient(), EncryptedVehicleCredentialStore(this, pending = true), EncryptedVehicleCredentialStore(this), registration)
+        enrollment.changed = { pickup.changed?.invoke() }
         voice = PickupVoiceGuide(this, pickup)
         voice.changed = { pickup.changed?.invoke() }
         registration.changed = { account.registrationChanged(); pickup.changed?.invoke() }
         registration.refresh()
+        enrollment.restore()
         pickup.restoreSession()
         destination.pickupPlace = { pickup.place }
         destination.pickupArrived = pickup::arriveFromSdk
