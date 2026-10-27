@@ -23,10 +23,10 @@ interface VehicleCredentialStore {
 }
 
 /** Independent key/file/AAD from pickup tokens; no plaintext or backup fallback. */
-class EncryptedVehicleCredentialStore(context: Context) : VehicleCredentialStore {
-    private val file = AtomicFile(File(context.noBackupFilesDir, "vehicle-credential.bin"))
-    private val alias = "majung.vehicle-credential.v1"
-    private val aad = ("majung-vehicle-v1:" + BuildConfig.PICKUP_API).toByteArray()
+class EncryptedVehicleCredentialStore(context: Context, pending: Boolean = false) : VehicleCredentialStore {
+    private val file = AtomicFile(File(context.noBackupFilesDir, if (pending) "vehicle-enrollment.bin" else "vehicle-credential.bin"))
+    private val alias = if (pending) "majung.vehicle-enrollment.v1" else "majung.vehicle-credential.v1"
+    private val aad = ((if (pending) "majung-enrollment-v1:" else "majung-vehicle-v1:") + BuildConfig.PICKUP_API).toByteArray()
     @Synchronized override fun load(): VehicleCredential? {
         if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return null
         require(file.baseFile.length() <= 4096)

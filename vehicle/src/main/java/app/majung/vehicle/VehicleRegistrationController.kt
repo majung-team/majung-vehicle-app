@@ -48,14 +48,14 @@ class VehicleRegistrationController(private val api: PickupApiClient, private va
                     credential = saved
                     verified = saved != null
                     development = local
-                    message = when { verified -> "등록된 차량이에요"; local -> "로컬 개발 모드 · 등록 없이 시험 가능"; else -> "관리자에게 최초 등록 코드를 받아주세요" }
+                    message = when { verified -> "등록된 차량이에요"; local -> "로컬 개발 모드 · 등록 없이 시험 가능"; else -> "휴대전화로 QR을 열어 차량을 연결해주세요" }
                 }, onFailure = { error ->
                     message = "차량 권한을 확인하지 못했어요. 연결을 확인한 뒤 다시 확인해주세요"
                     if (error is CredentialStorageFailure) {
-                        clearCredential("저장된 차량 권한을 읽을 수 없어 지웠어요. 새 등록 코드를 요청해주세요")
+                        clearCredential("저장된 차량 권한을 읽을 수 없어 지웠어요. 휴대전화로 다시 연결해주세요")
                     }
                     if (error is ApiRejected && error.code in setOf("VEHICLE_REVOKED", "VEHICLE_CREDENTIAL_INVALID", "UNAUTHORIZED")) {
-                        clearCredential("차량 권한이 철회됐거나 유효하지 않아요. 새 등록 코드를 요청해주세요")
+                        clearCredential("차량 권한이 철회됐거나 유효하지 않아요. 휴대전화로 다시 연결해주세요")
                     }
                 })
                 changed?.invoke()
@@ -95,7 +95,7 @@ class VehicleRegistrationController(private val api: PickupApiClient, private va
 
     fun rejectCreation(error: Throwable) {
         if (error is ApiRejected && error.code in setOf("VEHICLE_REVOKED", "VEHICLE_CREDENTIAL_INVALID", "VEHICLE_REGISTRATION_REQUIRED", "UNAUTHORIZED")) {
-            clearCredential("차량 권한을 다시 등록해야 해요. 관리자에게 확인해주세요")
+            clearCredential("차량 권한을 다시 등록해야 해요. 연결 상태를 확인해주세요")
             changed?.invoke()
         }
     }
@@ -106,6 +106,6 @@ class VehicleRegistrationController(private val api: PickupApiClient, private va
         credential = null
         registrationChecked = true
         message = try { store.clear(); storageBlocked = false; reason }
-        catch (_: Exception) { storageBlocked = true; "기존 차량 권한을 지우지 못했어요. 재등록하지 말고 관리자에게 확인해주세요" }
+        catch (_: Exception) { storageBlocked = true; "기존 차량 권한을 지우지 못했어요. 재등록하지 말고 연결 상태를 확인해주세요" }
     }
 }

@@ -19,3 +19,5 @@ backups/
 data/
 __pycache__/
 dist/
+
+.kotlin/
