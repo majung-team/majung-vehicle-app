@@ -47,17 +47,19 @@ class PreviewTimingTest {
                     putLong("sincePreviewStartMs",event.elapsedMs-start)
                 }) }
             }
+            var firstNameAt: Long?=null
             var ready=false
             while(SystemClock.elapsedRealtime()-start<25000) {
                 test.runOnMainSync {
                     reader.prepareForPickup()
+                    if(firstNameAt==null && reader.previewPlaceLabel!=null) firstNameAt=SystemClock.elapsedRealtime()-start
                     ready=reader.selection.current(SystemClock.elapsedRealtime())!=null && reader.currentStops()!=null
                 }
                 if(ready) break
                 SystemClock.sleep(1000)
             }
             val elapsed=SystemClock.elapsedRealtime()-start
-            test.sendStatus(0,android.os.Bundle().apply { putLong("previewReadyMs",elapsed) })
+            test.sendStatus(0,android.os.Bundle().apply { putLong("previewReadyMs",elapsed); firstNameAt?.let { putLong("firstPlaceNameMs",it) } })
             assertTrue("Real SDK preview did not become ready",ready)
         } finally {
             test.runOnMainSync { reader.disconnect(); control?.cancelRoute(); control?.release() }

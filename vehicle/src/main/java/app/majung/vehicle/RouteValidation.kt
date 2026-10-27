@@ -22,6 +22,14 @@ class RouteValidation {
             (candidateAt + CONFIRMATION_GAP_MS - now).coerceAtLeast(0L)
         else 0L
 
+    /** Start the next read early enough to cover the measured SDK round trip.
+     * receiveRoute still enforces the full response-to-response confirmation gap. */
+    fun confirmationRequestDelay(now: Long, expectedResponseMillis: Long): Long {
+        val remaining=confirmationDelay(now)
+        if (remaining == 0L) return 0L
+        return (remaining - expectedResponseMillis.coerceIn(0L,3000L) + 100L).coerceAtLeast(0L)
+    }
+
     fun requestState(now: Long): Boolean {
         if (awaiting != Awaiting.NONE && now - requestedAt < RESPONSE_TIMEOUT_MS) return false
         // A timed-out validation cannot carry evidence into the next attempt.

@@ -13,6 +13,8 @@ class VehicleApplication : Application() {
         private set
     lateinit var pickup: PickupController
         private set
+    internal lateinit var people: VehiclePeopleController
+        private set
     internal lateinit var voice: PickupVoiceGuide
         private set
 
@@ -27,6 +29,9 @@ class VehicleApplication : Application() {
         registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
         account = VehicleAccountController(PickupApiClient(), registration)
+        people = VehiclePeopleController(PickupApiClient(),{ registration.vehicleToken },{
+            account.state.takeIf { it.optString("status")=="LINKED" }?.optString("majungId")?.takeIf { it.isNotBlank() }
+        })
         enrollment = VehicleEnrollmentController(PickupApiClient(), EncryptedVehicleCredentialStore(this, pending = true), EncryptedVehicleCredentialStore(this), registration)
         enrollment.changed = { pickup.changed?.invoke() }
         voice = PickupVoiceGuide(this, pickup)

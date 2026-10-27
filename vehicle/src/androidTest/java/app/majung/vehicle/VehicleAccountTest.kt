@@ -109,6 +109,46 @@ class VehicleAccountTest {
             assertTrue(fixture.authorityCorrect.get())
         }
     }
+    @Test fun vehiclePeopleSearchAndRequestRequireStableDriverAndNeverRetryOnReads() {
+        Fixture().use { fixture ->
+            val api=PickupApiClient(fixture.origin)
+            val registration=registered(api)
+            var driver: String?="MJ-0000000000"
+            lateinit var people: VehiclePeopleController
+            var response: JSONObject?=null
+            var failure: String?=null
+            var done=false
+            instrumentation.runOnMainSync {
+                people=VehiclePeopleController(api,{ registration.vehicleToken },{ driver })
+                people.search("가상",0) { data,error -> response=data; failure=error; done=true }
+            }
+            await { done && !people.busy }
+            assertNull(failure)
+            assertEquals(2,response!!.getJSONArray("items").length())
+            val target=response!!.getJSONArray("items").getJSONObject(1).getString("memberId")
+            done=false
+            instrumentation.runOnMainSync { people.request(target) { data,error -> response=data; failure=error; done=true } }
+            await { done && !people.busy }
+            assertNull(failure)
+            assertEquals("PENDING",response!!.getJSONObject("connection").getString("status"))
+            assertEquals(target,fixture.peopleTarget)
+            assertEquals("MJ-0000000000",fixture.peopleDriver)
+            assertEquals(1,fixture.peopleRequests.get())
+            done=false
+            instrumentation.runOnMainSync { people.connections(0) { data,error -> response=data; failure=error; done=true } }
+            await { done && !people.busy }
+            assertEquals(1,fixture.peopleRequests.get())
+            done=false
+            instrumentation.runOnMainSync {
+                people.search("가상",0) { data,error -> response=data; failure=error; done=true }
+                driver="MJ-9999999999"
+            }
+            await { done && !people.busy }
+            assertNull(response)
+            assertTrue(failure!!.contains("운전자 연결이 바뀌었어요"))
+            assertTrue(fixture.authorityCorrect.get())
+        }
+    }
     @Test fun vehicleScreenShowsLinkedDriverAndMultipleRequests() {
         Fixture().use { fixture ->
             fixture.linked.set(true)
@@ -119,11 +159,14 @@ class VehicleAccountTest {
             val accountField=VehicleApplication::class.java.getDeclaredField("account").apply { isAccessible=true }
             val pickupField=VehicleApplication::class.java.getDeclaredField("pickup").apply { isAccessible=true }
             val destinationField=VehicleApplication::class.java.getDeclaredField("destination").apply { isAccessible=true }
+            val peopleField=VehicleApplication::class.java.getDeclaredField("people").apply { isAccessible=true }
+            val oldPeople=app.people
             val oldDestination=app.destination
             val oldRegistration=app.registration; val oldAccount=app.account; val oldPickup=app.pickup
             lateinit var account: VehicleAccountController
             instrumentation.runOnMainSync {
                 account=VehicleAccountController(api,registration)
+                peopleField.set(app,VehiclePeopleController(api,{ registration.vehicleToken },{ account.state.takeIf { it.optString("status")=="LINKED" }?.optString("majungId") }))
                 val destination=DestinationReader(app)
                 val place=PickupPlace("초대 시험 장소",37.3,127.3)
                 destination.selection.receive(place.label,place.latitude,place.longitude,SystemClock.elapsedRealtime())
@@ -185,6 +228,39 @@ class VehicleAccountTest {
                         val dialogs=VehicleViews::class.java.getDeclaredField("dialogs").apply { isAccessible=true }.get(views) as Set<*>
                         return dialogs.filterIsInstance<android.app.AlertDialog>().last { it.isShowing }
                     }
+                    scenario.onActivity { activity ->
+                        val section=MainActivity::class.java.getDeclaredField("accountSection").apply { isAccessible=true }.get(activity)
+                        val people=VehicleAccountSection::class.java.getDeclaredField("people").apply { isAccessible=true }.get(section) as VehiclePeopleSection
+                        people.open()
+                        currentDialog(activity).listView.performItemClick(null,0,0)
+                    }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val dialog=currentDialog(activity)
+                        dialog.findViewById<android.widget.EditText>(R.id.people_search).setText("가상")
+                        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    await { !app.people.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val dialog=currentDialog(activity)
+                        assertEquals(2,dialog.listView.adapter.count)
+                        assertTrue(dialog.listView.adapter.getItem(1).toString().contains("MJ-2222222222"))
+                        if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                            val view=dialog.window!!.decorView
+                            val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                            view.draw(android.graphics.Canvas(bitmap))
+                            File(app.filesDir,"people-search-results.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
+                        dialog.listView.performItemClick(null,1,1)
+                        assertEquals(0,fixture.peopleRequests.get())
+                        currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    await { !app.people.busy && fixture.peopleRequests.get()==1 }
+                    assertEquals("person-two",fixture.peopleTarget)
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity -> currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick() }
+                    instrumentation.waitForIdleSync()
                     fun selectSecond(activity: MainActivity) {
                         val dialog=currentDialog(activity)
                         assertEquals(2, dialog.listView.adapter.count)
@@ -222,6 +298,8 @@ class VehicleAccountTest {
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity -> currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick() }
                     instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity -> currentDialog(activity).listView.performItemClick(null,2,2) }
+                    instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
                         val dialog=currentDialog(activity)
                         assertTrue(dialog.findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("차량에 연결한 계정"))
@@ -250,7 +328,7 @@ class VehicleAccountTest {
                     }
                 }
             } finally {
-                instrumentation.runOnMainSync { registrationField.set(app,oldRegistration); accountField.set(app,oldAccount); pickupField.set(app,oldPickup); destinationField.set(app,oldDestination) }
+                instrumentation.runOnMainSync { peopleField.set(app,oldPeople); registrationField.set(app,oldRegistration); accountField.set(app,oldAccount); pickupField.set(app,oldPickup); destinationField.set(app,oldDestination) }
             }
         }
     }
@@ -258,6 +336,9 @@ class VehicleAccountTest {
         val linked=AtomicBoolean(false); val claimed=AtomicBoolean(false); val authorityCorrect=AtomicBoolean(true)
         val failAccept=AtomicBoolean(false); val malformed=AtomicBoolean(false)
         val invitations=AtomicInteger(); val invitationIds=mutableListOf<String>()
+        val peopleRequests=AtomicInteger()
+        var peopleTarget: String?=null
+        var peopleDriver: String?=null
         val twoContacts=AtomicBoolean(false)
         val emptyContacts=AtomicBoolean(false)
         var invitedConnection: String?=null
@@ -282,6 +363,15 @@ class VehicleAccountTest {
                 val body=when {
                     path=="/api/v1/config" -> "{\"developmentToolsEnabled\":false}"
                     path=="/api/v1/vehicles/me" -> "{\"vehicleId\":\"vehicle\"}"
+                    path.startsWith("/api/v1/vehicles/people/search?") -> JSONObject().put("items",org.json.JSONArray()
+                        .put(JSONObject().put("memberId","person-one").put("nickname","가상회원").put("majungId","MJ-1111111111"))
+                        .put(JSONObject().put("memberId","person-two").put("nickname","가상회원").put("majungId","MJ-2222222222"))).toString()
+                    path=="/api/v1/vehicles/people/connections" && request.startsWith("POST") -> {
+                        val posted=JSONObject(content)
+                        peopleTarget=posted.getString("memberId"); peopleDriver=posted.getString("driverMajungId"); peopleRequests.incrementAndGet()
+                        JSONObject().put("connection",JSONObject().put("connectionId","people-connection").put("status","PENDING").put("nickname","가상회원")).toString()
+                    }
+                    path.startsWith("/api/v1/vehicles/people/connections?") -> JSONObject().put("items",org.json.JSONArray()).toString()
                     path.startsWith("/api/v1/vehicles/connections?") -> {
                         val items=org.json.JSONArray().put(JSONObject().put("connectionId","connection-test").put("nickname","가상탑승자B").put("majungId","MJ-2222222222"))
                         if(twoContacts.get()) items.put(JSONObject().put("connectionId","connection-second").put("nickname","가상탑승자C").put("majungId","MJ-3333333333"))
