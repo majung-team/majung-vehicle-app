@@ -37,8 +37,53 @@ internal class VehicleViews(val context: Context, private val container: LinearL
     fun trackDialog(dialog: AlertDialog) {
         if (!canInteract) { dialog.dismiss(); return }
         dialogs.add(dialog)
+        styleDialog(dialog)
         dialog.setOnDismissListener { dialogs.remove(dialog) }
     }
+    private fun styleDialog(dialog: AlertDialog) {
+        val window = dialog.window ?: return
+        window.setWindowAnimations(if (android.animation.ValueAnimator.areAnimatorsEnabled()) R.style.MajungDialogMotion else 0)
+        val available = (context as? android.app.Activity)?.window?.decorView?.width?.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+        val width = minOf(760.dp, available - 48.dp)
+        window.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+            setColor(Color.WHITE)
+            cornerRadius = 24.dp.toFloat()
+        })
+        window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        fun readable(view: View) {
+            if (view is TextView && view !is Button && view !is android.widget.EditText) {
+                val metrics = context.resources.displayMetrics
+                val size = if (android.os.Build.VERSION.SDK_INT >= 34)
+                    android.util.TypedValue.deriveDimension(android.util.TypedValue.COMPLEX_UNIT_SP, view.textSize, metrics)
+                else view.textSize / metrics.scaledDensity
+                view.textSize = maxOf(20f, size)
+                view.setTextColor(Color.rgb(41, 53, 65))
+                view.setLineSpacing(4.dp.toFloat(), 1f)
+            }
+            if (view is ViewGroup) for (index in 0 until view.childCount) readable(view.getChildAt(index))
+        }
+        readable(window.decorView)
+        listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL).forEach { which ->
+            dialog.getButton(which)?.apply {
+                textSize = 20f
+                isAllCaps = false
+                minimumHeight = 64.dp
+                minWidth = 120.dp
+                setPadding(20.dp, 12.dp, 20.dp, 12.dp)
+                setTextColor(if (which == AlertDialog.BUTTON_POSITIVE) Color.WHITE else Color.rgb(38, 83, 117))
+                background = android.graphics.drawable.StateListDrawable().apply {
+                    fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(color); cornerRadius = 12.dp.toFloat()
+                    }
+                    addState(intArrayOf(-android.R.attr.state_enabled), shape(Color.rgb(220, 227, 234)))
+                    addState(intArrayOf(android.R.attr.state_pressed), shape(if (which == AlertDialog.BUTTON_POSITIVE) Color.rgb(29, 80, 172) else Color.rgb(221, 236, 249)))
+                    addState(intArrayOf(android.R.attr.state_focused), shape(if (which == AlertDialog.BUTTON_POSITIVE) Color.rgb(29, 80, 172) else Color.rgb(221, 236, 249)))
+                    addState(intArrayOf(), shape(if (which == AlertDialog.BUTTON_POSITIVE) Color.rgb(38, 105, 221) else Color.rgb(242, 246, 250)))
+                }
+            }
+        }
+    }
+
     fun applyRestrictions() {
         if (!canInteract) {
             buttons.forEach { lockedButtons[it] = it.isEnabled; it.isEnabled = false }

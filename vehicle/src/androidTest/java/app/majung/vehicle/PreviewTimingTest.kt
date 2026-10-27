@@ -61,8 +61,43 @@ class PreviewTimingTest {
             val elapsed=SystemClock.elapsedRealtime()-start
             test.sendStatus(0,android.os.Bundle().apply { putLong("previewReadyMs",elapsed); firstNameAt?.let { putLong("firstPlaceNameMs",it) } })
             assertTrue("Real SDK preview did not become ready",ready)
-            test.runOnMainSync { control!!.cancelRoute() }
-            waitFor { reader.previewPlaceLabel==null && reader.selection.current(SystemClock.elapsedRealtime())==null && reader.currentStops()==null }
+            test.runOnMainSync {
+                val target = reader.currentStops()!!.destination.place
+                var starts = 0
+                val flow = RequestPickupFlow(object : RequestPickupFlow.Host {
+                    override val authority: Any = "emulator-test-driver"
+                    override val requestsFresh = true
+                    override val pickupStatus get() = if (starts > 0) "ACTIVE" else ""
+                    override val hasPickup get() = starts > 0
+                    override val pickupBusy = false
+                    override val sharingRunning = false
+                    override val routeFailure get() = reader.failure?.message
+                    override val pickupMessage = ""
+                    override fun request(id: String) = RequestedRide(id, "SDK 시험 탑승자", target, "QUEUED")
+                    override fun canStart(id: String) = starts == 0
+                    override fun hasOtherActiveRequest(id: String) = false
+                    override fun refreshRequests() { }
+                    override fun prepareRoute(retry: Boolean) { if (retry) reader.prepareRequestedRoute() else reader.prepareForPickup() }
+                    override fun stops() = reader.currentStops()
+                    override fun select(place: PickupPlace) = reader.selectVerifiedStop(place)
+                    override fun insert(place: PickupPlace) = reader.addPickupWaypoint(place)
+                    override fun clearEnded() { }
+                    override fun start(ride: RequestedRide) { starts++ }
+                }, SystemClock::elapsedRealtime)
+                flow.begin("sdk-fixture-request")
+                flow.tick()
+                assertTrue("Verified SDK route must reach request confirmation", flow.stage == RequestPickupFlow.Stage.READY)
+                flow.confirm(false)
+                assertTrue(starts == 0)
+                flow.confirm(true)
+                flow.confirm(true)
+                assertTrue("Request start must be explicit and single", starts == 1)
+                test.sendStatus(0,android.os.Bundle().apply { putBoolean("requestFlowWithRealSdk",true) })
+                // Use the current reader connection; the separate setup connection may no longer own SDK control.
+                val active = DestinationReader::class.java.getDeclaredField("helper").apply { isAccessible = true }.get(reader) as NaviHelper
+                active.cancelRoute()
+            }
+            waitFor { reader.prepareForPickup(); reader.previewPlaceLabel==null && reader.selection.current(SystemClock.elapsedRealtime())==null && reader.currentStops()==null }
         } finally {
             test.runOnMainSync { reader.disconnect(); control?.cancelRoute(); control?.release() }
         }

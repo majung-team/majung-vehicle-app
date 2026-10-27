@@ -13,6 +13,8 @@ class VehicleApplication : Application() {
         private set
     lateinit var pickup: PickupController
         private set
+    internal lateinit var requestFlow: RequestPickupFlow
+        private set
     internal lateinit var people: VehiclePeopleController
         private set
     internal lateinit var voice: PickupVoiceGuide
@@ -32,6 +34,38 @@ class VehicleApplication : Application() {
         people = VehiclePeopleController(PickupApiClient(),{ registration.vehicleToken },{
             account.state.takeIf { it.optString("status")=="LINKED" }?.optString("majungId")?.takeIf { it.isNotBlank() }
         })
+        requestFlow = RequestPickupFlow(object : RequestPickupFlow.Host {
+            override val authority: Any? get() = registration.vehicleToken?.let { token ->
+                account.state.takeIf { it.optString("status") == "LINKED" }?.optString("majungId")?.let { token to it }
+            }
+            override val requestsFresh get() = account.requestsFresh
+            override val pickupStatus get() = pickup.status
+            override val hasPickup get() = pickup.pickupId != null
+            override val pickupBusy get() = pickup.busy
+            override val sharingRunning get() = this@VehicleApplication.sharingRunning
+            override val routeFailure get() = destination.failure?.message
+            override val pickupMessage get() = pickup.message
+            override fun request(id: String): RequestedRide? = account.requests.firstOrNull { it.optString("requestId") == id }?.let { item ->
+                item.optJSONObject("place")?.let { point ->
+                    val place = PickupPlace(point.optString("label"), point.optDouble("latitude"), point.optDouble("longitude"))
+                    if (!NavigationStop(place, 0, NavigationStopKind.WAYPOINT).usable) null
+                    else RequestedRide(id, item.optString("nickname"), place, item.optString("status"))
+                }
+            }
+            override fun canStart(id: String) = pickup.canStartRequested(id)
+            override fun hasOtherActiveRequest(id: String) = account.requests.any {
+                it.optString("status") == "ACTIVE" && it.optString("requestId") != id
+            }
+            override fun refreshRequests() { account.refresh() }
+            override fun prepareRoute(retry: Boolean) {
+                if (retry) destination.prepareRequestedRoute() else destination.prepareForPickup()
+            }
+            override fun stops() = destination.currentStops()
+            override fun select(place: PickupPlace) = destination.selectVerifiedStop(place)
+            override fun insert(place: PickupPlace) = destination.addPickupWaypoint(place)
+            override fun clearEnded() { pickup.prepareNextPickup() }
+            override fun start(ride: RequestedRide) { pickup.startRequested(ride.id, ride.place, destination.referenceFor(ride.place)) }
+        }, android.os.SystemClock::elapsedRealtime)
         enrollment = VehicleEnrollmentController(PickupApiClient(), EncryptedVehicleCredentialStore(this, pending = true), EncryptedVehicleCredentialStore(this), registration)
         enrollment.changed = { pickup.changed?.invoke() }
         voice = PickupVoiceGuide(this, pickup)

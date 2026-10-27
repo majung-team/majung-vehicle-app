@@ -327,7 +327,13 @@ class VehicleAccountTest {
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity -> currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick() }
                     instrumentation.waitForIdleSync()
-                    scenario.onActivity { activity -> currentDialog(activity).listView.performItemClick(null,2,2) }
+                    scenario.onActivity { activity ->
+                        assertTrue(currentDialog(activity).findViewById<android.widget.EditText>(R.id.people_search).isShown)
+                        currentDialog(activity).dismiss()
+                        val section=MainActivity::class.java.getDeclaredField("accountSection").apply { isAccessible=true }.get(activity)
+                        (VehicleAccountSection::class.java.getDeclaredField("people").apply { isAccessible=true }.get(section) as VehiclePeopleSection).open()
+                        currentDialog(activity).listView.performItemClick(null,2,2)
+                    }
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
                         val dialog=currentDialog(activity)

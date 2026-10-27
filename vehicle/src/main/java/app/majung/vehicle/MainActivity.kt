@@ -27,6 +27,8 @@ class MainActivity : Activity() {
     private lateinit var parkedRoot: LinearLayout
     private lateinit var drivingSection: DrivingPickupSection
     private lateinit var restrictionText: android.widget.TextView
+    private lateinit var requestSection: RequestPickupSection
+    private lateinit var requestGroup: LinearLayout
     private lateinit var creation: PickupCreationSection
     private lateinit var status: PickupStatusSection
     private lateinit var voice: PickupVoiceSection
@@ -91,6 +93,8 @@ class MainActivity : Activity() {
         registrationSection = VehicleRegistrationSection(app, views)
         accountGroup = views.section()
         accountSection = VehicleAccountSection(app, views)
+        requestGroup = views.section()
+        requestSection = RequestPickupSection(app, views)
         createGroup = views.section()
         creation = PickupCreationSection(app, views) { accountSection.inviteSelectedPlace() }
         statusGroup = views.section()
@@ -136,10 +140,18 @@ class MainActivity : Activity() {
                 backgroundTintList = null
                 setOnClickListener {
                     if (driving.allowed && selectedTab != key) {
+                        val order = listOf("pickup", "requests", "settings")
+                        val direction = if (order.indexOf(key) > order.indexOf(selectedTab)) 1 else -1
                         selectedTab = key
                         parkedScreen.scrollTo(0, 0)
                         preparePickup(refresh = true)
                         render()
+                        parkedScreen.animate().cancel()
+                        if (android.animation.ValueAnimator.areAnimatorsEnabled() && driving.allowed) {
+                            parkedScreen.translationX = direction * 24.dp.toFloat()
+                            parkedScreen.alpha = 0.55f
+                            parkedScreen.animate().translationX(0f).alpha(1f).setDuration(180).start()
+                        } else { parkedScreen.translationX = 0f; parkedScreen.alpha = 1f }
                     }
                 }
             }
@@ -232,7 +244,16 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        app.requestFlow.tick()
+        if (app.requestFlow.stage == RequestPickupFlow.Stage.DONE) {
+            val place = app.pickup.place
+            if (driving.allowed && place != null && app.destination.currentStops()?.resolve(place) != null)
+                app.pickup.confirmRecoveredSharing()
+            app.requestFlow.consumeDone()
+            selectedTab = "pickup"
+        }
         views.beginRender()
+        requestSection.render()
         registrationSection.render()
         enrollmentSection.render()
         accountSection.render(selectedTab == "settings")
@@ -266,13 +287,14 @@ class MainActivity : Activity() {
         show(enrollmentGroup, needsConnection)
         show(settingsGroup, selectedTab == "settings")
         show(voiceGroup, selectedTab == "settings")
-        show(accountGroup, !needsConnection && (selectedTab == "requests" || selectedTab == "settings"))
-        show(createGroup, selectedTab == "pickup" && !hasPickup && !needsConnection)
+        show(accountGroup, !needsConnection && (selectedTab == "settings" || (selectedTab == "requests" && !app.requestFlow.visible)))
+        show(createGroup, selectedTab == "pickup" && !hasPickup && !needsConnection && !app.requestFlow.visible)
+        show(requestGroup, app.requestFlow.visible && selectedTab != "settings")
         show(statusGroup, selectedTab == "pickup" && hasPickup)
         show(participantGroup, selectedTab == "pickup" && hasPickup && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED"))
         show(completionGroup, selectedTab == "pickup" && hasPickup)
         show(permissionGroup, selectedTab == "pickup" && active)
-        stageTitle.updateText(when (selectedTab) {
+        stageTitle.updateText(if (app.requestFlow.visible && selectedTab != "settings") "마중 경로 준비" else when (selectedTab) {
             "requests" -> "누구를 마중할까요?"
             "settings" -> "차량과 계정"
             else -> when (app.pickup.status) {
@@ -313,6 +335,11 @@ class MainActivity : Activity() {
         }
         views.applyRestrictions()
         val parked = driving.allowed
+        if (!parked) {
+            parkedScreen.animate().cancel()
+            parkedScreen.translationX = 0f
+            parkedScreen.alpha = 1f
+        }
         parkedRoot.visibility = if (parked) View.VISIBLE else View.GONE
         parkedScreen.visibility = if (parked) View.VISIBLE else View.GONE
         drivingSection.root.visibility = if (parked) View.GONE else View.VISIBLE
