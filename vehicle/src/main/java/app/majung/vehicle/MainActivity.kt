@@ -75,7 +75,7 @@ class MainActivity : Activity() {
         }.apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32.dp, 24.dp, 32.dp, 32.dp)
-            setBackgroundColor(Color.rgb(241, 245, 249))
+            setBackgroundColor(Color.rgb(247, 248, 250))
         }
         driving = DrivingRestrictionMonitor(this) { if (::creation.isInitialized && ::drivingSection.isInitialized) render() }
         views = VehicleViews(this, layout, ::render) { driving.allowed }
@@ -116,18 +116,18 @@ class MainActivity : Activity() {
         layout.addView(permissionGroup, layout.indexOfChild(statusGroup))
         parkedScreen = ScrollView(this).apply {
             id = R.id.parked_controls
-            setBackgroundColor(Color.rgb(241,245,249))
+            setBackgroundColor(Color.rgb(247,248,250))
             addView(layout, FrameLayout.LayoutParams(-1,-2,android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
             visibility = View.GONE
         }
         val navigation = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16.dp, 28.dp, 16.dp, 24.dp)
-            setBackgroundColor(Color.rgb(17, 38, 56))
+            setBackgroundColor(Color.WHITE)
         }
         navigation.addView(views.label("마중", 30f).apply {
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(Color.rgb(25, 31, 40))
             setPadding(16.dp, 0, 0, 32.dp)
         })
         listOf("pickup" to "픽업", "requests" to "받은 요청", "settings" to "설정").forEach { (key, title) ->
@@ -160,7 +160,7 @@ class MainActivity : Activity() {
         }
         navigation.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         navigation.addView(views.label("함께 만날 약속", 15f).apply {
-            setTextColor(Color.rgb(161, 183, 200))
+            setTextColor(Color.rgb(139, 149, 161))
             setPadding(12.dp, 0, 0, 0)
         })
         parkedRoot = LinearLayout(this).apply {
@@ -321,15 +321,15 @@ class MainActivity : Activity() {
                 tab.tag = selectedTab
                 tab.setTextColor(android.content.res.ColorStateList(
                     arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf(android.R.attr.state_pressed), intArrayOf()),
-                    intArrayOf(Color.rgb(17, 48, 70), Color.rgb(17, 48, 70), if (key == selectedTab) Color.rgb(17, 48, 70) else Color.rgb(206, 222, 234))))
+                    intArrayOf(Color.rgb(38, 105, 221), Color.rgb(38, 105, 221), if (key == selectedTab) Color.rgb(38, 105, 221) else Color.rgb(107, 118, 132))))
                 tab.background = android.graphics.drawable.StateListDrawable().apply {
                     fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
                         setColor(color)
                         cornerRadius = 14.dp.toFloat()
                     }
-                    addState(intArrayOf(android.R.attr.state_pressed), shape(Color.rgb(143, 190, 222)))
-                    addState(intArrayOf(android.R.attr.state_focused), shape(Color.rgb(143, 190, 222)).apply { setStroke(3.dp, Color.WHITE) })
-                    addState(intArrayOf(), shape(if (key == selectedTab) Color.rgb(221, 237, 248) else Color.TRANSPARENT))
+                    addState(intArrayOf(android.R.attr.state_pressed), shape(Color.rgb(220, 233, 255)))
+                    addState(intArrayOf(android.R.attr.state_focused), shape(Color.rgb(220, 233, 255)).apply { setStroke(3.dp, Color.rgb(38, 105, 221)) })
+                    addState(intArrayOf(), shape(if (key == selectedTab) Color.rgb(235, 243, 255) else Color.TRANSPARENT))
                 }
             }
         }

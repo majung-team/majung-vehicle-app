@@ -237,6 +237,12 @@ class VehicleAccountTest {
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
                         val dialog=currentDialog(activity)
+                        if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                            val view=dialog.window!!.decorView
+                            val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                            view.draw(android.graphics.Canvas(bitmap))
+                            File(app.filesDir,"people-search-input.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
                         dialog.findViewById<android.widget.EditText>(R.id.people_search).setText("가상")
                         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
                     }
