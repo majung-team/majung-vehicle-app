@@ -405,7 +405,10 @@ class DestinationReader(private val context: Context) {
                 val wasWaitingForGuidance = waitingForGuidance
                 waitingForGuidance = !guiding
                 timing(if (guiding) SdkTimingType.GUIDANCE_VALID else SdkTimingType.GUIDANCE_INVALID)
-                if (!guiding) cancelResponseTimeout()
+                if (!guiding) {
+                    cancelResponseTimeout()
+                    previewPlaceLabel = null
+                }
                 val wasReady = routeValidation.ready
                 if (routeValidation.receiveState(guiding, SystemClock.elapsedRealtime())) {
                     timing(SdkTimingType.DESTINATION_REQUEST)
