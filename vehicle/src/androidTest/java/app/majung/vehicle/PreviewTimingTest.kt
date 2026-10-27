@@ -61,6 +61,8 @@ class PreviewTimingTest {
             val elapsed=SystemClock.elapsedRealtime()-start
             test.sendStatus(0,android.os.Bundle().apply { putLong("previewReadyMs",elapsed); firstNameAt?.let { putLong("firstPlaceNameMs",it) } })
             assertTrue("Real SDK preview did not become ready",ready)
+            test.runOnMainSync { control!!.cancelRoute() }
+            waitFor { reader.previewPlaceLabel==null && reader.selection.current(SystemClock.elapsedRealtime())==null && reader.currentStops()==null }
         } finally {
             test.runOnMainSync { reader.disconnect(); control?.cancelRoute(); control?.release() }
         }
