@@ -127,7 +127,8 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
                 minHeight=(72*resources.displayMetrics.density).toInt()
                 maxLines=3
                 gravity=Gravity.CENTER_VERTICAL
-                setPadding(24,16,24,16)
+                val density=resources.displayMetrics.density
+                setPadding((24*density).toInt(),(16*density).toInt(),(24*density).toInt(),(16*density).toInt())
             }
         }
     }

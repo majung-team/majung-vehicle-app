@@ -51,6 +51,14 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         })
         window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
         fun readable(view: View) {
+            if (view is android.widget.ImageView && view.contentDescription?.toString()?.contains("QR") == true) {
+                view.adjustViewBounds = true
+                view.maxHeight = 320.dp
+                view.minimumHeight = minOf(view.minimumHeight, 320.dp)
+                view.scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                view.setPadding(16.dp, 16.dp, 16.dp, 16.dp)
+                view.layoutParams = view.layoutParams.apply { height = 320.dp }
+            }
             if (view is TextView && view !is Button && view !is android.widget.EditText) {
                 val metrics = context.resources.displayMetrics
                 val size = if (android.os.Build.VERSION.SDK_INT >= 34)
@@ -63,11 +71,20 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             if (view is ViewGroup) for (index in 0 until view.childCount) readable(view.getChildAt(index))
         }
         readable(window.decorView)
+        dialog.findViewById<TextView>(android.R.id.message)?.apply {
+            setPadding(paddingLeft, paddingTop + 8.dp, paddingRight, paddingBottom + 16.dp)
+        }
         listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL).forEach { which ->
             dialog.getButton(which)?.apply {
                 textSize = 20f
                 isAllCaps = false
                 minimumHeight = 64.dp
+                (layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+                    it.marginStart = 8.dp
+                    it.topMargin = 12.dp
+                    it.bottomMargin = 8.dp
+                    layoutParams = it
+                }
                 minWidth = 120.dp
                 setPadding(20.dp, 12.dp, 20.dp, 12.dp)
                 setTextColor(if (which == AlertDialog.BUTTON_POSITIVE) Color.WHITE else Color.rgb(38, 83, 117))
