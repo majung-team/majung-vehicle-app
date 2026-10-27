@@ -55,10 +55,7 @@ class MainActivity : Activity() {
             render()
             if (ticks % 10 == 0) app.account.refresh()
             if (ticks % 3 == 0 && driving.allowed && app.registration.needsRegistration) app.enrollment.refresh()
-            if (ticks % 5 == 0 && driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning) {
-                app.destination.connect()
-                app.destination.pollTelemetry()
-            }
+            preparePickup()
             if (++ticks % 3 == 0 && !app.sharingRunning) app.pickup.refresh()
             handler.postDelayed(this, 1000)
         }
@@ -86,7 +83,7 @@ class MainActivity : Activity() {
         listOf("pickup" to "픽업", "requests" to "마중 요청", "settings" to "설정").forEach { (key, title) ->
             val tab = Button(this).apply {
                 text = title; isAllCaps = false; textSize = 18f
-                setOnClickListener { if (driving.allowed) { selectedTab = key; render() } }
+                setOnClickListener { if (driving.allowed) { selectedTab = key; preparePickup(refresh = true); render() } }
             }
             tabs[key] = tab
             navigation.addView(tab, LinearLayout.LayoutParams(0, 64, 1f))
@@ -102,7 +99,7 @@ class MainActivity : Activity() {
         accountGroup = views.section()
         accountSection = VehicleAccountSection(app, views)
         createGroup = views.section()
-        creation = PickupCreationSection(app, views)
+        creation = PickupCreationSection(app, views) { accountSection.inviteSelectedPlace() }
         statusGroup = views.section()
         status = PickupStatusSection(app, views)
         voiceGroup = views.section()
@@ -143,6 +140,7 @@ class MainActivity : Activity() {
         // A waypoint request may open the navigation app. Revalidate on return;
         // do not start a location service before a pickup is approved.
         if (app.destination.addingWaypoint) app.destination.connect()
+        preparePickup(refresh = true)
         render()
         handler.postDelayed(tick, 1000)
     }
@@ -166,6 +164,11 @@ class MainActivity : Activity() {
         app.account.changed = null
         if (!app.sharingRunning && !startRequested) app.destination.disconnect()
         super.onStop()
+    }
+
+    private fun preparePickup(refresh: Boolean = false) {
+        if (driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning)
+            app.destination.prepareForPickup(refresh)
     }
 
     private fun requestSharingPermission() {
@@ -242,7 +245,7 @@ class MainActivity : Activity() {
                 "ARRIVED" -> "도착했어요"
                 "COMPLETED" -> "함께 만났어요"
                 "CANCELLED", "EXPIRED" -> "픽업이 끝났어요"
-                else -> if (needsConnection) "먼저 차량을 연결해주세요" else "만날 장소를 골라주세요"
+                else -> if (needsConnection) "먼저 차량을 연결해주세요" else "어디서 만날까요?"
             }
         })
         stageDescription.updateText(when (selectedTab) {
@@ -250,7 +253,7 @@ class MainActivity : Activity() {
             "settings" -> "휴대전화로 QR을 열고 본인 계정을 연결하면 바로 사용할 수 있어요."
             else -> if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
                 else if (hasPickup) "픽업을 마치면 위치 공유도 끝나요."
-                else "내비게이션의 목적지나 경유지에서 태울 수 있어요."
+                else "내비 장소를 확인한 뒤 초대할 사람이나 초대 링크를 선택하세요."
         })
         tabs.forEach { (key, tab) ->
             tab.isEnabled = driving.allowed

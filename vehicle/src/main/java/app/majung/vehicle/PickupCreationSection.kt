@@ -10,24 +10,29 @@ import android.text.TextUtils
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ProgressBar
+import android.view.View
 import kotlin.math.ceil
 
 /** The Figma draft is a visual reference; every place and ETA here comes from the SDK. */
-internal class PickupCreationSection(private val app: VehicleApplication, private val views: VehicleViews) {
+internal class PickupCreationSection(private val app: VehicleApplication, private val views: VehicleViews, private val inviteConnected: () -> Unit = {}) {
     private val destinationText: TextView
     private val placeName: TextView
     private val routeDetails: TextView
     private val createButton: Button
     private val addWaypointButton: Button
     private val finalDestinationButton: Button
+    private val retryButton: Button
+    private val directInviteButton: Button
+    private val actionHint: TextView
+    private val progress: ProgressBar
 
     init {
-        views.addView(views.label("어디서 태울까요?", 30f).apply { setTypeface(typeface, Typeface.BOLD) })
-        views.addView(views.label("최종 목적지를 그대로 두고, 픽업할 장소를 경유지로 추가할 수 있어요.", 17f))
-        views.button("내비게이션 연결") { app.destination.connect() }
-        views.button("장소와 경로 다시 확인") { app.destination.query(); render() }
-        destinationText = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
+        views.addView(views.label("1  장소 확인    →    2  탑승자 초대", 16f))
+        destinationText = views.label("", 18f)
         views.addView(destinationText)
+        progress = ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }
+        views.addView(progress)
         val card = LinearLayout(views.context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24.dp, 18.dp, 24.dp, 18.dp)
@@ -43,11 +48,23 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(Color.rgb(32, 40, 46))
         }
-        routeDetails = views.label("", 17f).apply { minLines = 2; maxLines = 3; setTextColor(Color.rgb(36, 79, 115)) }
+        routeDetails = views.label("", 18f).apply { minLines = 1; maxLines = 3; setTextColor(Color.rgb(36, 79, 115)) }
         card.addView(placeName)
         card.addView(routeDetails)
         views.addView(card)
-        addWaypointButton = views.button("최근 내비 장소를 경유지로 추가") {
+        directInviteButton = views.button("연결된 탑승자에게 초대") { inviteConnected() }.apply {
+            id = R.id.pickup_invite_contact
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.rgb(36, 79, 115))
+        }
+        createButton = views.button("초대 링크 만들기 · QR로 공유") {
+            val selected = app.destination.selection.current(SystemClock.elapsedRealtime()) ?: return@button
+            if (app.destination.currentStops()?.resolve(selected) != null && !app.destination.addingWaypoint)
+                app.pickup.create(selected, app.destination.referenceFor(selected))
+        }.apply { id = R.id.create_pickup }
+        actionHint = views.label("", 16f).also(views::addView)
+        retryButton = views.button("내비 장소 다시 확인") { app.destination.retryPickupPreparation() }
+        addWaypointButton = views.button("다른 장소에서 태우기 · 경유지 추가") {
             if (!views.canInteract || !app.pickup.canCreate) return@button
             app.destination.loadRecentPlaces { places ->
                 if (!views.canInteract || !app.pickup.canCreate) return@loadRecentPlaces
@@ -69,34 +86,51 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
                 }
             }
         }.apply { id = R.id.add_pickup_waypoint }
-        finalDestinationButton = views.button("픽업 장소는 최종 목적지 사용") { app.destination.useFinalDestination(); render() }
-        createButton = views.button("이 장소에서 태우기") {
-            val selected = app.destination.selection.current(SystemClock.elapsedRealtime()) ?: return@button
-            app.pickup.create(selected, app.destination.referenceFor(selected))
-        }.apply {
-            id = R.id.create_pickup
-            setTextColor(Color.WHITE)
-            backgroundTintList = ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()),
-                intArrayOf(Color.rgb(36, 79, 115), Color.rgb(148, 164, 177)))
-        }
+        finalDestinationButton = views.button("경유지 대신 최종 목적지에서 만나기") { app.destination.useFinalDestination(); render() }
     }
 
     fun render() {
         val place = app.destination.selection.current(SystemClock.elapsedRealtime())
         val stops = app.destination.currentStops()
         val stop = place?.let { stops?.resolve(it) }
-        destinationText.updateText(app.destination.status)
-        placeName.updateText(place?.label ?: "확인된 픽업 장소가 없어요")
+        val failure = app.destination.failure
+        val adding = app.destination.addingWaypoint
+        val ready = place != null && stop != null && app.pickup.canCreate && !adding
+        progress.visibility = if (!ready && failure == null) View.VISIBLE else View.GONE
+        destinationText.updateText(when {
+            app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
+            adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
+            ready -> "이 장소에서 만날 사람을 초대해주세요."
+            failure != null -> failure.message
+            else -> "내비에서 안내 중인 장소를 자동으로 확인하고 있어요."
+        })
+        placeName.updateText(place?.label ?: if (failure != null) "내비 장소를 확인해주세요" else "장소 확인 중")
         val eta = stop?.durationSeconds?.takeIf { it >= 0 }?.let {
             if (it < 60) "1분 미만" else "약 ${ceil(it / 60.0).toInt()}분"
-        } ?: "예상 시간 확인 중"
-        routeDetails.updateText(if (stop?.kind == NavigationStopKind.WAYPOINT)
-            "픽업 경유지 · $eta\n최종 목적지 ${stops?.destination?.place?.label ?: "확인 중"} 유지"
-            else "최종 목적지 · $eta\n경유지 추가 결과가 확인된 뒤에만 픽업을 만들 수 있어요")
-        createButton.isEnabled = place != null && stop != null && app.pickup.canCreate && !app.destination.addingWaypoint
-        addWaypointButton.isEnabled = app.pickup.canCreate && stops != null && !app.destination.addingWaypoint
-        finalDestinationButton.isEnabled = app.pickup.canCreate
+        } ?: "도착 시간 확인 중"
+        routeDetails.updateText(when {
+            stop?.kind == NavigationStopKind.WAYPOINT -> "만날 경유지 · $eta\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
+            ready -> "내비 목적지에서 만나요 · $eta"
+            failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤 돌아와주세요."
+            else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
+        })
+        val linked = app.account.state.optString("status") == "LINKED"
+        directInviteButton.visibility = if (ready || app.pickup.busy) View.VISIBLE else View.GONE
+        createButton.visibility = directInviteButton.visibility
+        directInviteButton.isEnabled = ready && linked && !app.account.busy
+        directInviteButton.text = if (app.account.busy) "연결된 사람 확인 중…" else "연결된 탑승자에게 초대"
+        createButton.isEnabled = ready
+        actionHint.updateText(app.account.invitationMessage ?: when {
+            !ready -> "내비 연결·장소 확인은 자동으로 진행돼요. 완료되기 전에는 초대를 보내지 않아요."
+            !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
+            else -> "직접 초대는 사람을 고른 뒤 전송해요. 링크 초대는 QR을 휴대전화로 열어 전달해요."
+        })
+        retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
+        retryButton.isEnabled = app.pickup.canCreate
+        addWaypointButton.visibility = if (ready) View.VISIBLE else View.GONE
+        addWaypointButton.isEnabled = ready
+        finalDestinationButton.visibility = if (ready && stop?.kind == NavigationStopKind.WAYPOINT) View.VISIBLE else View.GONE
+        finalDestinationButton.isEnabled = ready
     }
 
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()

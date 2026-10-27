@@ -16,4 +16,5 @@
     <item name="driving_phase" type="id" />
     <item name="driving_readiness" type="id" />
     <item name="driving_eta" type="id" />
+    <item name="pickup_invite_contact" type="id" />
 </resources>

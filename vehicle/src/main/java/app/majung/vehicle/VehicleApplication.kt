@@ -31,7 +31,7 @@ class VehicleApplication : Application() {
         enrollment.changed = { pickup.changed?.invoke() }
         voice = PickupVoiceGuide(this, pickup)
         voice.changed = { pickup.changed?.invoke() }
-        registration.changed = { account.registrationChanged(); pickup.changed?.invoke() }
+        registration.changed = { account.registrationChanged(); if (registration.vehicleToken != null) account.refresh(); pickup.changed?.invoke() }
         registration.refresh()
         enrollment.restore()
         pickup.restoreSession()

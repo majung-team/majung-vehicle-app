@@ -26,13 +26,23 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setMessage("${state.optString("nickname")} · ${state.optString("majungId")}\n운전자 본인의 계정인지 확인해주세요.")
             .setPositiveButton("연결 승인") { _,_ -> if (views.canInteract) app.account.confirm(challengeId, majungId) }.setNegativeButton("돌아가기",null).show().also(views::trackDialog)
     }
-    private val invite = views.button("연결된 탑승자에게 초대 보내기") {
-        val selected = selectedPlace() ?: return@button
+    private val invite = views.button("연결된 탑승자에게 초대 보내기") { inviteSelectedPlace() }
+        .apply { id = R.id.invite_connected_passenger }
+    fun inviteSelectedPlace() {
+        val selected = selectedPlace() ?: return
+        if (!views.canInteract || app.account.state.optString("status") != "LINKED") return
         app.account.loadContacts { if (views.canInteract && selectedPlace()?.sameCoordinates(selected) == true) showContacts(selected) }
-    }.apply { id = R.id.invite_connected_passenger }
+    }
     private fun selectedPlace(): PickupPlace? {
         val selected = app.destination.selection.current(android.os.SystemClock.elapsedRealtime()) ?: return null
         return selected.takeIf { app.destination.currentStops()?.resolve(it) != null && !app.destination.addingWaypoint }
+    }
+    private fun invitationPlaceStillCurrent(place: PickupPlace): Boolean {
+        if (!views.canInteract) return false
+        if (selectedPlace()?.sameCoordinates(place) == true) return true
+        AlertDialog.Builder(views.context).setMessage("만날 장소가 바뀌었거나 경로 확인이 끝나지 않았어요. 새 장소를 확인한 뒤 다시 초대해주세요.")
+            .setPositiveButton("확인", null).show().also(views::trackDialog)
+        return false
     }
     private fun showContacts(place: PickupPlace) {
         val items = app.account.contacts
@@ -41,12 +51,12 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setMessage(if (items.isEmpty()) "연결된 사람이 없어요. 휴대전화의 ‘내 연결’에서 먼저 사람을 연결하거나 기존 QR 초대를 이용해주세요." else null)
             .setNegativeButton("닫기", null)
         if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")} · ${it.optString("majungId")}" }.toTypedArray()) { _, index ->
-            if (!views.canInteract || selectedPlace()?.sameCoordinates(place) != true) return@setItems
+            if (!invitationPlaceStillCurrent(place)) return@setItems
             val person = items[index]
             AlertDialog.Builder(views.context).setTitle("${person.optString("nickname")} 님께 초대할까요?")
-                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘내 연결’에서 수락하면 픽업 대기에 들어가요. 웹을 닫아두면 알림이 오지 않아요.")
+                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘픽업’에서 수락하면 픽업 대기에 들어가요. 웹을 닫아두면 알림이 오지 않아요.")
                 .setPositiveButton("초대 보내기") { _, _ ->
-                    if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true)
+                    if (invitationPlaceStillCurrent(place))
                         app.account.invite(person.getString("connectionId"), place)
                 }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
