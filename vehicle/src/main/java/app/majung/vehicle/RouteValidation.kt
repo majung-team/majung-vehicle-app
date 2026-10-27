@@ -16,6 +16,12 @@ class RouteValidation {
         ready = false
     }
 
+    /** A second observation must be spaced from the response, not its request. */
+    fun confirmationDelay(now: Long): Long =
+        if (awaiting == Awaiting.NONE && !ready && candidate != null)
+            (candidateAt + CONFIRMATION_GAP_MS - now).coerceAtLeast(0L)
+        else 0L
+
     fun requestState(now: Long): Boolean {
         if (awaiting != Awaiting.NONE && now - requestedAt < RESPONSE_TIMEOUT_MS) return false
         // A timed-out validation cannot carry evidence into the next attempt.

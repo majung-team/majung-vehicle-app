@@ -96,13 +96,13 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         val failure = app.destination.failure
         val adding = app.destination.addingWaypoint
         val ready = place != null && stop != null && app.pickup.canCreate && !adding
-        progress.visibility = if (!ready && failure == null) View.VISIBLE else View.GONE
+        progress.visibility = if (!ready && failure == null && !app.destination.waitingForGuidance) View.VISIBLE else View.GONE
         destinationText.updateText(when {
             app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
             adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
             ready -> "이 장소에서 만날 사람을 초대해주세요."
             failure != null -> failure.message
-            else -> "내비에서 안내 중인 장소를 자동으로 확인하고 있어요."
+            else -> app.destination.preparationMessage
         })
         placeName.updateText(place?.label ?: if (failure != null) "내비 장소를 확인해주세요" else "장소 확인 중")
         val eta = stop?.durationSeconds?.takeIf { it >= 0 }?.let {

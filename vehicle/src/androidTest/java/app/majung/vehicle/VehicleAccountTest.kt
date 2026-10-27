@@ -165,6 +165,15 @@ class VehicleAccountTest {
                         collect(activity.window.decorView)
                         assertTrue(texts.any { it.contains("가상운전자") && it.contains("2건") })
                         assertTrue(texts.any { it.contains("받은 마중 요청과 픽업 대기 목록") })
+                        fun findButton(view: android.view.View, label: String): android.widget.Button? {
+                            if (view is android.widget.Button && view.text.toString()==label) return view
+                            if (view is android.view.ViewGroup) for (index in 0 until view.childCount) {
+                                val found=findButton(view.getChildAt(index),label)
+                                if(found!=null) return found
+                            }
+                            return null
+                        }
+                        assertEquals(android.view.View.GONE,findButton(activity.window.decorView,"운전자 계정 연결 QR 만들기")!!.visibility)
                     }
                     await {
                         var enabled=false
@@ -207,6 +216,25 @@ class VehicleAccountTest {
                     }
                     await { !account.busy && fixture.invitations.get()==1 }
                     assertEquals("connection-second",fixture.invitedConnection)
+                    fixture.emptyContacts.set(true)
+                    scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
+                    await { !account.busy && account.contacts.isEmpty() }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity -> currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick() }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val dialog=currentDialog(activity)
+                        assertTrue(dialog.findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("차량에 연결한 계정"))
+                        assertEquals("연결 목록 다시 확인",dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text.toString())
+                        if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                            val view=dialog.window!!.decorView
+                            val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                            view.draw(android.graphics.Canvas(bitmap))
+                            File(app.filesDir,"connections-entry.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
+                        dialog.dismiss()
+                    }
+                    fixture.emptyContacts.set(false)
                     scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
                     await { !account.busy }
                     instrumentation.waitForIdleSync()
@@ -231,6 +259,7 @@ class VehicleAccountTest {
         val failAccept=AtomicBoolean(false); val malformed=AtomicBoolean(false)
         val invitations=AtomicInteger(); val invitationIds=mutableListOf<String>()
         val twoContacts=AtomicBoolean(false)
+        val emptyContacts=AtomicBoolean(false)
         var invitedConnection: String?=null
         val failInvitation=AtomicBoolean(false)
         val confirmations=AtomicInteger(); val accepts=AtomicInteger()
@@ -256,7 +285,7 @@ class VehicleAccountTest {
                     path.startsWith("/api/v1/vehicles/connections?") -> {
                         val items=org.json.JSONArray().put(JSONObject().put("connectionId","connection-test").put("nickname","가상탑승자B").put("majungId","MJ-2222222222"))
                         if(twoContacts.get()) items.put(JSONObject().put("connectionId","connection-second").put("nickname","가상탑승자C").put("majungId","MJ-3333333333"))
-                        JSONObject().put("items",items).toString()
+                        JSONObject().put("items",if(emptyContacts.get()) org.json.JSONArray() else items).toString()
                     }
                     path.endsWith("/invitations") -> {
                         val posted=JSONObject(content); invitedConnection=posted.getString("connectionId"); invitations.incrementAndGet(); invitationIds.add(posted.getString("requestId"))
