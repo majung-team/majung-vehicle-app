@@ -25,11 +25,14 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         private set
     var contactsPage = 0
         private set
+    var invitationMessage: String? = null
+        private set
     private var pendingInvitation: JSONObject? = null
     private var qr: String? = null
     val qrLink: String? get() = qr?.takeIf { SystemClock.elapsedRealtime() < qrUntil && state.optString("status") in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION") && registration.vehicleToken != null }
     fun registrationChanged() {
         generation++
+        invitationMessage = null
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
     }
@@ -42,7 +45,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     }
     fun loadContacts(page: Int = 0, loaded: () -> Unit) {
         if (page !in 0..50) return
-        execute(loaded = loaded) { token ->
+        execute(loaded = loaded, invitationFeedback = true) { token ->
             JSONObject().put("contacts", api.requestApi("GET", "/vehicles/connections?page=$page", token).getJSONArray("items")).put("contactsPage", page)
         }
     }
@@ -56,7 +59,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             .put("requestId", java.util.UUID.randomUUID().toString())
             .put("place", JSONObject().put("label", place.label).put("latitude", place.latitude).put("longitude", place.longitude))
         pendingInvitation = body
-        execute { token ->
+        execute(invitationFeedback = true) { token ->
             api.requestApi("POST", "/vehicles/invitations", token, body)
             JSONObject().put("invited", true).put("requests", api.requestApi("GET", "/vehicles/ride-requests", token).getJSONArray("requests"))
         }
@@ -92,10 +95,11 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
     }
-    private fun execute(loaded: (() -> Unit)? = null, call: (String) -> JSONObject) {
+    private fun execute(loaded: (() -> Unit)? = null, invitationFeedback: Boolean = false, call: (String) -> JSONObject) {
         val token=registration.vehicleToken ?: return
         if (busy) return
         val epoch=generation
+        if (invitationFeedback) invitationMessage = null
         busy=true; changed?.invoke()
         worker.execute {
             val result=runCatching {
@@ -132,6 +136,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                         else -> "운전자 본인 계정을 처음 한 번 연결해주세요"
                     }
                     if (data.optBoolean("invited")) { pendingInvitation=null; message="초대를 보냈어요. 탑승자가 수락하면 픽업 대기에 들어가요" }
+                    if (data.optBoolean("invited")) invitationMessage = message
                     loaded?.invoke()
                 },onFailure={ failure ->
                     contacts=emptyList()
@@ -142,6 +147,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                         "RIDE_REQUEST_STATE" -> "이미 진행 중이거나 응답이 끝난 요청이에요. 목록을 다시 확인해주세요"
                         else -> "요청을 처리하지 못했어요. 목록을 다시 확인해주세요"
                     } else "처리 결과를 확인하지 못했어요. 상태를 다시 확인해주세요"
+                    if (invitationFeedback) invitationMessage = message
                     if (failure is ApiRejected && failure.status in setOf(401,403,410)) { qr=null; requests=emptyList(); state=JSONObject() }
                 })
                 changed?.invoke()

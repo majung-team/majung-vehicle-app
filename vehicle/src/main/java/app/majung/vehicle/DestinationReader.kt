@@ -46,6 +46,7 @@ class DestinationReader(private val context: Context) {
     private var listener: NaviHelperEventListener? = null
     private var generation = 0
     private var connected = false
+    private var lastPreparationRequestAt = -5000L
     private var awaitingDestination: DestinationInfo? = null
     private var destinationReceivedAt = 0L
     private var route: NavigationStops? = null
@@ -465,6 +466,7 @@ class DestinationReader(private val context: Context) {
         if (consecutiveTimeouts >= 3) return
         val wasReady = routeValidation.ready
         if (!routeValidation.requestState(SystemClock.elapsedRealtime())) return
+        lastPreparationRequestAt = SystemClock.elapsedRealtime()
         awaitingDestination = null
         if (wasReady && !routeValidation.ready) {
             selection.invalidate()
@@ -480,6 +482,24 @@ class DestinationReader(private val context: Context) {
         // Recovery also works before a pickup exists, without relying on the service.
         handler.removeCallbacks(validationRetry)
         handler.postDelayed(validationRetry, 5000)
+    }
+
+    /** Preview starts itself; keep the existing route evidence and 5-second SDK cadence. */
+    fun prepareForPickup(refresh: Boolean = false) {
+        if (helper == null) {
+            if (failure == null || refresh) connect()
+            return
+        }
+        if (!connected || addingWaypoint) return
+        if (refresh && failure != null) { query(); return }
+        if (SystemClock.elapsedRealtime() - lastPreparationRequestAt >= 5000) pollTelemetry()
+    }
+
+    fun retryPickupPreparation() {
+        if (failure in setOf(NavigationFailure.DISCONNECTED, NavigationFailure.CONNECTION_FAILED, NavigationFailure.PERMISSION_DENIED)) {
+            disconnect()
+            connect()
+        } else if (helper == null) connect() else query()
     }
 
     fun query() {

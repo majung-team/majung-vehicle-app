@@ -96,6 +96,7 @@ class VehicleAccountTest {
             val place=PickupPlace("초대 시험 장소",37.3,127.3)
             instrumentation.runOnMainSync { account.invite("connection-test",place) }
             await { !account.busy }; assertEquals(1,fixture.invitations.get())
+            assertTrue(account.invitationMessage!!.contains("확인하지 못했어요"))
             instrumentation.runOnMainSync { account.refresh() }
             await { !account.busy }; assertEquals(1,fixture.invitations.get())
             fixture.failInvitation.set(false)
@@ -103,12 +104,15 @@ class VehicleAccountTest {
             await { !account.busy }; assertEquals(2,fixture.invitations.get())
             assertEquals(fixture.invitationIds[0],fixture.invitationIds[1])
             assertTrue(account.message.contains("초대를 보냈어요"))
+            instrumentation.runOnMainSync { account.refresh() }; await { !account.busy }
+            assertTrue(account.invitationMessage!!.contains("초대를 보냈어요"))
             assertTrue(fixture.authorityCorrect.get())
         }
     }
     @Test fun vehicleScreenShowsLinkedDriverAndMultipleRequests() {
         Fixture().use { fixture ->
             fixture.linked.set(true)
+            fixture.twoContacts.set(true)
             val api=PickupApiClient(fixture.origin); val registration=registered(api)
             val app=androidx.test.core.app.ApplicationProvider.getApplicationContext<VehicleApplication>()
             val registrationField=VehicleApplication::class.java.getDeclaredField("registration").apply { isAccessible=true }
@@ -139,6 +143,20 @@ class VehicleAccountTest {
                 androidx.test.core.app.ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
+                        // This test supplies route evidence; do not mix in live SDK callbacks.
+                        val handler=MainActivity::class.java.getDeclaredField("handler").apply { isAccessible=true }.get(activity) as android.os.Handler
+                        val tick=MainActivity::class.java.getDeclaredField("tick").apply { isAccessible=true }.get(activity) as Runnable
+                        handler.removeCallbacks(tick)
+                        app.destination.disconnect()
+                        val place=PickupPlace("초대 시험 장소",37.3,127.3)
+                        val now=SystemClock.elapsedRealtime()
+                        app.destination.selection.receive(place.label,place.latitude,place.longitude,now)
+                        DestinationReader::class.java.getDeclaredField("route").apply { isAccessible=true }.set(app.destination,NavigationStops(NavigationStop(place,120,NavigationStopKind.DESTINATION),emptyList()))
+                        DestinationReader::class.java.getDeclaredField("routeReceivedAt").apply { isAccessible=true }.setLong(app.destination,now)
+                        val validation=DestinationReader::class.java.getDeclaredField("routeValidation").apply { isAccessible=true }.get(app.destination) as RouteValidation
+                        validation.requestState(now-6000); validation.receiveState(true,now-6000); validation.receiveDestination(place,now-6000)
+                        validation.requestState(now); validation.receiveState(true,now); validation.receiveDestination(place,now)
+                        MainActivity::class.java.getDeclaredMethod("render").apply { isAccessible=true }.invoke(activity)
                         val texts=mutableListOf<String>()
                         fun collect(view:android.view.View) {
                             if(view is android.widget.TextView) texts.add(view.text.toString())
@@ -150,15 +168,57 @@ class VehicleAccountTest {
                     }
                     await {
                         var enabled=false
-                        scenario.onActivity { activity -> enabled=activity.findViewById<android.widget.Button>(R.id.invite_connected_passenger).isEnabled }
+                        scenario.onActivity { activity -> enabled=activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).isEnabled }
                         enabled
                     }
-                    scenario.onActivity { activity -> assertTrue(activity.findViewById<android.widget.Button>(R.id.invite_connected_passenger).performClick()) }
-                    await { !account.busy && account.contacts.size==1 }
-                    instrumentation.waitForIdleSync()
+                    fun currentDialog(activity: MainActivity): android.app.AlertDialog {
+                        val views=MainActivity::class.java.getDeclaredField("views").apply { isAccessible=true }.get(activity)
+                        val dialogs=VehicleViews::class.java.getDeclaredField("dialogs").apply { isAccessible=true }.get(views) as Set<*>
+                        return dialogs.filterIsInstance<android.app.AlertDialog>().last { it.isShowing }
+                    }
+                    fun selectSecond(activity: MainActivity) {
+                        val dialog=currentDialog(activity)
+                        assertEquals(2, dialog.listView.adapter.count)
+                        assertTrue(dialog.listView.adapter.getItem(0).toString().contains("MJ-2222222222"))
+                        assertTrue(dialog.listView.adapter.getItem(1).toString().contains("MJ-3333333333"))
+                        dialog.listView.performItemClick(null,1,1)
+                        val confirmation=currentDialog(activity)
+                        assertTrue(confirmation.findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("MJ-3333333333"))
+                    }
                     if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
-                        val screenshot=instrumentation.uiAutomation.takeScreenshot()
-                        File(app.filesDir,"direct-invitation-contacts.png").outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        scenario.onActivity { activity ->
+                            val view=activity.window.decorView
+                            val screenshot=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                            view.draw(android.graphics.Canvas(screenshot))
+                            File(app.filesDir,"pickup-start-flow.png").outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
+                    }
+                    scenario.onActivity { activity ->
+                        val button=activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact)
+                        assertTrue(button.isShown)
+                        assertTrue(button.performClick())
+                    }
+                    await { !account.busy && account.contacts.size==2 }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        selectSecond(activity)
+                        assertEquals(0,fixture.invitations.get())
+                        currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    await { !account.busy && fixture.invitations.get()==1 }
+                    assertEquals("connection-second",fixture.invitedConnection)
+                    scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
+                    await { !account.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        selectSecond(activity)
+                        app.destination.selection.invalidate()
+                        currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        assertTrue(currentDialog(activity).findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("만날 장소가 바뀌었거나"))
+                        assertEquals(1,fixture.invitations.get())
                     }
                 }
             } finally {
@@ -170,6 +230,8 @@ class VehicleAccountTest {
         val linked=AtomicBoolean(false); val claimed=AtomicBoolean(false); val authorityCorrect=AtomicBoolean(true)
         val failAccept=AtomicBoolean(false); val malformed=AtomicBoolean(false)
         val invitations=AtomicInteger(); val invitationIds=mutableListOf<String>()
+        val twoContacts=AtomicBoolean(false)
+        var invitedConnection: String?=null
         val failInvitation=AtomicBoolean(false)
         val confirmations=AtomicInteger(); val accepts=AtomicInteger()
         private val server=ServerSocket(0)
@@ -191,9 +253,13 @@ class VehicleAccountTest {
                 val body=when {
                     path=="/api/v1/config" -> "{\"developmentToolsEnabled\":false}"
                     path=="/api/v1/vehicles/me" -> "{\"vehicleId\":\"vehicle\"}"
-                    path.startsWith("/api/v1/vehicles/connections?") -> "{\"items\":[{\"connectionId\":\"connection-test\",\"nickname\":\"가상탑승자B\",\"majungId\":\"MJ-2222222222\"}]}"
+                    path.startsWith("/api/v1/vehicles/connections?") -> {
+                        val items=org.json.JSONArray().put(JSONObject().put("connectionId","connection-test").put("nickname","가상탑승자B").put("majungId","MJ-2222222222"))
+                        if(twoContacts.get()) items.put(JSONObject().put("connectionId","connection-second").put("nickname","가상탑승자C").put("majungId","MJ-3333333333"))
+                        JSONObject().put("items",items).toString()
+                    }
                     path.endsWith("/invitations") -> {
-                        val posted=JSONObject(content); invitations.incrementAndGet(); invitationIds.add(posted.getString("requestId"))
+                        val posted=JSONObject(content); invitedConnection=posted.getString("connectionId"); invitations.incrementAndGet(); invitationIds.add(posted.getString("requestId"))
                         if(failInvitation.get()) { status=503; "{\"code\":\"TEMPORARY\"}" } else "{}"
                     }
                     path.endsWith("/challenges") -> if(malformed.get()) "{}" else "{\"challengeId\":\"$challenge\",\"code\":\"${"Q".repeat(43)}\"}"
