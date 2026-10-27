@@ -3,6 +3,7 @@ package app.majung.vehicle
 /** Safe display text only. SDK payloads, exception messages and locations are excluded. */
 enum class NavigationFailure(val message: String) {
     DISCONNECTED("내비게이션 연결이 끊겼어요. 연결 버튼을 눌러 다시 연결해주세요."),
+    CONNECTION_TIMEOUT("내비게이션 연결 응답이 없어요. 내비 앱을 실행한 뒤 다시 연결해주세요."),
     CONNECTION_FAILED("내비게이션에 연결하지 못했어요. 내비게이션 앱을 실행한 뒤 다시 연결해주세요."),
     PERMISSION_DENIED("내비게이션 접근 권한이 없어요. 앱 권한과 차량 연결 설정을 확인해주세요."),
     INVALID_PLACE("장소 이름이나 좌표를 확인할 수 없어요. 다른 장소를 선택해주세요."),

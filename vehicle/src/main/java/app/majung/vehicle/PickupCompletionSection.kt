@@ -4,6 +4,8 @@ import android.app.AlertDialog
 import android.widget.Button
 
 internal class PickupCompletionSection(private val app: VehicleApplication, private val views: VehicleViews) {
+    private var nextRequested = false
+    private val nextFeedback = views.label("", 18f).also(views::addView)
     private val arriveButton: Button
     private val completeButton: Button
     private val cancelButton: Button
@@ -31,8 +33,18 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
         }
         cancelButton.id = R.id.cancel_pickup
         nextButton = views.button("다음 픽업 준비", primary = true) {
-            app.pickup.prepareNextPickup()
-            app.destination.useFinalDestination()
+            nextRequested = true
+            app.account.refresh {
+                if (!views.canInteract) return@refresh
+                val queued = app.account.requests.filter { it.optString("status") == "QUEUED" }
+                if (queued.isEmpty()) {
+                    app.pickup.prepareNextPickup()
+                    app.destination.useFinalDestination()
+                } else AlertDialog.Builder(views.context).setTitle("다음에 누구를 만날까요?")
+                    .setItems(queued.map { "${it.optString("nickname")} · ${it.getJSONObject("place").optString("label")}" }.toTypedArray()) { _, index ->
+                        if (views.canInteract) app.requestFlow.begin(queued[index].getString("requestId"))
+                    }.setNegativeButton("닫기", null).show().also(views::trackDialog)
+            }
         }
     }
 
@@ -44,6 +56,12 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
         arriveButton.isEnabled = pickup.canArrive
         completeButton.isEnabled = pickup.canComplete
         cancelButton.isEnabled = pickup.canCancel
+        val ended = pickup.status in setOf("CANCELLED", "COMPLETED", "EXPIRED")
+        nextFeedback.visibility = if (ended && nextRequested && !app.account.requestsFresh) android.view.View.VISIBLE else android.view.View.GONE
+        nextFeedback.updateText(if (app.account.busy) "다음 대기자를 확인하고 있어요." else app.account.message)
+        val queued = app.account.requests.count { it.optString("status") == "QUEUED" }
+        nextButton.updateText(if (queued > 0) "다음 대기자 확인 · ${queued}명" else "다음 픽업 준비")
+        nextButton.isEnabled = !pickup.busy && !app.account.busy
         nextButton.visibility = if (pickup.status in setOf("CANCELLED", "COMPLETED", "EXPIRED")) android.view.View.VISIBLE else android.view.View.GONE
     }
 }

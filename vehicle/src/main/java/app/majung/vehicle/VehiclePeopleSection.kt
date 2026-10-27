@@ -15,6 +15,10 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
     private var owner: String?=null
     private fun currentDriver(): String? = app.account.state.takeIf { it.optString("status")=="LINKED" }?.optString("majungId")?.takeIf { it.isNotBlank() }
     private fun allowed()=views.canInteract && owner!=null && owner==currentDriver()
+    fun find() {
+        owner=currentDriver()
+        if(allowed() && !controller.busy) searchInput()
+    }
     fun open() {
         owner=currentDriver()
         if(!allowed() || controller.busy) return

@@ -17,6 +17,9 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         private set
     var state = JSONObject()
         private set
+    var requestsCheckedAt = 0L
+        private set
+    val requestsFresh: Boolean get() = requestsCheckedAt > 0 && SystemClock.elapsedRealtime() - requestsCheckedAt in 0..15000
     var requests = emptyList<JSONObject>()
         private set
     var message = "운전자 계정을 연결하면 마중 요청을 받을 수 있어요"
@@ -32,12 +35,13 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     val qrLink: String? get() = qr?.takeIf { SystemClock.elapsedRealtime() < qrUntil && state.optString("status") in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION") && registration.vehicleToken != null }
     fun registrationChanged() {
         generation++
+        requestsCheckedAt = 0
         invitationMessage = null
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
     }
-    fun refresh() {
-        execute {
+    fun refresh(loaded: (() -> Unit)? = null) {
+        execute(loaded = loaded) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
             val list=if (account.optString("status")=="LINKED") api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests") else org.json.JSONArray()
             JSONObject().put("account",account).put("requests",list)
@@ -88,9 +92,9 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         val id=expectedChallengeId
         execute { token -> JSONObject().put("account",api.requestApi("POST","/vehicles/account-link/confirm",token,JSONObject().put("challengeId",id))) }
     }
-    fun changeRequest(id: String, action: String) {
+    fun changeRequest(id: String, action: String, loaded: (() -> Unit)? = null) {
         if (action !in setOf("accept","reject")) return
-        execute { token ->
+        execute(loaded = loaded) { token ->
             api.requestApi("POST","/vehicles/ride-requests/$id/$action",token)
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
@@ -119,7 +123,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                 if (epoch!=generation || token!=registration.vehicleToken) { changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
                     data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }
-                    data.optJSONArray("requests")?.let { array -> requests=(0 until array.length()).map { array.getJSONObject(it) } }
+                    data.optJSONArray("requests")?.let { array -> requests=(0 until array.length()).map { array.getJSONObject(it) }; requestsCheckedAt = SystemClock.elapsedRealtime() }
                     data.optJSONArray("contacts")?.let { array ->
                         contacts = (0 until array.length()).map { array.getJSONObject(it) }
                         contactsPage = data.getInt("contactsPage")
@@ -139,6 +143,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                     if (data.optBoolean("invited")) invitationMessage = message
                     loaded?.invoke()
                 },onFailure={ failure ->
+                    requestsCheckedAt = 0
                     contacts=emptyList()
                     if (failure is ApiRejected && failure.status in 400..499) pendingInvitation=null
                     // A mutation may have committed. Polling only reads; it never repeats a mutation.

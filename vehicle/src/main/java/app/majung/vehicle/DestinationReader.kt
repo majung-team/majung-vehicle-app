@@ -46,6 +46,12 @@ class DestinationReader(private val context: Context) {
     private var listener: NaviHelperEventListener? = null
     private var generation = 0
     private var connected = false
+    private val connectionTimeout = Runnable {
+        if (!connected && helper != null) {
+            disconnect()
+            fail(NavigationFailure.CONNECTION_TIMEOUT)
+        }
+    }
     var previewPlaceLabel: String? = null
         private set
     var waitingForGuidance = false
@@ -129,6 +135,25 @@ class DestinationReader(private val context: Context) {
         knownSdkPlaces[reference] = restored
         invalidateRoute()
         if (connected) pollTelemetry()
+    }
+
+    fun prepareRequestedRoute() {
+        desiredPickup = null
+        selectedSdkPlace = null
+        insertion = null
+        requiredInsertion = null
+        placeChange = null
+        reviewedProposal = null
+        handler.removeCallbacks(insertionTimeout)
+        if (failure != null) retryPickupPreparation() else prepareForPickup(refresh = true)
+    }
+
+    fun selectVerifiedStop(place: PickupPlace): Boolean {
+        val stop = currentStops()?.resolve(place) ?: return false
+        if (addingWaypoint) return false
+        desiredPickup = stop.place
+        selection.receive(stop.place.label, stop.place.latitude, stop.place.longitude, SystemClock.elapsedRealtime())
+        return true
     }
 
     fun useFinalDestination() {
@@ -269,6 +294,9 @@ class DestinationReader(private val context: Context) {
         catch (_: SecurityException) { fail(NavigationFailure.PERMISSION_DENIED); return }
         catch (_: Exception) { fail(NavigationFailure.CONNECTION_FAILED); return }
         helper = instance
+        failure = null
+        handler.removeCallbacks(connectionTimeout)
+        handler.postDelayed(connectionTimeout, 12000)
         val callbacks = object : NaviHelperEventListener {
             private fun update(action: () -> Unit) {
                 handler.post { if (generation == version && connected) action() }
@@ -467,6 +495,7 @@ class DestinationReader(private val context: Context) {
             instance.initialize(onConnected = {
                 handler.post {
                     if (generation == version) {
+                        handler.removeCallbacks(connectionTimeout)
                         connected = true
                         timing(SdkTimingType.CONNECTED)
                         instance.addListener(callbacks)
@@ -533,7 +562,7 @@ class DestinationReader(private val context: Context) {
     }
 
     fun retryPickupPreparation() {
-        if (failure in setOf(NavigationFailure.DISCONNECTED, NavigationFailure.CONNECTION_FAILED, NavigationFailure.PERMISSION_DENIED)) {
+        if (failure in setOf(NavigationFailure.DISCONNECTED, NavigationFailure.CONNECTION_TIMEOUT, NavigationFailure.CONNECTION_FAILED, NavigationFailure.PERMISSION_DENIED)) {
             disconnect()
             connect()
         } else if (helper == null) connect() else query()
@@ -553,6 +582,7 @@ class DestinationReader(private val context: Context) {
         lastDestinationValue = null
         lastDrivingEta = null
         generation++
+        handler.removeCallbacks(connectionTimeout)
         cancelResponseTimeout()
         handler.removeCallbacks(recentTimeout)
         connected = false

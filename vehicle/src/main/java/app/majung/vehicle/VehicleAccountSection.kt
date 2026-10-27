@@ -48,9 +48,15 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         val items = app.account.contacts
         val page = app.account.contactsPage
         val dialog = AlertDialog.Builder(views.context).setTitle("누구를 ${place.label}에서 태울까요?")
-            .setMessage(if (items.isEmpty()) "아직 연결된 사람이 없어요. ‘사람 연결하기’로 휴대전화에서 연결하거나, 픽업 화면의 QR 초대로 먼저 초대할 수 있어요." else null)
+            .setMessage(if (items.isEmpty()) "연결된 사람이 아직 없어요.\n닉네임으로 찾거나 QR 초대 링크를 보내주세요." else null)
             .setNegativeButton("닫기", null)
-        if (items.isEmpty()) dialog.setPositiveButton("사람 연결하기") { _, _ -> people.open() }
+        if (items.isEmpty()) {
+            dialog.setPositiveButton("사람 찾기") { _, _ -> people.find() }
+            dialog.setNeutralButton("QR로 초대") { _, _ ->
+                if (invitationPlaceStillCurrent(place) && app.pickup.canCreate)
+                    app.pickup.create(place, app.destination.referenceFor(place))
+            }
+        }
         if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")} · ${it.optString("majungId")}" }.toTypedArray()) { _, index ->
             if (!invitationPlaceStillCurrent(place)) return@setItems
             val person = items[index]
@@ -107,24 +113,22 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setNegativeButton("돌아가기",null)
         when (item.optString("status")) {
             "INVITED" -> dialog.setPositiveButton("초대 취소") { _, _ -> if (views.canInteract) app.account.cancelInvitation(id) }
-            "PENDING" -> dialog.setPositiveButton("수락하고 대기에 추가") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"accept") }
-                .setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
-            "QUEUED" -> {
-                dialog.setNeutralButton("내비 경유지에 추가") { _,_ -> if (views.canInteract && app.pickup.canCreate) app.destination.addPickupWaypoint(place) }
-                dialog.setPositiveButton("이 픽업 시작") { _,_ ->
-                    if (views.canInteract && app.pickup.canStartRequested(id)) {
-                        val selected=app.destination.selection.current(android.os.SystemClock.elapsedRealtime())
-                        if (selected?.sameCoordinates(place)==true) app.pickup.startRequested(id,place,app.destination.referenceFor(place))
-                        else AlertDialog.Builder(views.context).setMessage("요청 장소를 내비 경유지로 추가한 뒤, 경로 확인이 끝나면 시작해주세요. 현재 픽업이 끝났다면 ‘다음 픽업 준비’를 먼저 눌러주세요.").setPositiveButton("확인",null).show().also(views::trackDialog)
-                    }
+            "PENDING" -> dialog.setPositiveButton(if ((app.pickup.pickupId == null || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) && app.account.requests.none { it.optString("status") == "ACTIVE" }) "수락하고 마중 준비" else "수락하고 대기에 추가") { _, _ ->
+                if (views.canInteract) app.account.changeRequest(id, "accept") {
+                    if (views.canInteract) app.requestFlow.begin(id)
                 }
+            }
+                .setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
+            "QUEUED" -> dialog.setPositiveButton("마중 가기") { _, _ ->
+                if (views.canInteract) app.requestFlow.begin(id)
             }
             "ACTIVE" -> dialog.setPositiveButton("진행 중인 픽업 복구") { _,_ -> if (views.canInteract && app.pickup.canStartRequested(id)) app.pickup.startRequested(id,place,app.destination.referenceFor(place)) }
         }
         dialog.show().also { shown ->
             if (item.optString("status")=="QUEUED") {
-                shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=app.pickup.canStartRequested(id)
-                shown.getButton(AlertDialog.BUTTON_NEUTRAL).isEnabled=app.pickup.canCreate
+                shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=!app.pickup.busy &&
+                    (app.pickup.canStartRequested(id) || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
+                    app.account.requests.none { it.optString("status") == "ACTIVE" && it.optString("requestId") != id }
             }
             if (item.optString("status")=="ACTIVE") shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=app.pickup.canStartRequested(id)
             views.trackDialog(shown)
@@ -143,7 +147,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         if (requestSignature != renderedRequests) {
             renderedRequests = requestSignature
             requestRows.removeAllViews()
-            app.account.requests.sortedBy { when(it.optString("status")) { "PENDING" -> 0; "ACTIVE" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
+            app.account.requests.sortedBy { when(it.optString("status")) { "ACTIVE" -> 0; "PENDING" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
                 val row = android.widget.Button(views.context).apply {
                     text = "${item.optString("nickname")} · ${stateLabel(item.optString("status"))}\n${item.getJSONObject("place").optString("label")}"
                     isAllCaps = false; textSize = 20f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
