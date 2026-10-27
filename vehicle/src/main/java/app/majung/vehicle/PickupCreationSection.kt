@@ -41,9 +41,9 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             orientation = LinearLayout.VERTICAL
             setPadding(24.dp, 26.dp, 24.dp, 26.dp)
             background = GradientDrawable().apply {
-                setColor(Color.rgb(231, 238, 243))
+                setColor(Color.rgb(242, 247, 255))
                 cornerRadius = 16.dp.toFloat()
-                setStroke(1.dp, Color.rgb(36, 79, 115))
+                setStroke(1.dp, Color.rgb(225, 235, 249))
             }
         }
         placeName = views.label("장소 확인 중", 32f).apply {
@@ -52,7 +52,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(Color.rgb(32, 40, 46))
         }
-        routeDetails = views.label("", 22f).apply { minLines = 1; maxLines = 3; setTextColor(Color.rgb(36, 79, 115)) }
+        routeDetails = views.label("", 22f).apply { minLines = 1; maxLines = 3; setTextColor(Color.rgb(38, 105, 221)) }
         card.addView(placeName)
         card.addView(routeDetails)
         columns.leading.addView(card)

@@ -38,7 +38,12 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
         }
         val dialog=AlertDialog.Builder(views.context).setTitle("누구를 찾을까요?")
             .setMessage("닉네임이 같으면 마중 ID를 확인해주세요.")
-            .setView(input).setPositiveButton("검색",null).setNegativeButton("돌아가기",null).show()
+            .setView(android.widget.LinearLayout(views.context).apply {
+                orientation=android.widget.LinearLayout.VERTICAL
+                val density=resources.displayMetrics.density
+                setPadding((24*density).toInt(),(12*density).toInt(),(24*density).toInt(),(16*density).toInt())
+                addView(input,android.widget.LinearLayout.LayoutParams(-1,-2))
+            }).setPositiveButton("검색",null).setNegativeButton("돌아가기",null).show()
         views.trackDialog(dialog)
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             if(!allowed()) return@setOnClickListener
