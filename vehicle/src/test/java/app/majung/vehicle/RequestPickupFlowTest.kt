@@ -66,6 +66,7 @@ class RequestPickupFlowTest {
             flow.confirm(true)
             assertEquals(0, host.starts)
             assertNotEquals(RequestPickupFlow.Stage.READY, flow.stage)
+            if (kind == 2) assertNull(flow.ride)
         }
     }
     @Test fun activePickupBlocksAnotherAndEndedPickupCanPrepareNext() {

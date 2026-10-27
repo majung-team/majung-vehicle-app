@@ -59,7 +59,14 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
     }
 
     fun tick() {
-        if (updating || stage !in setOf(Stage.PREPARING, Stage.READY, Stage.STARTING)) return
+        if (updating) return
+        if (owner != null && owner != host.authority) {
+            ride = null
+            owner = null
+            fail("운전자 연결이 바뀌었어요. 요청을 다시 선택해주세요.")
+            return
+        }
+        if (stage !in setOf(Stage.PREPARING, Stage.READY, Stage.STARTING)) return
         updating = true
         try {
             val target = ride ?: return

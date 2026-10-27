@@ -27,7 +27,7 @@ internal class RequestPickupSection(private val app: VehicleApplication, private
         progress.visibility = if (flow.stage in setOf(RequestPickupFlow.Stage.PREPARING, RequestPickupFlow.Stage.STARTING)) View.VISIBLE else View.GONE
         start.visibility = if (flow.stage == RequestPickupFlow.Stage.READY) View.VISIBLE else View.GONE
         start.isEnabled = flow.stage == RequestPickupFlow.Stage.READY && !app.account.busy
-        retry.visibility = if (flow.stage == RequestPickupFlow.Stage.FAILED) View.VISIBLE else View.GONE
+        retry.visibility = if (flow.stage == RequestPickupFlow.Stage.FAILED && ride != null) View.VISIBLE else View.GONE
         cancel.isEnabled = flow.stage != RequestPickupFlow.Stage.STARTING
     }
 }
