@@ -8,7 +8,14 @@ internal class RequestPickupSection(private val app: VehicleApplication, private
     private val title = views.label("", 28f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }.also(views::addView)
     private val details = views.label("", 21f).also(views::addView)
     private val message = views.label("", 19f).also(views::addView)
-    private val progress = android.widget.ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }.also(views::addView)
+    private val progress = android.widget.ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply {
+        isIndeterminate = true
+        val density = resources.displayMetrics.density
+        layoutParams = android.widget.LinearLayout.LayoutParams(-1, (4 * density).toInt()).apply {
+            topMargin = (8 * density).toInt()
+            bottomMargin = (16 * density).toInt()
+        }
+    }.also(views::addView)
     private val start = views.button("마중 시작 · 위치 공유", primary = true) { app.requestFlow.confirm(views.canInteract) }
     private val retry = views.button("경로 준비 다시 시도") { app.requestFlow.ride?.id?.let(app.requestFlow::begin) }
     private val cancel = views.button("준비 그만하기") {

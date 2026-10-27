@@ -32,7 +32,10 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         columns.leading.addView(views.label("01  만날 장소", 17f).apply { setTextColor(Color.rgb(74, 109, 135)) })
         destinationText = views.label("", 18f)
         columns.leading.addView(destinationText)
-        progress = ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }
+        progress = ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply {
+            isIndeterminate = true
+            layoutParams = LinearLayout.LayoutParams(-1, 4.dp).apply { topMargin = 8.dp; bottomMargin = 16.dp }
+        }
         columns.leading.addView(progress)
         val card = LinearLayout(views.context).apply {
             orientation = LinearLayout.VERTICAL
