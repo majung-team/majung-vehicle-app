@@ -1,14 +1,17 @@
 # 차량 화면 코드 구조
 
 MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 각 영역은 별도 클래스에서 만든다.
-화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. [화면 밖 공유](background-sharing.md)를 연결했다. 차량 등록과 HTTPS 공유 QR을 연결했다. 화면 전체 디자인과 주행 중 최소 표시는 후속 작업이다.
+화면 영역 분리 후 픽업 접근 정보 저장·재실행 복구를 연결했다. [복구 동작](pickup-recovery.md)을 함께 본다. [화면 밖 공유](background-sharing.md)를 연결했다. 차량 등록과 HTTPS 공유 QR을 연결했다. 정차 화면은 왼쪽 메뉴와 스크롤 본문으로 나뉜다. 주행 제한 또는 차량 상태 미확인 때는 메뉴와 본문을 함께 숨기고 읽기 전용 요약만 표시한다. [현재 화면](service-screens.md)을 함께 본다.
 
 | 파일 | 담당 |
 | --- | --- |
-| `MainActivity.kt` | 루트 레이아웃, 영역 배치, onStart/onStop, 1초 화면 갱신, 서비스 미실행 시 3초 픽업 조회, 위치 권한·재개 확인 |
+| `MainActivity.kt` | 왼쪽 메뉴·본문 배치, 상태별 화면 전환, onStart/onStop, 1초 화면 갱신, 서비스 미실행 시 3초 픽업 조회, 위치 권한·재개 확인 |
 | `PickupSharingService.kt` | 화면 밖 SDK 연결·5초 조회·전송, 서버 상태 조회와 종료 감지 |
 | `PickupCreationSection.kt` | 내비 연결·최근 장소 선택·경유지 추가·픽업 생성 버튼과 사용 가능 여부 |
-| `VehicleRegistrationSection.kt` | 최초 등록 코드 입력·저장 결과·서버 상태 재확인 |
+| `VehicleRegistrationSection.kt` | 앱의 차량 연결 상태와 재확인 |
+| `VehicleEnrollmentSection.kt` | 첫 연결 QR·휴대전화 요청·차량에서 본인 확인 |
+| `VehicleAccountSection.kt` | 운전자 계정·받은 요청·연결된 사람 선택 |
+| `VehicleColumns.kt` | 본문 폭에 따라 장소/초대, QR/안내를 가로 또는 세로로 배치 |
 | `PickupParticipantSection.kt` | 초대 링크 복사·HTTPS 공유 QR·참여 승인 확인 창·서버 상태 다시 확인 |
 | `PickupStatusSection.kt` | 연결 상태, 픽업 진행·장소·준비 상태·차량 정보·안내 문구 |
 | `PickupCompletionSection.kt` | 도착·탑승 완료·취소 확인 창, 다음 픽업 준비 |
@@ -25,15 +28,14 @@ MainActivity는 화면 생명주기와 주기 갱신을 연결하고, 화면의 
 비동기 요청 완료 시에는 기존 `pickup.changed` 콜백으로 다시 렌더링한다.
 Activity가 멈추면 화면 콜백과 타이머만 해제한다. 공유 서비스가 실행 중이거나 시작 요청 중이면 SDK 연결을 유지한다. 그 외에는 연결을 끊는다.
 
-## 함께 수정할 때
+## 화면을 수정할 때
 
-- 성모의 자동 연결·끊기·QR: 참여자 영역의 버튼·확인 창을 수정한다. 자동 연결 안내 문구는 상태 표시 영역도 함께 맞춘다.
-- 승준의 주행 중 최소 표시: 각 영역의 render에 주행 상태를 전달할 경계를 정한 뒤 조작 제한을 연결한다.
-- 승준의 토큰 복구·백그라운드: 상태 저장과 서비스 실행은 이 뷰 클래스 안에 넣지 않는다. 앱·컨트롤러·서비스에서 관리하고 화면은 결과를 표시한다.
-- 도착 이벤트 연결: SDK 이벤트는 컨트롤러로 전달한다. 완료 영역의 수동 도착·탑승 확인과 같은 상태 규칙을 사용한다.
-
-화면 영역은 같은 루트 LinearLayout에 기존 순서로 붙인다. 레이아웃을 감싸는 컨테이너를 추가하지 않아 여백·버튼 위치를 유지한다.
-기존 `connection_status`, `pickup_details`, `arrive_pickup`, `complete_pickup`, `cancel_pickup` ID도 유지한다.
+- 픽업·받은 요청·설정은 왼쪽 메뉴로 전환한다. 메뉴를 바꿨을 때만 본문을 맨 위로 이동한다. 주기 갱신으로 스크롤 위치를 바꾸지 않는다.
+- `VehicleViews.section()`은 흰색 카드와 여백을 만들고 `button(primary = true)`는 화면의 주요 동작을 강조한다. 버튼은 최소 높이 72dp이며 글씨가 커지면 높이가 늘어난다.
+- `VehicleColumns`의 실제 가용 폭이 960dp 이상이면 두 영역을 나란히 놓는다. 그보다 좁으면 위아래로 놓고 본문을 스크롤한다.
+- 주행 제한은 `parkedRoot` 전체에 적용한다. 메뉴를 새로 추가해도 이 컨테이너 밖에 조작 버튼을 두지 않는다. 열린 창도 함께 닫는다.
+- 장소 검증·권한 확인·API 호출은 기존 컨트롤러에서 처리한다. 화면을 빨리 표시하려고 검증 전 초대 버튼을 활성화하지 않는다.
+- `parked_controls`, `pickup_invite_contact`, `create_pickup`, `arrive_pickup`, `complete_pickup` 등 동작 ID는 유지한다.
 
 ## 화면 영역 분리 당시 확인 결과
 

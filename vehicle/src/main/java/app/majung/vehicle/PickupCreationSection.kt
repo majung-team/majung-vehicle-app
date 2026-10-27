@@ -1,7 +1,6 @@
 package app.majung.vehicle
 
 import android.app.AlertDialog
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -28,43 +27,45 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
     private val progress: ProgressBar
 
     init {
-        views.addView(views.label("1  장소 확인    →    2  탑승자 초대", 16f))
+        val columns = VehicleColumns(views.context)
+        views.addView(columns)
+        columns.leading.addView(views.label("01  만날 장소", 17f).apply { setTextColor(Color.rgb(74, 109, 135)) })
         destinationText = views.label("", 18f)
-        views.addView(destinationText)
+        columns.leading.addView(destinationText)
         progress = ProgressBar(views.context, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }
-        views.addView(progress)
+        columns.leading.addView(progress)
         val card = LinearLayout(views.context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24.dp, 18.dp, 24.dp, 18.dp)
+            setPadding(24.dp, 26.dp, 24.dp, 26.dp)
             background = GradientDrawable().apply {
                 setColor(Color.rgb(231, 238, 243))
-                cornerRadius = 8.dp.toFloat()
+                cornerRadius = 16.dp.toFloat()
                 setStroke(1.dp, Color.rgb(36, 79, 115))
             }
         }
-        placeName = views.label("장소 확인 중", 25f).apply {
+        placeName = views.label("장소 확인 중", 32f).apply {
             setTypeface(typeface, Typeface.BOLD)
-            maxLines = 1
+            maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(Color.rgb(32, 40, 46))
         }
-        routeDetails = views.label("", 18f).apply { minLines = 1; maxLines = 3; setTextColor(Color.rgb(36, 79, 115)) }
+        routeDetails = views.label("", 22f).apply { minLines = 1; maxLines = 3; setTextColor(Color.rgb(36, 79, 115)) }
         card.addView(placeName)
         card.addView(routeDetails)
-        views.addView(card)
-        directInviteButton = views.button("연결된 탑승자에게 초대") { inviteConnected() }.apply {
+        columns.leading.addView(card)
+        columns.trailing.addView(views.label("02  탑승자 초대", 17f).apply { setTextColor(Color.rgb(74, 109, 135)) })
+        columns.trailing.addView(views.label("누구와 만날까요?", 26f).apply { setTypeface(typeface, Typeface.BOLD) })
+        directInviteButton = views.button("연결된 사람 선택", primary = true, parent = columns.trailing) { inviteConnected() }.apply {
             id = R.id.pickup_invite_contact
-            setTextColor(Color.WHITE)
-            backgroundTintList = ColorStateList.valueOf(Color.rgb(36, 79, 115))
         }
-        createButton = views.button("초대 링크 만들기 · QR로 공유") {
+        createButton = views.button("QR로 초대 링크 공유", parent = columns.trailing) {
             val selected = app.destination.selection.current(SystemClock.elapsedRealtime()) ?: return@button
             if (app.destination.currentStops()?.resolve(selected) != null && !app.destination.addingWaypoint)
                 app.pickup.create(selected, app.destination.referenceFor(selected))
         }.apply { id = R.id.create_pickup }
-        actionHint = views.label("", 16f).also(views::addView)
-        retryButton = views.button("내비 장소 다시 확인") { app.destination.retryPickupPreparation() }
-        addWaypointButton = views.button("다른 장소에서 태우기 · 경유지 추가") {
+        actionHint = views.label("", 17f).also(columns.trailing::addView)
+        retryButton = views.button("내비 장소 다시 확인", parent = columns.leading) { app.destination.retryPickupPreparation() }
+        addWaypointButton = views.button("다른 장소에서 만나기", parent = columns.leading) {
             if (!views.canInteract || !app.pickup.canCreate) return@button
             app.destination.loadRecentPlaces { places ->
                 if (!views.canInteract || !app.pickup.canCreate) return@loadRecentPlaces
@@ -86,7 +87,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
                 }
             }
         }.apply { id = R.id.add_pickup_waypoint }
-        finalDestinationButton = views.button("경유지 대신 최종 목적지에서 만나기") { app.destination.useFinalDestination(); render() }
+        finalDestinationButton = views.button("최종 목적지에서 만나기", parent = columns.leading) { app.destination.useFinalDestination(); render() }
     }
 
     fun render() {
@@ -100,7 +101,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         destinationText.updateText(when {
             app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
             adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
-            ready -> "이 장소에서 만날 사람을 초대해주세요."
+            ready -> "내비에서 확인한 장소예요."
             failure != null -> failure.message
             else -> app.destination.preparationMessage
         })
@@ -109,8 +110,8 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             if (it < 60) "1분 미만" else "약 ${ceil(it / 60.0).toInt()}분"
         } ?: "도착 시간 확인 중"
         routeDetails.updateText(when {
-            stop?.kind == NavigationStopKind.WAYPOINT -> "만날 경유지 · $eta\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
-            ready -> "내비 목적지에서 만나요 · $eta"
+            stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
+            ready -> "$eta 후 도착 예정\n내비 최종 목적지"
             failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤 돌아와주세요."
             else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
         })
@@ -118,12 +119,12 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         directInviteButton.visibility = if (ready || app.pickup.busy) View.VISIBLE else View.GONE
         createButton.visibility = directInviteButton.visibility
         directInviteButton.isEnabled = ready && linked && !app.account.busy
-        directInviteButton.text = if (app.account.busy) "연결된 사람 확인 중…" else "연결된 탑승자에게 초대"
+        directInviteButton.updateText("연결된 사람 선택")
         createButton.isEnabled = ready
         actionHint.updateText(app.account.invitationMessage ?: when {
-            !ready -> "내비 연결·장소 확인은 자동으로 진행돼요. 완료되기 전에는 초대를 보내지 않아요."
+            !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
             !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
-            else -> "직접 초대는 사람을 고른 뒤 전송해요. 링크 초대는 QR을 휴대전화로 열어 전달해요."
+            else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 초대하는 사람은 QR을 휴대전화로 열어 링크를 보내주세요."
         })
         retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
         retryButton.isEnabled = app.pickup.canCreate

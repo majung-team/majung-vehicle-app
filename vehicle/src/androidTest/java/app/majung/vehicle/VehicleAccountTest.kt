@@ -276,6 +276,35 @@ class VehicleAccountTest {
                             val screenshot=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
                             view.draw(android.graphics.Canvas(screenshot))
                             File(app.filesDir,"pickup-start-flow.png").outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                            val root=MainActivity::class.java.getDeclaredField("parkedRoot").apply { isAccessible=true }.get(activity) as android.widget.LinearLayout
+                            val originalWidth=root.width
+                            val originalHeight=root.height
+                            fun checkWindow(widthDp: Int, heightDp: Int, name: String) {
+                                val density=activity.resources.displayMetrics.density
+                                val width=(widthDp*density).toInt()
+                                val height=(heightDp*density).toInt()
+                                root.measure(android.view.View.MeasureSpec.makeMeasureSpec(width,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(height,android.view.View.MeasureSpec.EXACTLY))
+                                root.layout(0,0,width,height)
+                                val button=activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact)
+                                assertTrue("Invite label clipped",button.layout.getLineBottom(button.layout.lineCount-1)<=button.height-button.compoundPaddingTop-button.compoundPaddingBottom)
+                                val scroll=activity.findViewById<android.widget.ScrollView>(R.id.parked_controls)
+                                assertTrue("Content exceeds window",scroll.right<=root.width)
+                                fun columns(view: android.view.View): VehicleColumns? {
+                                    if(view is VehicleColumns && view.isShown) return view
+                                    if(view is android.view.ViewGroup) for(index in 0 until view.childCount) columns(view.getChildAt(index))?.let { return it }
+                                    return null
+                                }
+                                val split=columns(root)!!
+                                assertTrue(split.leading.right<=split.width && split.trailing.right<=split.width)
+                                if(widthDp==900) assertTrue("Narrow actions overlap place",split.trailing.top>=split.leading.bottom)
+                                val bitmap=android.graphics.Bitmap.createBitmap(width,height,android.graphics.Bitmap.Config.ARGB_8888)
+                                root.draw(android.graphics.Canvas(bitmap))
+                                File(app.filesDir,name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                            }
+                            checkWindow(900,1100,"vehicle-layout-narrow.png")
+                            checkWindow(1440,900,"vehicle-layout-wide.png")
+                            root.measure(android.view.View.MeasureSpec.makeMeasureSpec(originalWidth,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(originalHeight,android.view.View.MeasureSpec.EXACTLY))
+                            root.layout(0,0,originalWidth,originalHeight)
                         }
                     }
                     scenario.onActivity { activity ->
@@ -325,6 +354,42 @@ class VehicleAccountTest {
                     scenario.onActivity { activity ->
                         assertTrue(currentDialog(activity).findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("만날 장소가 바뀌었거나"))
                         assertEquals(1,fixture.invitations.get())
+                        currentDialog(activity).dismiss()
+                    }
+                    fun captureTab(key: String, filename: String) {
+                        scenario.onActivity { activity ->
+                            val tabs=MainActivity::class.java.getDeclaredField("tabs").apply { isAccessible=true }.get(activity) as Map<*, *>
+                            (tabs[key] as android.widget.Button).performClick()
+                        }
+                        instrumentation.waitForIdleSync()
+                        scenario.onActivity { activity ->
+                            val parked=activity.findViewById<android.view.View>(R.id.parked_controls)
+                            assertTrue(parked.isShown)
+                            if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                                val view=activity.window.decorView
+                                val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                                view.draw(android.graphics.Canvas(bitmap))
+                                File(app.filesDir,filename).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                            }
+                        }
+                    }
+                    captureTab("requests", "vehicle-requests-layout.png")
+                    captureTab("settings", "vehicle-settings-layout.png")
+                    scenario.onActivity { activity ->
+                        val section=MainActivity::class.java.getDeclaredField("accountSection").apply { isAccessible=true }.get(activity)
+                        (VehicleAccountSection::class.java.getDeclaredField("people").apply { isAccessible=true }.get(section) as VehiclePeopleSection).open()
+                        assertTrue(currentDialog(activity).isShowing)
+                        // A lost system policy must hide the rail as well as content, and close open dialogs.
+                        val monitor=MainActivity::class.java.getDeclaredField("driving").apply { isAccessible=true }.get(activity) as DrivingRestrictionMonitor
+                        monitor.stop()
+                        MainActivity::class.java.getDeclaredMethod("render").apply { isAccessible=true }.invoke(activity)
+                        val tabs=MainActivity::class.java.getDeclaredField("tabs").apply { isAccessible=true }.get(activity) as Map<*, *>
+                        assertTrue(tabs.values.all { !(it as android.widget.Button).isShown && !it.isEnabled })
+                        assertTrue(!activity.findViewById<android.view.View>(R.id.parked_controls).isShown)
+                        assertTrue(activity.findViewById<android.view.View>(R.id.driving_summary).isShown)
+                        val views=MainActivity::class.java.getDeclaredField("views").apply { isAccessible=true }.get(activity)
+                        val dialogs=VehicleViews::class.java.getDeclaredField("dialogs").apply { isAccessible=true }.get(views) as Set<*>
+                        assertTrue(dialogs.filterIsInstance<android.app.AlertDialog>().none { it.isShowing })
                     }
                 }
             } finally {

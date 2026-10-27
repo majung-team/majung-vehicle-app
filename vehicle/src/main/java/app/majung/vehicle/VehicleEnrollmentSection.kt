@@ -5,8 +5,12 @@ import android.view.View
 import android.widget.ImageView
 
 internal class VehicleEnrollmentSection(private val app: VehicleApplication, private val views: VehicleViews) {
+    init {
+        views.addView(views.label("휴대전화로 한 번만 연결하면 돼요", 26f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+        views.addView(views.label("QR 스캔  →  카카오 로그인  →  이 차량에서 본인 확인", 19f))
+    }
     private val message = views.label("", 18f).also(views::addView)
-    private val start = views.button("휴대전화로 시작하기 · QR 만들기") { app.enrollment.start() }
+    private val start = views.button("휴대전화로 시작하기 · QR 만들기", primary = true) { app.enrollment.start() }
     private var dialog: AlertDialog? = null
     private var shownQr: String? = null
     private val showQr = views.button("연결 QR 보기") {

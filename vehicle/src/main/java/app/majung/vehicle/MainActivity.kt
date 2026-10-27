@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var accountSection: VehicleAccountSection
     private lateinit var registrationSection: VehicleRegistrationSection
     private lateinit var parkedScreen: ScrollView
+    private lateinit var parkedRoot: LinearLayout
     private lateinit var drivingSection: DrivingPickupSection
     private lateinit var restrictionText: android.widget.TextView
     private lateinit var creation: PickupCreationSection
@@ -65,33 +66,25 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val layout = object : LinearLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-                val maximum = (1200 * resources.displayMetrics.density).toInt()
+                val maximum = (1360 * resources.displayMetrics.density).toInt()
                 val available = View.MeasureSpec.getSize(widthMeasureSpec)
                 super.onMeasure(View.MeasureSpec.makeMeasureSpec(minOf(available, maximum), View.MeasureSpec.EXACTLY), heightMeasureSpec)
             }
         }.apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 24, 32, 24)
-            setBackgroundColor(Color.rgb(247, 248, 247))
+            setPadding(32.dp, 24.dp, 32.dp, 32.dp)
+            setBackgroundColor(Color.rgb(241, 245, 249))
         }
         driving = DrivingRestrictionMonitor(this) { if (::creation.isInitialized && ::drivingSection.isInitialized) render() }
         views = VehicleViews(this, layout, ::render) { driving.allowed }
-        restrictionText = views.label("차량의 조작 허용 상태를 확인하고 있어요", 18f)
-        views.addView(restrictionText)
-        views.addView(views.label("마중", 30f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-        val navigation = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("pickup" to "픽업", "requests" to "마중 요청", "settings" to "설정").forEach { (key, title) ->
-            val tab = Button(this).apply {
-                text = title; isAllCaps = false; textSize = 18f
-                setOnClickListener { if (driving.allowed) { selectedTab = key; preparePickup(refresh = true); render() } }
-            }
-            tabs[key] = tab
-            navigation.addView(tab, LinearLayout.LayoutParams(0, 64, 1f))
+        restrictionText = views.label("차량 상태 확인 중", 16f).apply {
+            setTextColor(Color.rgb(49, 109, 103))
         }
-        views.addView(navigation)
-        stageTitle = views.label("", 30f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }
-        stageDescription = views.label("", 17f)
-        views.addView(stageTitle); views.addView(stageDescription)
+        views.addView(restrictionText)
+        stageTitle = views.label("", 36f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }
+        stageDescription = views.label("", 18f).apply { setTextColor(Color.rgb(92, 111, 128)) }
+        views.addView(stageTitle)
+        views.addView(stageDescription)
         enrollmentGroup = views.section()
         enrollmentSection = VehicleEnrollmentSection(app, views)
         settingsGroup = views.section()
@@ -119,14 +112,55 @@ class MainActivity : Activity() {
         layout.addView(permissionGroup, layout.indexOfChild(statusGroup))
         parkedScreen = ScrollView(this).apply {
             id = R.id.parked_controls
-            setBackgroundColor(Color.rgb(247,248,247))
+            setBackgroundColor(Color.rgb(241,245,249))
             addView(layout, FrameLayout.LayoutParams(-1,-2,android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
             visibility = View.GONE
+        }
+        val navigation = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16.dp, 28.dp, 16.dp, 24.dp)
+            setBackgroundColor(Color.rgb(17, 38, 56))
+        }
+        navigation.addView(views.label("마중", 30f).apply {
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            setPadding(16.dp, 0, 0, 32.dp)
+        })
+        listOf("pickup" to "픽업", "requests" to "받은 요청", "settings" to "설정").forEach { (key, title) ->
+            val tab = Button(this).apply {
+                text = title
+                isAllCaps = false
+                textSize = 20f
+                gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                setPadding(20.dp, 0, 12.dp, 0)
+                backgroundTintList = null
+                setOnClickListener {
+                    if (driving.allowed && selectedTab != key) {
+                        selectedTab = key
+                        parkedScreen.scrollTo(0, 0)
+                        preparePickup(refresh = true)
+                        render()
+                    }
+                }
+            }
+            tabs[key] = tab
+            navigation.addView(tab, LinearLayout.LayoutParams(-1, 76.dp).apply { bottomMargin = 12.dp })
+        }
+        navigation.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        navigation.addView(views.label("함께 만날 약속", 15f).apply {
+            setTextColor(Color.rgb(161, 183, 200))
+            setPadding(12.dp, 0, 0, 0)
+        })
+        parkedRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            visibility = View.GONE
+            addView(navigation, LinearLayout.LayoutParams(184.dp, -1))
+            addView(parkedScreen, LinearLayout.LayoutParams(0, -1, 1f))
         }
         drivingSection = DrivingPickupSection(this, app)
         drivingSection.render(false, 0, 0)
         setContentView(FrameLayout(this).apply {
-            addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
+            addView(parkedRoot, FrameLayout.LayoutParams(-1, -1))
             addView(drivingSection.root, FrameLayout.LayoutParams(-1, -1))
         })
     }
@@ -165,6 +199,8 @@ class MainActivity : Activity() {
         if (!app.sharingRunning && !startRequested) app.destination.disconnect()
         super.onStop()
     }
+
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     private fun preparePickup(refresh: Boolean = false) {
         if (driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning)
@@ -221,7 +257,7 @@ class MainActivity : Activity() {
                 app.sharingMessage = "위치 권한을 확인한 뒤 다시 시작해주세요"
             }
         }
-        restrictionText.updateText(if (driving.allowed) "정차 중 · 화면 조작 가능" else
+        restrictionText.updateText(if (driving.allowed) "●  정차 중 · 조작 가능" else
             "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
         val hasPickup = app.pickup.pickupId != null
         val active = app.pickup.status in setOf("ACTIVE", "ARRIVED")
@@ -250,7 +286,8 @@ class MainActivity : Activity() {
         })
         stageDescription.updateText(when (selectedTab) {
             "requests" -> "받은 요청을 확인하고 순서대로 픽업할 수 있어요."
-            "settings" -> "휴대전화로 QR을 열고 본인 계정을 연결하면 바로 사용할 수 있어요."
+            "settings" -> if (app.account.state.optString("status") == "LINKED") "운전자 계정과 연결된 사람, 음성 안내를 관리해요."
+                else "처음 한 번 운전자 휴대전화로 연결해주세요."
             else -> if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
                 else if (hasPickup) "픽업을 마치면 위치 공유도 끝나요."
                 else "내비 장소를 확인한 뒤 초대할 사람이나 초대 링크를 선택하세요."
@@ -258,11 +295,25 @@ class MainActivity : Activity() {
         tabs.forEach { (key, tab) ->
             tab.isEnabled = driving.allowed
             tab.isSelected = key == selectedTab
-            tab.setTextColor(if (key == selectedTab) Color.WHITE else Color.rgb(36,79,115))
-            tab.backgroundTintList = android.content.res.ColorStateList.valueOf(if (key == selectedTab) Color.rgb(36,79,115) else Color.rgb(231,238,243))
+            if (tab.tag != selectedTab) {
+                tab.tag = selectedTab
+                tab.setTextColor(android.content.res.ColorStateList(
+                    arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf(android.R.attr.state_pressed), intArrayOf()),
+                    intArrayOf(Color.rgb(17, 48, 70), Color.rgb(17, 48, 70), if (key == selectedTab) Color.rgb(17, 48, 70) else Color.rgb(206, 222, 234))))
+                tab.background = android.graphics.drawable.StateListDrawable().apply {
+                    fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(color)
+                        cornerRadius = 14.dp.toFloat()
+                    }
+                    addState(intArrayOf(android.R.attr.state_pressed), shape(Color.rgb(143, 190, 222)))
+                    addState(intArrayOf(android.R.attr.state_focused), shape(Color.rgb(143, 190, 222)).apply { setStroke(3.dp, Color.WHITE) })
+                    addState(intArrayOf(), shape(if (key == selectedTab) Color.rgb(221, 237, 248) else Color.TRANSPARENT))
+                }
+            }
         }
         views.applyRestrictions()
         val parked = driving.allowed
+        parkedRoot.visibility = if (parked) View.VISIBLE else View.GONE
         parkedScreen.visibility = if (parked) View.VISIBLE else View.GONE
         drivingSection.root.visibility = if (parked) View.GONE else View.VISIBLE
         drivingSection.render(driving.known, driving.stringLimit, driving.itemLimit)

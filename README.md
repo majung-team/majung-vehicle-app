@@ -8,6 +8,8 @@
 - **운영 서버 주소**: https://majung.cloud
 - **최신 릴리즈**: [Releases 페이지에서 시험용 APK 다운로드](https://github.com/majung-team/majung-vehicle-app/releases)
 
+[현재 차량 화면과 사용 순서](docs/service-screens.md)에서 픽업·요청·설정 화면을 볼 수 있다.
+
 ## 개발 환경 및 실행 방법
 
 - **개발 요구사항**: JDK 25, Android SDK API 34, 공식 Pleos AVD 에뮬레이터
@@ -24,7 +26,7 @@
 
 ## 핵심 기능 및 상세 문서
 
-- **[차량 등록 및 서버 연동](docs/vehicle-registration.md)**: 등록 코드를 통한 안전한 차량 권한 발급 및 통신 설정
+- **[차량 등록 및 서버 연동](docs/vehicle-registration.md)**: 차량 연결 정보 저장·권한 확인 및 통신 설정
 - **[차량 화면 UI 및 아키텍처](docs/vehicle-screen.md)**: 정차/주행 상태별 렌더링 구조 및 화면 컴포넌트 설계
 - **[픽업 복구 및 재실행 안정성](docs/pickup-recovery.md)**: 앱 비정상 종료 시 세션 암호화 복구 및 상태 동기화
 - **[백그라운드 위치·ETA 공유](docs/background-sharing.md)**: 화면 이탈 및 백그라운드 환경에서도 포그라운드 서비스를 통한 전송 유지

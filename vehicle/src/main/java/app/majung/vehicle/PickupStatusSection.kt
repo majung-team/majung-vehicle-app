@@ -10,19 +10,19 @@ import android.widget.TextView
 import kotlin.math.ceil
 
 internal class PickupStatusSection(private val app: VehicleApplication, private val views: VehicleViews) {
-    private val connectionText = views.label("", 14f).apply {
+    private val connectionText = views.label("", 16f).apply {
         id = R.id.connection_status; maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
-    private val pickupText = views.label("", 22f).apply {
+    private val pickupText = views.label("", 28f).apply {
         id = R.id.pickup_details; minLines = 1; maxLines = 2
         setTextColor(Color.rgb(36,79,115))
     }
-    private val passenger = views.label("",16f).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }
-    private val readiness = views.label("", 32f).apply { setTypeface(typeface, Typeface.BOLD); minLines = 2; maxLines = 2 }
+    private val passenger = views.label("",20f).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }
+    private val readiness = views.label("", 32f).apply { setTypeface(typeface, Typeface.BOLD); minLines = 1; maxLines = 2 }
     private val eta = views.label("", 46f).apply {
         setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(36,79,115)); gravity = Gravity.END
-        minLines = 2; maxLines = 2
+        minLines = 1; maxLines = 2
     }
     private val sharing = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
     private val problem = views.label("", 17f).apply { setTextColor(Color.rgb(145,81,27)) }
@@ -30,9 +30,9 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         views.addView(connectionText)
         val card = LinearLayout(views.context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(28.dp,20.dp,28.dp,20.dp)
+            setPadding(8.dp,8.dp,8.dp,8.dp)
             background = GradientDrawable().apply {
-                setColor(Color.WHITE); cornerRadius = 16.dp.toFloat(); setStroke(1.dp,Color.rgb(215,222,223))
+                setColor(Color.WHITE); cornerRadius = 16.dp.toFloat()
             }
         }
         card.addView(pickupText)
@@ -77,7 +77,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             pickup.status == "ARRIVED" -> "탑승할 때까지 위치 공유를 유지해요. 탑승했다면 완료해주세요."
             pickup.status == "ACTIVE" && app.sharingRunning -> pickup.vehicleMessage
             pickup.status == "ACTIVE" -> "위치 공유를 시작하면 탑승자가 도착 시간을 확인할 수 있어요."
-            pickup.status == "INVITING" -> "QR을 휴대전화로 열어 초대하거나, 마중 요청 메뉴에서 연결된 사람에게 보내주세요."
+            pickup.status == "INVITING" -> "아래 QR을 운전자 휴대전화로 열고, 탑승자에게 초대 링크를 보내주세요."
             else -> "픽업이 끝나면 위치 공유도 끝나요."
         })
         problem.updateText(pickup.message)
