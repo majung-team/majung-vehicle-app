@@ -35,6 +35,12 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }
     private fun loadContacts(place: PickupPlace, page: Int = 0) {
         if (!views.canInteract || app.account.busy) return
+        if (app.registration.vehicleToken==null || app.account.state.optString("status")!="LINKED") {
+            AlertDialog.Builder(views.context).setTitle("운전자 연결을 확인해주세요")
+                .setMessage("연결 상태가 바뀌었어요. 설정에서 차량과 운전자를 다시 연결한 뒤 초대해주세요.")
+                .setPositiveButton("확인",null).show().also(views::trackDialog)
+            return
+        }
         val vehicleToken=app.registration.vehicleToken
         val driverId=app.account.state.optString("majungId")
         fun sameDriver()=vehicleToken==app.registration.vehicleToken &&
