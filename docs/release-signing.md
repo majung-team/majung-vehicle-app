@@ -1,6 +1,6 @@
 # Release APK 만들기
 
-현재 게시 버전: [0.2.10-preview / versionCode 12](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.10-preview.20261028). 0.2.0 항목은 당시 설치 시험 기록이다.
+현재 게시 버전: [0.2.11-preview / versionCode 13](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.11-preview.20261028). 0.2.0 항목은 당시 설치 시험 기록이다.
 
 제출·팀 시험용 release APK는 마중 HTTPS 주소와 전용 서명 키로 빌드한다.
 

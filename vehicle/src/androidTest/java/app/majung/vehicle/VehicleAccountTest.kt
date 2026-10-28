@@ -250,6 +250,13 @@ class VehicleAccountTest {
                             view.draw(android.graphics.Canvas(bitmap))
                             File(app.filesDir,"people-search-input.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
                         }
+                        if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                            val icon=activity.packageManager.getApplicationIcon(activity.packageName)
+                            val bitmap=android.graphics.Bitmap.createBitmap(256,256,android.graphics.Bitmap.Config.ARGB_8888)
+                            icon.setBounds(0,0,256,256)
+                            icon.draw(android.graphics.Canvas(bitmap))
+                            File(app.filesDir,"vehicle-app-icon.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
                         dialog.findViewById<android.widget.EditText>(R.id.people_search).setText("가상")
                         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
                     }

@@ -1,9 +1,15 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp" android:height="48dp"
-    android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#173B48" android:pathData="M0,0h48v48h-48z" />
+    android:viewportWidth="128" android:viewportHeight="128">
+    <!-- Shared Majung symbol: two people meeting at one point. -->
+    <path android:fillColor="#2669DD"
+        android:pathData="M34,0H94Q128,0 128,34V94Q128,128 94,128H34Q0,128 0,94V34Q0,0 34,0Z" />
     <path android:fillColor="@android:color/transparent"
-        android:strokeColor="#F5CF65" android:strokeWidth="5"
-        android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M10,33L10,15L24,29L38,15L38,33" />
+        android:strokeColor="#FFFFFF" android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:pathData="M32,53c0,24 32,14 32,39M96,53c0,24 -32,14 -32,39" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M22,34a10,10 0,1 0,20 0a10,10 0,1 0,-20 0M86,34a10,10 0,1 0,20 0a10,10 0,1 0,-20 0" />
+    <path android:fillColor="#B9E7FF"
+        android:pathData="M53,94a11,11 0,1 0,22 0a11,11 0,1 0,-22 0" />
 </vector>
