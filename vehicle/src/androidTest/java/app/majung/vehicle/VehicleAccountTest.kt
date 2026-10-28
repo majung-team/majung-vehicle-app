@@ -362,6 +362,22 @@ class VehicleAccountTest {
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity -> currentDialog(activity).dismiss() }
                     assertEquals(1,fixture.invitations.get())
+                    fixture.failContacts.set(true)
+                    scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
+                    await { !account.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        account.state.put("status","UNLINKED")
+                        currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        assertTrue(currentDialog(activity).findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("연결 상태가 바뀌었어요"))
+                        assertFalse(account.busy)
+                        currentDialog(activity).dismiss()
+                        account.state.put("status","LINKED")
+                    }
+                    fixture.failContacts.set(false)
                     fixture.contactsDelay.set(700)
                     scenario.onActivity { activity ->
                         activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick()
