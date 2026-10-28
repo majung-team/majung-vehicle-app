@@ -90,6 +90,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             dialog.getButton(which)?.apply {
                 textSize = 20f
                 isAllCaps = false
+                flattenButtonSurface()
                 minimumHeight = 64.dp
                 (layoutParams as? ViewGroup.MarginLayoutParams)?.let {
                     it.marginStart = 8.dp
@@ -133,6 +134,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
     fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, action: () -> Unit): Button = Button(context).apply {
         text = title
         isAllCaps = false
+        flattenButtonSurface()
         textSize = 20f
         maxLines = 2
         minimumHeight = 72.dp
@@ -161,4 +163,13 @@ internal class VehicleViews(val context: Context, private val container: LinearL
 
 internal fun TextView.updateText(value: String) {
     if (text.toString() != value) text = value
+}
+
+/** Custom rounded backgrounds must not inherit the platform rectangular elevation animator. */
+internal fun Button.flattenButtonSurface() {
+    stateListAnimator = null
+    elevation = 0f
+    translationZ = 0f
+    clipToOutline = true
+    includeFontPadding = false
 }

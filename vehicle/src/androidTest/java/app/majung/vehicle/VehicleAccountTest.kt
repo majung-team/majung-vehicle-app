@@ -369,12 +369,33 @@ class VehicleAccountTest {
                         currentDialog(activity).dismiss()
                     }
                     fun captureTab(key: String, filename: String) {
+                        var moving=false
                         scenario.onActivity { activity ->
                             val tabs=MainActivity::class.java.getDeclaredField("tabs").apply { isAccessible=true }.get(activity) as Map<*, *>
                             (tabs[key] as android.widget.Button).performClick()
                         }
+                        await {
+                            var settled=false
+                            scenario.onActivity { activity ->
+                                val selected=MainActivity::class.java.getDeclaredField("selectedTab").apply { isAccessible=true }.get(activity)
+                                val view=activity.findViewById<android.view.View>(R.id.parked_controls)
+                                if (view.translationX!=0f) moving=true
+                                settled=selected==key && view.alpha==1f && view.translationX==0f
+                            }
+                            settled
+                        }
+                        if (android.animation.ValueAnimator.areAnimatorsEnabled()) assertTrue("Expected a slide between distinct menus",moving)
                         instrumentation.waitForIdleSync()
                         scenario.onActivity { activity ->
+                            fun checkButtonShape(view: android.view.View) {
+                                if (view is android.widget.Button) {
+                                    assertNull("Default button animator must not cast a square shadow",view.stateListAnimator)
+                                    assertEquals(0f,view.elevation,0f)
+                                    assertEquals(0f,view.translationZ,0f)
+                                }
+                                if (view is android.view.ViewGroup) for(index in 0 until view.childCount) checkButtonShape(view.getChildAt(index))
+                            }
+                            checkButtonShape(activity.window.decorView)
                             val parked=activity.findViewById<android.view.View>(R.id.parked_controls)
                             assertTrue(parked.isShown)
                             if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
@@ -384,6 +405,10 @@ class VehicleAccountTest {
                                 File(app.filesDir,filename).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
                             }
                         }
+                    }
+                    scenario.onActivity { activity ->
+                        val tabs=MainActivity::class.java.getDeclaredField("tabs").apply { isAccessible=true }.get(activity) as Map<*, *>
+                        listOf("settings","requests","pickup","settings").forEach { (tabs[it] as android.widget.Button).performClick() }
                     }
                     captureTab("requests", "vehicle-requests-layout.png")
                     captureTab("settings", "vehicle-settings-layout.png")

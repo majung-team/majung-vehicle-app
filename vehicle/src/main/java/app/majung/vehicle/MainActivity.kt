@@ -138,22 +138,8 @@ class MainActivity : Activity() {
                 gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                 setPadding(20.dp, 0, 12.dp, 0)
                 backgroundTintList = null
-                setOnClickListener {
-                    if (driving.allowed && selectedTab != key) {
-                        val order = listOf("pickup", "requests", "settings")
-                        val direction = if (order.indexOf(key) > order.indexOf(selectedTab)) 1 else -1
-                        selectedTab = key
-                        parkedScreen.scrollTo(0, 0)
-                        preparePickup(refresh = true)
-                        render()
-                        parkedScreen.animate().cancel()
-                        if (android.animation.ValueAnimator.areAnimatorsEnabled() && driving.allowed) {
-                            parkedScreen.translationX = direction * 24.dp.toFloat()
-                            parkedScreen.alpha = 0.55f
-                            parkedScreen.animate().translationX(0f).alpha(1f).setDuration(180).start()
-                        } else { parkedScreen.translationX = 0f; parkedScreen.alpha = 1f }
-                    }
-                }
+                flattenButtonSurface()
+                setOnClickListener { if (driving.allowed) changeTab(key) }
             }
             tabs[key] = tab
             navigation.addView(tab, LinearLayout.LayoutParams(-1, 76.dp).apply { bottomMargin = 12.dp })
@@ -167,7 +153,10 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
             addView(navigation, LinearLayout.LayoutParams(184.dp, -1))
-            addView(parkedScreen, LinearLayout.LayoutParams(0, -1, 1f))
+            addView(FrameLayout(this@MainActivity).apply {
+                clipChildren = true
+                addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
+            }, LinearLayout.LayoutParams(0, -1, 1f))
         }
         drivingSection = DrivingPickupSection(this, app)
         drivingSection.render(false, 0, 0)
@@ -204,12 +193,48 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        resetTabMotion()
         driving.stop()
         handler.removeCallbacks(tick)
         app.pickup.changed = null
         app.account.changed = null
         if (!app.sharingRunning && !startRequested) app.destination.disconnect()
         super.onStop()
+    }
+
+    private var tabMotionGeneration = 0
+
+    private fun resetTabMotion() {
+        tabMotionGeneration++
+        parkedScreen.animate().withEndAction(null).cancel()
+        parkedScreen.translationX = 0f
+        parkedScreen.alpha = 1f
+    }
+
+    private fun changeTab(next: String) {
+        resetTabMotion()
+        if (next == selectedTab) return
+        val order = listOf("pickup", "requests", "settings")
+        val direction = if (order.indexOf(next) > order.indexOf(selectedTab)) 1 else -1
+        val generation = tabMotionGeneration
+        fun showNext() {
+            selectedTab = next
+            parkedScreen.scrollTo(0, 0)
+            preparePickup(refresh = true)
+            render()
+        }
+        if (!android.animation.ValueAnimator.areAnimatorsEnabled()) { showNext(); return }
+        val distance = minOf(120.dp.toFloat(), parkedScreen.width * .15f)
+        parkedScreen.animate().translationX(-direction * distance).alpha(0f)
+            .setDuration(100).setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                if (generation != tabMotionGeneration || !driving.allowed || isFinishing) return@withEndAction
+                showNext()
+                parkedScreen.translationX = direction * distance
+                parkedScreen.animate().translationX(0f).alpha(1f).setDuration(220)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                    .withEndAction(null).start()
+            }.start()
     }
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
@@ -336,9 +361,7 @@ class MainActivity : Activity() {
         views.applyRestrictions()
         val parked = driving.allowed
         if (!parked) {
-            parkedScreen.animate().cancel()
-            parkedScreen.translationX = 0f
-            parkedScreen.alpha = 1f
+            resetTabMotion()
         }
         parkedRoot.visibility = if (parked) View.VISIBLE else View.GONE
         parkedScreen.visibility = if (parked) View.VISIBLE else View.GONE

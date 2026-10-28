@@ -16,12 +16,12 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
     }
     private val pickupText = views.label("", 28f).apply {
         id = R.id.pickup_details; minLines = 1; maxLines = 2
-        setTextColor(Color.rgb(36,79,115))
+        setTextColor(Color.rgb(38,105,221))
     }
     private val passenger = views.label("",20f).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }
     private val readiness = views.label("", 32f).apply { setTypeface(typeface, Typeface.BOLD); minLines = 1; maxLines = 2 }
     private val eta = views.label("", 46f).apply {
-        setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(36,79,115)); gravity = Gravity.END
+        setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(38,105,221)); gravity = Gravity.END
         minLines = 1; maxLines = 2
     }
     private val sharing = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
@@ -74,6 +74,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             seconds < 60 -> "곧\n도착"
             else -> "약 ${ceil(seconds/60.0).toInt()}분"
         })
+        eta.visibility = if (eta.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
         sharing.updateText(when {
             !pickup.online -> "서버 연결이 끊겼어요. 이전 도착 시간을 표시하지 않고 연결을 다시 확인해요."
             pickup.needsSharingConfirmation -> "계속하기를 누르기 전에는 위치를 공유하지 않아요."
