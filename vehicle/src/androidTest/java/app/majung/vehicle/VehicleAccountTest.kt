@@ -237,6 +237,13 @@ class VehicleAccountTest {
                     instrumentation.waitForIdleSync()
                     scenario.onActivity { activity ->
                         val dialog=currentDialog(activity)
+                        listOf(android.app.AlertDialog.BUTTON_POSITIVE, android.app.AlertDialog.BUTTON_NEGATIVE).forEach { which ->
+                            val button = dialog.getButton(which)
+                            val parent = button.parent as android.view.ViewGroup
+                            assertTrue("Dialog button top must not be clipped", button.top >= parent.paddingTop)
+                            assertTrue("Dialog button bottom must not be clipped", button.bottom <= parent.height - parent.paddingBottom)
+                            assertNull(button.backgroundTintList)
+                        }
                         if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
                             val view=dialog.window!!.decorView
                             val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
@@ -412,6 +419,38 @@ class VehicleAccountTest {
                     }
                     captureTab("requests", "vehicle-requests-layout.png")
                     captureTab("settings", "vehicle-settings-layout.png")
+                    await { !account.busy }
+                    lateinit var refreshButton: android.widget.Button
+                    var buttonTop = 0
+                    var screenScroll = 0
+                    var readsBefore = 0
+                    scenario.onActivity { activity ->
+                        val section=MainActivity::class.java.getDeclaredField("accountSection").apply { isAccessible=true }.get(activity)
+                        refreshButton=VehicleAccountSection::class.java.getDeclaredField("refresh").apply { isAccessible=true }.get(section) as android.widget.Button
+                        buttonTop=refreshButton.top
+                        screenScroll=activity.findViewById<android.view.View>(R.id.parked_controls).scrollY
+                        fixture.accountDelay.set(500)
+                        readsBefore=fixture.accountReads.get()
+                        refreshButton.performClick()
+                        assertTrue(account.refreshing)
+                        assertTrue(refreshButton.isEnabled)
+                        assertEquals("새로운 정보 확인 중…",refreshButton.text.toString())
+                        assertTrue(account.message.contains("가상운전자"))
+                        refreshButton.performClick()
+                    }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        assertEquals(buttonTop,refreshButton.top)
+                        assertEquals(screenScroll,activity.findViewById<android.view.View>(R.id.parked_controls).scrollY)
+                    }
+                    await { !account.busy }
+                    assertEquals(readsBefore+1,fixture.accountReads.get())
+                    assertFalse(account.refreshing)
+                    fixture.accountDelay.set(0)
+                    scenario.onActivity {
+                        assertEquals("운전자 연결 상태 새로고침",refreshButton.text.toString())
+                    }
+
                     scenario.onActivity { activity ->
                         val section=MainActivity::class.java.getDeclaredField("accountSection").apply { isAccessible=true }.get(activity)
                         (VehicleAccountSection::class.java.getDeclaredField("people").apply { isAccessible=true }.get(section) as VehiclePeopleSection).open()
@@ -435,6 +474,8 @@ class VehicleAccountTest {
         }
     }
     private class Fixture: AutoCloseable {
+        val accountDelay = java.util.concurrent.atomic.AtomicLong(0)
+        val accountReads = AtomicInteger()
         val linked=AtomicBoolean(false); val claimed=AtomicBoolean(false); val authorityCorrect=AtomicBoolean(true)
         val failAccept=AtomicBoolean(false); val malformed=AtomicBoolean(false)
         val invitations=AtomicInteger(); val invitationIds=mutableListOf<String>()
@@ -461,6 +502,10 @@ class VehicleAccountTest {
                 val content=String(input.readNBytes(length),Charsets.UTF_8)
                 val path=request.split(" ")[1]
                 if(path!="/api/v1/config" && headers["authorization"]!="Bearer "+"V".repeat(43)) authorityCorrect.set(false)
+                if (path.endsWith("/account-link")) {
+                    accountReads.incrementAndGet()
+                    SystemClock.sleep(accountDelay.get())
+                }
                 var status=200
                 val body=when {
                     path=="/api/v1/config" -> "{\"developmentToolsEnabled\":false}"

@@ -170,7 +170,10 @@ class MainActivity : Activity() {
         super.onStart()
         driving.start()
         app.pickup.changed = ::render
-        app.account.changed = ::render
+        app.account.changed = {
+            // Account reads only update their section; do not redraw the navigation and pickup surface.
+            if (driving.allowed) accountSection.render(selectedTab == "settings") else render()
+        }
         app.account.refresh()
         // A waypoint request may open the navigation app. Revalidate on return;
         // do not start a location service before a pickup is approved.

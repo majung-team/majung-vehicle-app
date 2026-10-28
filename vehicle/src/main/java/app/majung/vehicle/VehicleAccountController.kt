@@ -15,6 +15,8 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     var changed: (() -> Unit)? = null
     var busy = false
         private set
+    var refreshing = false
+        private set
     var state = JSONObject()
         private set
     var requestsCheckedAt = 0L
@@ -40,8 +42,8 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
     }
-    fun refresh(loaded: (() -> Unit)? = null) {
-        execute(loaded = loaded) {
+    fun refresh(showProgress: Boolean = false, loaded: (() -> Unit)? = null) {
+        execute(loaded = loaded, refreshingAccount = showProgress) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
             val list=if (account.optString("status")=="LINKED") api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests") else org.json.JSONArray()
             JSONObject().put("account",account).put("requests",list)
@@ -99,11 +101,12 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
     }
-    private fun execute(loaded: (() -> Unit)? = null, invitationFeedback: Boolean = false, call: (String) -> JSONObject) {
+    private fun execute(loaded: (() -> Unit)? = null, invitationFeedback: Boolean = false, refreshingAccount: Boolean = false, call: (String) -> JSONObject) {
         val token=registration.vehicleToken ?: return
         if (busy) return
         val epoch=generation
         if (invitationFeedback) invitationMessage = null
+        refreshing = refreshingAccount
         busy=true; changed?.invoke()
         worker.execute {
             val result=runCatching {
@@ -120,6 +123,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             }
             handler.post {
                 busy=false
+                refreshing=false
                 if (epoch!=generation || token!=registration.vehicleToken) { changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
                     data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }

@@ -104,7 +104,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     private val emptyRequests=views.label("아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요.",19f).also(views::addView)
     private var renderedRequests = ""
     private val manageConnections=views.button("사람 찾기 · 연결 관리") { people.open() }
-    private val refresh=views.button("요청 목록 새로고침") { app.account.refresh() }
+    private val refresh=views.button("요청 목록 새로고침", refreshAfterAction = false) { if (!app.account.busy) app.account.refresh(showProgress = true) }
     private fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
         val id=item.getString("requestId")
@@ -177,8 +177,15 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         confirm.visibility=if (settings && state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
         confirm.isEnabled=!app.account.busy
         inbox.isEnabled=state=="LINKED" && !app.account.busy
-        refresh.updateText(if (settings) "운전자 연결 상태 새로고침" else "요청 목록 새로고침")
-        refresh.isEnabled=!app.account.busy && app.registration.vehicleToken!=null
+        refresh.updateText(when {
+            app.account.refreshing -> "새로운 정보 확인 중…"
+            settings -> "운전자 연결 상태 새로고침"
+            else -> "요청 목록 새로고침"
+        })
+        // Keep the pressed surface and layout stable; the controller rejects duplicate requests.
+        refresh.isEnabled=app.registration.vehicleToken!=null
+        refresh.contentDescription = if (app.account.refreshing) "새로운 정보를 확인하고 있어요" else refresh.text
+        refresh.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
     }
     private fun dp(value: Int) = (value * views.context.resources.displayMetrics.density).toInt()
