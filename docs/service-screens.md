@@ -86,3 +86,5 @@
 ![픽업 화면](media/light-pickup-screen-2026-10-28.png)
 
 ![사람 검색 입력창](media/people-search-input-2026-10-28.png)
+
+버튼 모서리·슬라이드·화면 크기별 확인 결과는 [차량 화면 점검](ui-audit-2026-10-28.md)에 정리했다.
