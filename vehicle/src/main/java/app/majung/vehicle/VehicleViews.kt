@@ -86,16 +86,25 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
             setPadding(paddingLeft, paddingTop + 8.dp, paddingRight, paddingBottom + 16.dp)
         }
+        // The platform ButtonBarLayout baseline can place taller custom buttons above its bounds.
+        (dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.parent as? LinearLayout)?.apply {
+            isBaselineAligned = false
+            gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
+            setPadding(24.dp, 12.dp, 24.dp, 20.dp)
+            minimumHeight = 96.dp
+        }
         listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL).forEach { which ->
             dialog.getButton(which)?.apply {
                 textSize = 20f
                 isAllCaps = false
                 flattenButtonSurface()
                 minimumHeight = 64.dp
+                backgroundTintList = null
                 (layoutParams as? ViewGroup.MarginLayoutParams)?.let {
                     it.marginStart = 8.dp
-                    it.topMargin = 12.dp
-                    it.bottomMargin = 8.dp
+                    it.topMargin = 0
+                    it.bottomMargin = 0
+                    it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                     layoutParams = it
                 }
                 minWidth = 120.dp
@@ -131,7 +140,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         setLineSpacing(3.dp.toFloat(), 1f)
     }
 
-    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, action: () -> Unit): Button = Button(context).apply {
+    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, refreshAfterAction: Boolean = true, action: () -> Unit): Button = Button(context).apply {
         text = title
         isAllCaps = false
         flattenButtonSurface()
@@ -153,7 +162,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             addState(intArrayOf(), shape(if (primary) Color.rgb(38, 105, 221) else Color.rgb(242, 244, 247)))
         }
         setPadding(16.dp, 12.dp, 16.dp, 12.dp)
-        setOnClickListener { if (canInteract) action(); onAction() }
+        setOnClickListener { if (canInteract) action(); if (refreshAfterAction) onAction() }
         buttons.add(this)
         (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8.dp })
     }
