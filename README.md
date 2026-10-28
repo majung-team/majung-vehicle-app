@@ -8,7 +8,7 @@
 
 ## 바로 시험하기
 
-1. [서명 APK 0.2.11-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.11-preview.20261028)를 공식 Pleos 에뮬레이터에 설치한다.
+1. [서명 APK 0.2.12-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.12-preview.20261029)를 공식 Pleos 에뮬레이터에 설치한다.
 2. 앱 목록의 **마중**을 연다. **마중 SDK 확인**은 진단용이며 일반 이용에 필요 없다.
 3. 처음 한 번 **휴대전화로 시작하기 · QR 만들기** → 운전자 본인 카카오 로그인 → 차량에서 계정 확인 순서로 연결한다. 관리자 코드는 필요 없다.
 4. 내비에서 경로 안내를 시작한 뒤 **픽업**으로 돌아온다. 장소 확인이 끝나면 **연결된 사람 선택** 또는 **QR로 초대 링크 공유**를 고른다.

@@ -30,8 +30,31 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }
     fun inviteSelectedPlace() {
         val selected = selectedPlace() ?: return
-        if (!views.canInteract || app.account.state.optString("status") != "LINKED") return
-        app.account.loadContacts { if (views.canInteract && selectedPlace()?.sameCoordinates(selected) == true) showContacts(selected) }
+        if (!views.canInteract || app.account.busy || app.account.state.optString("status") != "LINKED") return
+        loadContacts(selected)
+    }
+    private fun loadContacts(place: PickupPlace, page: Int = 0) {
+        if (!views.canInteract || app.account.busy) return
+        val vehicleToken=app.registration.vehicleToken
+        val driverId=app.account.state.optString("majungId")
+        fun sameDriver()=vehicleToken==app.registration.vehicleToken &&
+            driverId==app.account.state.optString("majungId") && app.account.state.optString("status")=="LINKED"
+        val waiting=AlertDialog.Builder(views.context).setTitle("초대할 사람을 불러오고 있어요")
+            .setMessage("연결된 사람 중에서 초대할 사람을 고를 수 있어요.")
+            .setNegativeButton("닫기",null).show().also(views::trackDialog)
+        app.account.loadContacts(page, failed = {
+            val visible=waiting.isShowing
+            waiting.dismiss()
+            if(visible && views.canInteract && sameDriver()) AlertDialog.Builder(views.context)
+                .setTitle("연결 목록을 불러오지 못했어요")
+                .setMessage("인터넷 연결을 확인한 뒤 다시 시도해주세요. 초대는 보내지 않았어요.")
+                .setPositiveButton("다시 시도") { _,_-> if(invitationPlaceStillCurrent(place)) loadContacts(place,page) }
+                .setNegativeButton("닫기",null).show().also(views::trackDialog)
+        }) {
+            val visible=waiting.isShowing
+            waiting.dismiss()
+            if(visible && views.canInteract && sameDriver() && selectedPlace()?.sameCoordinates(place)==true) showContacts(place)
+        }
     }
     private fun selectedPlace(): PickupPlace? {
         val selected = app.destination.selection.current(android.os.SystemClock.elapsedRealtime()) ?: return null
@@ -69,10 +92,10 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         }
         if (page == 0 && items.isNotEmpty()) dialog.setNeutralButton("사람 추가") { _, _ -> people.open() }
         if (page > 0) dialog.setNeutralButton("이전 사람들") { _, _ ->
-            if (views.canInteract) app.account.loadContacts(page - 1) { if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true) showContacts(place) }
+            loadContacts(place,page-1)
         }
         if (items.size == 20 && page < 50) dialog.setPositiveButton("다음 사람들") { _, _ ->
-            if (views.canInteract) app.account.loadContacts(page + 1) { if (views.canInteract && selectedPlace()?.sameCoordinates(place) == true) showContacts(place) }
+            loadContacts(place,page+1)
         }
         dialog.show().also(views::trackDialog)
     }
@@ -85,9 +108,9 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             contentDescription="사람 연결을 위한 마중 웹 QR"
         }
         AlertDialog.Builder(views.context).setTitle("휴대전화로 사람 연결하기")
-            .setMessage("1. QR을 운전자 휴대전화로 열어 차량에 연결한 계정으로 로그인해주세요.\n2. ‘내 연결’에서 사람을 찾아 연결하고 상대방의 승인을 받아주세요.\n3. 아래 버튼으로 연결 목록을 다시 확인해주세요.")
+            .setMessage("1. QR을 운전자 휴대전화로 열어 차량에 연결한 계정으로 로그인해주세요.\n2. ‘사람 찾기’에서 연결을 요청하고 상대방의 승인을 받아주세요.\n3. 아래 버튼으로 차량에서도 연결된 사람을 확인할 수 있어요.")
             .setView(image)
-            .setPositiveButton("연결 목록 다시 확인") { _, _ -> if (views.canInteract) inviteSelectedPlace() }
+            .setPositiveButton("연결된 사람 보기") { _, _ -> if (views.canInteract) people.showConnections() }
             .setNegativeButton("닫기",null).show().also(views::trackDialog)
     }
     private val inbox=views.button("받은 마중 요청과 픽업 대기 목록") {

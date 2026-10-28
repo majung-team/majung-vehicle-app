@@ -49,9 +49,9 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("account",account).put("requests",list)
         }
     }
-    fun loadContacts(page: Int = 0, loaded: () -> Unit) {
+    fun loadContacts(page: Int = 0, failed: (() -> Unit)? = null, loaded: () -> Unit) {
         if (page !in 0..50) return
-        execute(loaded = loaded, invitationFeedback = true) { token ->
+        execute(loaded = loaded, failed = failed, invitationFeedback = true) { token ->
             JSONObject().put("contacts", api.requestApi("GET", "/vehicles/connections?page=$page", token).getJSONArray("items")).put("contactsPage", page)
         }
     }
@@ -101,7 +101,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
     }
-    private fun execute(loaded: (() -> Unit)? = null, invitationFeedback: Boolean = false, refreshingAccount: Boolean = false, call: (String) -> JSONObject) {
+    private fun execute(loaded: (() -> Unit)? = null, failed: (() -> Unit)? = null, invitationFeedback: Boolean = false, refreshingAccount: Boolean = false, call: (String) -> JSONObject) {
         val token=registration.vehicleToken ?: return
         if (busy) return
         val epoch=generation
@@ -124,7 +124,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             handler.post {
                 busy=false
                 refreshing=false
-                if (epoch!=generation || token!=registration.vehicleToken) { changed?.invoke(); return@post }
+                if (epoch!=generation || token!=registration.vehicleToken) { failed?.invoke(); changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
                     data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }
                     data.optJSONArray("requests")?.let { array -> requests=(0 until array.length()).map { array.getJSONObject(it) }; requestsCheckedAt = SystemClock.elapsedRealtime() }
@@ -158,6 +158,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                     } else "처리 결과를 확인하지 못했어요. 상태를 다시 확인해주세요"
                     if (invitationFeedback) invitationMessage = message
                     if (failure is ApiRejected && failure.status in setOf(401,403,410)) { qr=null; requests=emptyList(); state=JSONObject() }
+                    failed?.invoke()
                 })
                 changed?.invoke()
             }
