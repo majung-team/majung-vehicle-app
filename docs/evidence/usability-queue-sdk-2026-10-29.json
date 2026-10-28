@@ -1,0 +1,15 @@
+{
+  "publicServer": false,
+  "physicalPhone": false,
+  "newPassengerAcceptedWhileAnotherActive": true,
+  "queuedTrackingDenied": true,
+  "concurrentPickupDenied": true,
+  "finalDestinationPreserved": true,
+  "sdkWaypointMatched": true,
+  "sharingWaitedForConfirmation": true,
+  "sdkWaypointEtaShared": true,
+  "readinessReceived": true,
+  "completedTrackingDenied": true,
+  "nextPickupAvailable": true,
+  "result": "passed"
+}

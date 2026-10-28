@@ -258,7 +258,8 @@ class VehicleAccountTest {
                             File(app.filesDir,"vehicle-app-icon.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
                         }
                         dialog.findViewById<android.widget.EditText>(R.id.people_search).setText("가상")
-                        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                        dialog.findViewById<android.widget.EditText>(R.id.people_search)
+                            .onEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH)
                     }
                     await { !app.people.busy }
                     instrumentation.waitForIdleSync()
@@ -341,6 +342,40 @@ class VehicleAccountTest {
                     }
                     await { !account.busy && fixture.invitations.get()==1 }
                     assertEquals("connection-second",fixture.invitedConnection)
+                    fixture.failContacts.set(true)
+                    scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
+                    await { !account.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val dialog=currentDialog(activity)
+                        assertTrue(dialog.findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("초대는 보내지 않았어요"))
+                        if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
+                            val view=dialog.window!!.decorView
+                            val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
+                            view.draw(android.graphics.Canvas(bitmap))
+                            File(app.filesDir,"contacts-retry.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                        }
+                        fixture.failContacts.set(false)
+                        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    await { !account.busy && account.contacts.size==2 }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity -> currentDialog(activity).dismiss() }
+                    assertEquals(1,fixture.invitations.get())
+                    fixture.contactsDelay.set(700)
+                    scenario.onActivity { activity ->
+                        activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick()
+                        assertTrue(currentDialog(activity).findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("초대할 사람"))
+                        currentDialog(activity).getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick()
+                    }
+                    await { !account.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        val views=MainActivity::class.java.getDeclaredField("views").apply { isAccessible=true }.get(activity)
+                        val dialogs=VehicleViews::class.java.getDeclaredField("dialogs").apply { isAccessible=true }.get(views) as Set<*>
+                        assertTrue(dialogs.filterIsInstance<android.app.AlertDialog>().none { it.isShowing })
+                    }
+                    fixture.contactsDelay.set(0)
                     fixture.emptyContacts.set(true)
                     scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
                     await { !account.busy && account.contacts.isEmpty() }
@@ -358,14 +393,22 @@ class VehicleAccountTest {
                     scenario.onActivity { activity ->
                         val dialog=currentDialog(activity)
                         assertTrue(dialog.findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("차량에 연결한 계정"))
-                        assertEquals("연결 목록 다시 확인",dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text.toString())
+                        assertEquals("연결된 사람 보기",dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).text.toString())
                         if (InstrumentationRegistry.getArguments().getString("screenshots")=="true") {
                             val view=dialog.window!!.decorView
                             val bitmap=android.graphics.Bitmap.createBitmap(view.width,view.height,android.graphics.Bitmap.Config.ARGB_8888)
                             view.draw(android.graphics.Canvas(bitmap))
                             File(app.filesDir,"connections-entry.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
                         }
-                        dialog.dismiss()
+                        app.destination.selection.invalidate()
+                        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick()
+                    }
+                    await { !app.people.busy }
+                    instrumentation.waitForIdleSync()
+                    scenario.onActivity { activity ->
+                        assertTrue(currentDialog(activity).findViewById<android.widget.TextView>(android.R.id.message).text.toString().contains("아직 연결된 사람이나 요청이 없어요"))
+                        currentDialog(activity).dismiss()
+                        app.destination.selection.receive("초대 시험 장소",37.3,127.3,SystemClock.elapsedRealtime())
                     }
                     fixture.emptyContacts.set(false)
                     scenario.onActivity { activity -> activity.findViewById<android.widget.Button>(R.id.pickup_invite_contact).performClick() }
@@ -491,6 +534,8 @@ class VehicleAccountTest {
         var peopleDriver: String?=null
         val twoContacts=AtomicBoolean(false)
         val emptyContacts=AtomicBoolean(false)
+        val failContacts=AtomicBoolean(false)
+        val contactsDelay=java.util.concurrent.atomic.AtomicLong(0)
         var invitedConnection: String?=null
         val failInvitation=AtomicBoolean(false)
         val confirmations=AtomicInteger(); val accepts=AtomicInteger()
@@ -527,9 +572,11 @@ class VehicleAccountTest {
                     }
                     path.startsWith("/api/v1/vehicles/people/connections?") -> JSONObject().put("items",org.json.JSONArray()).toString()
                     path.startsWith("/api/v1/vehicles/connections?") -> {
+                        SystemClock.sleep(contactsDelay.get())
                         val items=org.json.JSONArray().put(JSONObject().put("connectionId","connection-test").put("nickname","가상탑승자B").put("majungId","MJ-2222222222"))
                         if(twoContacts.get()) items.put(JSONObject().put("connectionId","connection-second").put("nickname","가상탑승자C").put("majungId","MJ-3333333333"))
-                        JSONObject().put("items",if(emptyContacts.get()) org.json.JSONArray() else items).toString()
+                        if(failContacts.get()) { status=503; "{\"code\":\"TEST_UNAVAILABLE\",\"message\":\"시험 연결 오류\"}" }
+                        else JSONObject().put("items",if(emptyContacts.get()) org.json.JSONArray() else items).toString()
                     }
                     path.endsWith("/invitations") -> {
                         val posted=JSONObject(content); invitedConnection=posted.getString("connectionId"); invitations.incrementAndGet(); invitationIds.add(posted.getString("requestId"))

@@ -69,7 +69,13 @@ class QueuedPickupSdkTest {
 
                 val firstId = input.getString("pickupId")
                 val firstOwner = input.getString("driverToken")
-                api.request("POST", "/$firstId/arrival", firstOwner)
+                try {
+                    val first=api.request("GET", "/$firstId", firstOwner)
+                    api.request("POST", "/$firstId/arrival", firstOwner,
+                        JSONObject().put("placeVersion",first.getLong("placeVersion")))
+                } catch(error: ApiRejected) {
+                    throw AssertionError("First fixture pickup arrival rejected: ${error.status}/${error.code}")
+                }
                 api.request("POST", "/$firstId/completion", firstOwner)
                 main.runOnMainSync {
                     app.destination.connect()

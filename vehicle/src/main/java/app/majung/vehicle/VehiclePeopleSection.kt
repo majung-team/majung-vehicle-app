@@ -19,6 +19,10 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
         owner=currentDriver()
         if(allowed() && !controller.busy) searchInput()
     }
+    fun showConnections() {
+        owner=currentDriver()
+        if(allowed() && !controller.busy) connections(0)
+    }
     fun open() {
         owner=currentDriver()
         if(!allowed() || controller.busy) return
@@ -34,6 +38,7 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
             hint="닉네임 또는 마중 ID"
             textSize=20f
             isSingleLine=true
+            imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             filters=arrayOf(InputFilter.LengthFilter(32))
         }
         val dialog=AlertDialog.Builder(views.context).setTitle("누구를 찾을까요?")
@@ -51,6 +56,12 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
             if(query.length<2) { input.error="두 글자 이상 입력해주세요."; return@setOnClickListener }
             dialog.dismiss()
             search(query,0)
+        }
+        input.setOnEditorActionListener { _,actionId,event ->
+            val searchAction=actionId==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                (event?.keyCode==android.view.KeyEvent.KEYCODE_ENTER && event.action==android.view.KeyEvent.ACTION_UP)
+            if(searchAction) dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            searchAction
         }
     }
     private fun load(call: ((JSONObject?,String?)->Unit)->Unit, loaded: (JSONObject)->Unit) {
