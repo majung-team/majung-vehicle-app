@@ -1,6 +1,10 @@
 package app.majung.vehicle
 
+import ai.pleos.playground.navi.data.RouteInfo
+import ai.pleos.playground.navi.helper.NaviHelper
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -23,32 +27,65 @@ class VehicleDemoRecordingTest {
 
     @Test fun pickupWithPassengerBrowser() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("recordDemo") == "true")
+        assumeTrue(BuildConfig.DEBUG && BuildConfig.PICKUP_API == "http://10.0.2.2:8080")
         assertTrue(Build.MODEL.contains("emulator", true))
         folder.mkdirs()
         folder.listFiles()?.forEach { it.delete() }
         val controller = app.pickup
+        val api = PickupApiClient()
+        val acceptedBefore = app.sharingNotice.accepted
+        val place = PickupPlace("시연 만남 장소", 37.5, 127.03)
+        var helper: NaviHelper? = null
+        var connected = false
+        var id: String? = null
+        var owner: String? = null
         try {
-            instrumentation.runOnMainSync { controller.prepareNextPickup() }
-            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                press(scenario, "내비게이션 연결")
-                await("Navigation destination missing") {
-                    app.destination.selection.current(SystemClock.elapsedRealtime()) != null
+            assertTrue(app.sharingNotice.accept())
+            instrumentation.runOnMainSync {
+                helper = NaviHelper(app).also {
+                    it.initialize(onConnected = { Handler(Looper.getMainLooper()).post { connected = true } }, onFailed = {})
                 }
+                app.destination.connect()
+            }
+            await("SDK connection missing", 65_000) { connected }
+            instrumentation.runOnMainSync {
+                helper!!.requestRoute(RouteInfo(place.latitude, place.longitude, poiName = place.label,
+                    poiId = "", address = "", poiSubId = "0"))
+            }
+            await("SDK route missing", 65_000) {
+                app.destination.pollTelemetry()
+                app.destination.currentStops()?.destination?.place?.sameCoordinates(place) == true &&
+                    app.destination.telemetry.current(place, SystemClock.elapsedRealtime()) != null
+            }
+            // Setup only: creation uses the local API; the video must label this fixture explicitly.
+            val created = api.create(place)
+            id = created.getString("pickupId")
+            owner = created.getString("driverToken")
+            EncryptedPickupSessionStore(app).save(SavedPickupSession(id!!, owner!!, created.getString("inviteToken"), 0))
+            instrumentation.runOnMainSync { controller.restoreSession() }
+            await("Fixture restore failed") { controller.online && !controller.busy }
+            instrumentation.runOnMainSync { controller.confirmRecoveredSharing() }
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                app.startActivity(android.content.Intent(app, MainActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                 phase("ready")
                 gate("create")
-                press(scenario, "이 장소로 픽업 만들기")
-                await("Creation failed") { controller.pickupId != null && !controller.busy }
-                var invitation: String? = null
-                instrumentation.runOnMainSync { invitation = controller.invitationForHostBrowser() }
-                assertTrue("Invitation missing", invitation != null)
+                val invitation = "http://127.0.0.1:4173/#join/$id/${created.getString("inviteToken")}"
                 File(folder, "invitation.json").writeText(JSONObject().put("inviteLink", invitation).toString())
                 phase("inviting")
                 await("Passenger did not connect", 180_000) { controller.status == "ACTIVE" && !controller.busy }
                 phase("active")
+                press(scenario, "화면 밖에서도 공유 시작")
+                await("SDK telemetry upload failed", 65_000) {
+                    app.destination.pollTelemetry()
+                    controller.syncVehicle(app.destination)
+                    app.sharingRunning && controller.vehicleMessage.contains("최신")
+                }
+                phase("sdk-visible")
                 await("Passenger not ready", 180_000) { controller.readiness == "READY" }
                 phase("passenger-ready")
                 gate("arrive")
-                press(scenario, "도착 알리기 · 공유 유지")
+                press(scenario, "도착 알리기")
                 confirm("도착 알리기")
                 await("Arrival failed") { controller.status == "ARRIVED" && !controller.busy }
                 phase("arrived")
@@ -56,6 +93,7 @@ class VehicleDemoRecordingTest {
                 press(scenario, "탑승 확인 · 픽업 완료")
                 confirm("탑승 확인하고 완료")
                 await("Completion failed") { controller.status == "COMPLETED" && !controller.busy }
+                File(folder, "summary.json").writeText("""{"result":"passed","sdkAndLocalHttp":true,"fixtureCreation":true,"readinessReceived":true,"arrival":"manual","completed":true}""")
                 phase("completed")
                 gate("finish")
             }
@@ -64,10 +102,14 @@ class VehicleDemoRecordingTest {
                 instrumentation.runOnMainSync {
                     if (controller.canCancel) controller.cancel()
                     app.destination.disconnect()
+                    helper?.release()
                 }
                 await("Cleanup still busy") { !controller.busy }
             } finally {
-                folder.listFiles()?.forEach { it.delete() }
+                if (id != null && owner != null) runCatching { api.request("POST", "/$id/cancellation", owner) }
+                EncryptedPickupSessionStore(app).clear()
+                if (acceptedBefore) app.sharingNotice.accept() else app.sharingNotice.withdraw()
+                folder.listFiles()?.filter { it.name != "summary.json" }?.forEach { it.delete() }
             }
         }
     }
@@ -88,10 +130,15 @@ class VehicleDemoRecordingTest {
 
     private fun confirm(text: String) {
         instrumentation.waitForIdleSync()
-        val button = instrumentation.uiAutomation.rootInActiveWindow
-            ?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.text?.toString() == text && it.isClickable }
-            ?: throw AssertionError("Confirmation missing")
-        assertTrue(button.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        val until = SystemClock.elapsedRealtime() + 10_000
+        var clicked = false
+        while (!clicked && SystemClock.elapsedRealtime() < until) {
+            val button = instrumentation.uiAutomation.rootInActiveWindow
+                ?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.text?.toString() == text && it.isClickable }
+            clicked = button?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+            if (!clicked) SystemClock.sleep(200)
+        }
+        assertTrue("Confirmation missing", clicked)
         instrumentation.waitForIdleSync()
     }
 
