@@ -19,6 +19,8 @@ import android.view.View
 class MainActivity : Activity() {
     private val app: VehicleApplication get() = application as VehicleApplication
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var noticeScreen: ScrollView
+    private lateinit var noticeGroup: LinearLayout
     private lateinit var driving: DrivingRestrictionMonitor
     private lateinit var views: VehicleViews
     private lateinit var accountSection: VehicleAccountSection
@@ -158,11 +160,83 @@ class MainActivity : Activity() {
                 addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
             }, LinearLayout.LayoutParams(0, -1, 1f))
         }
+        views.useRoot()
+        noticeGroup = views.section()
+        views.addView(views.label("위치 공유와 개인정보", 24f))
+        views.button("공유 안내 다시 보기") {
+            android.app.AlertDialog.Builder(this).setTitle("위치 공유 안내")
+                .setMessage(SharingNotice.TEXT).setPositiveButton("확인", null)
+                .show().also(views::trackDialog)
+        }
+        views.button("사용 동의 철회") {
+            if (app.pickup.pickupId != null && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED")) {
+                android.app.AlertDialog.Builder(this).setTitle("먼저 픽업을 종료해주세요")
+                    .setMessage("현재 픽업을 완료하거나 취소하면 위치 접근이 끝나요. 서버에서 종료를 확인한 뒤 동의를 철회할 수 있어요.")
+                    .setPositiveButton("현재 픽업 보기") { _, _ -> if (driving.allowed) changeTab("pickup") }
+                    .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+            } else android.app.AlertDialog.Builder(this).setTitle("사용 동의를 철회할까요?")
+                .setMessage("새 위치 공유를 시작하지 않아요. 계정 삭제나 차량 연결 해제와는 달라요.")
+                .setPositiveButton("동의 철회") { _, _ ->
+                    if (driving.allowed && app.sharingNotice.withdraw()) {
+                        stopService(Intent(this, PickupSharingService::class.java))
+                        app.destination.disconnect()
+                        app.voice.setEnabled(false)
+                        render()
+                    }
+                }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+        }
+        val noticeContent = object : LinearLayout(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val width = minOf(View.MeasureSpec.getSize(widthMeasureSpec), 1040.dp)
+                super.onMeasure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), heightMeasureSpec)
+            }
+        }.apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40.dp, 32.dp, 40.dp, 40.dp)
+            setBackgroundColor(Color.WHITE)
+            addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+            addView(views.label(SharingNotice.TEXT, 20f))
+            addView(Button(this@MainActivity).apply {
+                text = "위치 공유 안내에 동의하고 시작"
+                textSize = 22f
+                minimumHeight = 76.dp
+                flattenButtonSurface()
+                backgroundTintList = null
+                setTextColor(Color.WHITE)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.rgb(38, 105, 221)); cornerRadius = 16.dp.toFloat()
+                }
+                setOnClickListener {
+                    if (driving.allowed && app.sharingNotice.accept()) {
+                        preparePickup(refresh = true)
+                        render()
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
+            addView(Button(this@MainActivity).apply {
+                text = "지금은 사용하지 않기"
+                flattenButtonSurface()
+                backgroundTintList = null
+                setTextColor(Color.rgb(51, 61, 75))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.rgb(242, 244, 247)); cornerRadius = 16.dp.toFloat()
+                }
+                textSize = 20f
+                minimumHeight = 72.dp
+                setOnClickListener { finish() }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
+        }
+        noticeScreen = ScrollView(this).apply {
+            setBackgroundColor(Color.rgb(247, 248, 250))
+            addView(noticeContent, FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
+            visibility = View.GONE
+        }
         drivingSection = DrivingPickupSection(this, app)
         drivingSection.render(false, 0, 0)
         setContentView(FrameLayout(this).apply {
             addView(parkedRoot, FrameLayout.LayoutParams(-1, -1))
             addView(drivingSection.root, FrameLayout.LayoutParams(-1, -1))
+            addView(noticeScreen, FrameLayout.LayoutParams(-1, -1))
         })
     }
 
@@ -177,7 +251,7 @@ class MainActivity : Activity() {
         app.account.refresh()
         // A waypoint request may open the navigation app. Revalidate on return;
         // do not start a location service before a pickup is approved.
-        if (app.destination.addingWaypoint) app.destination.connect()
+        if (app.sharingNotice.accepted && app.destination.addingWaypoint) app.destination.connect()
         preparePickup(refresh = true)
         render()
         handler.postDelayed(tick, 1000)
@@ -243,12 +317,12 @@ class MainActivity : Activity() {
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     private fun preparePickup(refresh: Boolean = false) {
-        if (driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning)
+        if (app.sharingNotice.accepted && driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning)
             app.destination.prepareForPickup(refresh)
     }
 
     private fun requestSharingPermission() {
-        if (!driving.allowed) return
+        if (!driving.allowed || !app.sharingNotice.accepted) return
         if (!PickupSharingService.hasLocationPermission(this)) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 32)
         } else {
@@ -272,6 +346,15 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        if (!app.sharingNotice.accepted) {
+            val parked = driving.allowed
+            if (::noticeScreen.isInitialized) noticeScreen.visibility = if (parked) View.VISIBLE else View.GONE
+            parkedRoot.visibility = View.GONE
+            drivingSection.root.visibility = if (parked) View.GONE else View.VISIBLE
+            drivingSection.render(driving.known, driving.stringLimit, driving.itemLimit)
+            return
+        }
+        noticeScreen.visibility = View.GONE
         app.requestFlow.tick()
         if (app.requestFlow.stage == RequestPickupFlow.Stage.DONE) {
             val place = app.pickup.place
@@ -310,11 +393,16 @@ class MainActivity : Activity() {
             "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
         val hasPickup = app.pickup.pickupId != null
         val active = app.pickup.status in setOf("ACTIVE", "ARRIVED")
-        fun show(view: View, visible: Boolean) { view.visibility = if (visible) View.VISIBLE else View.GONE }
+        fun show(view: View, visible: Boolean) {
+            val hasContent = view !is android.view.ViewGroup ||
+                (0 until view.childCount).any { view.getChildAt(it).visibility != View.GONE }
+            view.visibility = if (visible && hasContent) View.VISIBLE else View.GONE
+        }
         val needsConnection = app.registration.needsRegistration
         show(enrollmentGroup, needsConnection)
         show(settingsGroup, selectedTab == "settings")
         show(voiceGroup, selectedTab == "settings")
+        show(noticeGroup, selectedTab == "settings")
         show(accountGroup, !needsConnection && (selectedTab == "settings" || (selectedTab == "requests" && !app.requestFlow.visible)))
         show(createGroup, selectedTab == "pickup" && !hasPickup && !needsConnection && !app.requestFlow.visible)
         show(requestGroup, app.requestFlow.visible && selectedTab != "settings")

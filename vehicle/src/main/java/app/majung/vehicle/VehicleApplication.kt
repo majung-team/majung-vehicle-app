@@ -20,6 +20,9 @@ class VehicleApplication : Application() {
     internal lateinit var voice: PickupVoiceGuide
         private set
 
+    internal lateinit var sharingNotice: SharingNotice
+        private set
+
     var sharingRunning: Boolean = false
         internal set
     var sharingMessage: String = "위치 권한을 허용하면 화면 밖에서도 공유할 수 있어요"
@@ -27,6 +30,7 @@ class VehicleApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        sharingNotice = SharingNotice(this)
         destination = DestinationReader(this)
         registration = VehicleRegistrationController(PickupApiClient(), EncryptedVehicleCredentialStore(this))
         pickup = PickupController(sessionStore = EncryptedPickupSessionStore(this), registration = registration)
