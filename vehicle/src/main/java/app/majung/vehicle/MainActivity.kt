@@ -393,7 +393,11 @@ class MainActivity : Activity() {
             "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
         val hasPickup = app.pickup.pickupId != null
         val active = app.pickup.status in setOf("ACTIVE", "ARRIVED")
-        fun show(view: View, visible: Boolean) { view.visibility = if (visible) View.VISIBLE else View.GONE }
+        fun show(view: View, visible: Boolean) {
+            val hasContent = view !is android.view.ViewGroup ||
+                (0 until view.childCount).any { view.getChildAt(it).visibility != View.GONE }
+            view.visibility = if (visible && hasContent) View.VISIBLE else View.GONE
+        }
         val needsConnection = app.registration.needsRegistration
         show(enrollmentGroup, needsConnection)
         show(settingsGroup, selectedTab == "settings")

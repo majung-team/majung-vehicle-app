@@ -17,6 +17,19 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val approveButton: Button
     private val changePlaceButton: Button
     private val confirmPlaceButton: Button
+    private val proposalPanel = android.widget.LinearLayout(views.context).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setPadding(24.dp, 20.dp, 24.dp, 24.dp)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(android.graphics.Color.rgb(239, 245, 255))
+            cornerRadius = 20.dp.toFloat()
+        }
+    }
+    private val proposalTitle = views.label("탑승자가 장소 변경을 요청했어요", 26f).apply {
+        setTypeface(typeface, android.graphics.Typeface.BOLD)
+    }
+    private val proposalDetails = views.label("", 22f)
+    private val proposalHint = views.label("", 18f)
     private val disconnectButton: Button
 
     init {
@@ -68,7 +81,11 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                 .setPositiveButton("끊기") { _, _ -> if (views.canInteract) app.pickup.disconnectParticipant() }
                 .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
-        changePlaceButton = views.button("제안 장소를 내비에서 확인") {
+        proposalPanel.addView(proposalTitle)
+        proposalPanel.addView(proposalDetails)
+        proposalPanel.addView(proposalHint)
+        views.prependView(proposalPanel)
+        changePlaceButton = views.button("1. 제안 장소로 경로 확인", primary = true, parent = proposalPanel) {
             val old = app.pickup.place ?: return@button
             val next = app.pickup.placeProposal ?: return@button
             val proposal = app.pickup.proposalId
@@ -83,7 +100,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                     }
                 }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
-        confirmPlaceButton = views.button("새 장소 확정") {
+        confirmPlaceButton = views.button("2. 새 장소 확정", primary = true, parent = proposalPanel) {
             if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
         }
         views.button("픽업 상태 새로고침") { app.pickup.refresh() }
@@ -115,14 +132,24 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         val proposed = app.pickup.placeProposal
         val canChange = app.pickup.status == "ACTIVE" && app.pickup.online && !app.pickup.busy &&
             !app.pickup.needsSharingConfirmation && app.pickup.proposalId != null && proposed != null
-        changePlaceButton.visibility = if (canChange) View.VISIBLE else View.GONE
-        confirmPlaceButton.visibility = changePlaceButton.visibility
-        changePlaceButton.text = proposed?.let { "제안 장소 확인 · ${it.label}" } ?: "제안 장소를 내비에서 확인"
-        changePlaceButton.isEnabled = canChange
-        confirmPlaceButton.isEnabled = canChange && proposed?.let {
+        val hasProposal = app.pickup.proposalId != null && proposed != null && app.pickup.status == "ACTIVE"
+        val verified = proposed?.let {
             app.destination.verifiedPlaceChange(it) != null &&
                 app.destination.telemetry.current(it, android.os.SystemClock.elapsedRealtime()) != null
         } == true
+        proposalPanel.visibility = if (hasProposal) View.VISIBLE else View.GONE
+        proposalDetails.updateText("현재 약속 · ${app.pickup.place?.label.orEmpty()}\n제안 장소 · ${proposed?.label.orEmpty()}")
+        proposalHint.updateText(when {
+            !app.pickup.online -> "연결을 다시 확인하고 있어요. 연결되면 제안을 확인할 수 있어요."
+            app.pickup.needsSharingConfirmation -> "이전 픽업을 계속한 뒤 장소 변경을 확인해주세요."
+            app.pickup.busy -> "요청을 처리하고 있어요. 잠시 기다려주세요."
+            verified -> "내비 경로를 확인했어요. 아래에서 확정하면 탑승자의 약속 장소도 바뀌어요."
+            else -> "아직 약속 장소는 그대로예요. 먼저 제안 장소로 경로를 확인해주세요."
+        })
+        changePlaceButton.updateText(if (verified) "1. 내비 경로 다시 확인" else "1. 제안 장소로 경로 확인")
+        changePlaceButton.isEnabled = canChange
+        confirmPlaceButton.visibility = if (verified) View.VISIBLE else View.GONE
+        confirmPlaceButton.isEnabled = canChange && verified
         disconnectButton.isEnabled = app.pickup.canDisconnect
     }
 }
