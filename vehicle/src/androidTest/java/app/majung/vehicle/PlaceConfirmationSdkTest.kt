@@ -18,6 +18,7 @@ class PlaceConfirmationSdkTest {
     private val main = InstrumentationRegistry.getInstrumentation()
     @Test fun changesPickupAfterSdkProofAndKeepsFinalDestinationAndOtherWaypoint() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("placeConfirmation") == "true")
+        assumeTrue(BuildConfig.DEBUG && BuildConfig.PICKUP_API == "http://10.0.2.2:8080")
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val api = PickupApiClient()
         var reader = DestinationReader(app)
