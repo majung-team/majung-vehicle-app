@@ -100,7 +100,7 @@ class PickupSharingService : Service() {
         super.onDestroy()
     }
 
-    private fun shouldShare(): Boolean = !app.pickup.needsSharingConfirmation && app.pickup.status in setOf("ACTIVE", "ARRIVED")
+    private fun shouldShare(): Boolean = app.sharingNotice.accepted && !app.pickup.needsSharingConfirmation && app.pickup.status in setOf("ACTIVE", "ARRIVED")
 
     companion object {
         private const val CHANNEL = "pickup-sharing"
