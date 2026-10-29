@@ -18,6 +18,7 @@ import java.io.File
 class PlaceProposalScreenTest {
     @Test fun showsProposalButDoesNotEnableConfirmationBeforeSdkProof() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("placeConfirmation") == "true")
+        assumeTrue(BuildConfig.DEBUG && BuildConfig.PICKUP_API == "http://10.0.2.2:8080")
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val api = PickupApiClient()
         val created = api.create(PickupPlace("시험 기존 픽업", 37.49, 127.03))
@@ -28,6 +29,8 @@ class PlaceProposalScreenTest {
         api.request("PUT", "/$id/place-proposal", guest, JSONObject().put("place", JSONObject()
             .put("label", "시험 새 픽업").put("latitude", 37.5).put("longitude", 127.04)))
         EncryptedPickupSessionStore(app).save(SavedPickupSession(id, owner, null, 0))
+        val acceptedBefore = app.sharingNotice.accepted
+        assertTrue(app.sharingNotice.accept())
         try {
             val main = InstrumentationRegistry.getInstrumentation()
             main.runOnMainSync { app.pickup.restoreSession() }
@@ -76,6 +79,7 @@ class PlaceProposalScreenTest {
         } finally {
             runCatching { api.request("POST", "/$id/cancellation", owner) }
             EncryptedPickupSessionStore(app).clear()
+            if (acceptedBefore) app.sharingNotice.accept() else app.sharingNotice.withdraw()
         }
     }
 }
