@@ -1,0 +1,28 @@
+{
+  "result": "passed",
+  "NaviHelper": "3.0.5",
+  "syntheticPlaces": true,
+  "productionApiUsed": false,
+  "cases": [
+    {
+      "method": "addWaypoint",
+      "rawCoordinatesMissing": true,
+      "uniqueRequestIdentityMatched": true,
+      "resolvedPickupMatched": true,
+      "waypointEtaMatchesRaw": true,
+      "finalDestinationPreserved": true,
+      "finalAndWaypointEtaDiffer": true,
+      "freshReaderRecovered": true
+    },
+    {
+      "method": "requestRouteWithWaypoints",
+      "rawCoordinatesMissing": true,
+      "uniqueRequestIdentityMatched": true,
+      "resolvedPickupMatched": true,
+      "waypointEtaMatchesRaw": true,
+      "finalDestinationPreserved": true,
+      "finalAndWaypointEtaDiffer": true,
+      "freshReaderRecovered": true
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # 경유지 좌표 누락 처리
 
+**10월 29일 재확인:** 마중의 경유지 연결·ETA·새 연결 복구는 통과했다. SDK 원본의 `(0, 0)` 반환은 남아 있으며 [제공 측 확인 자료](waypoint-provider-report.md)로 따로 추적한다. 앱 기능 실패와 제공 측 응답 문제를 같은 완료 상태로 묶지 않는다.
+
 ## 어떤 문제가 있었나
 
 공식 Pleos Connect Emulator 2.1.0 ARM64, NaviHelper 3.0.5에서 경유지의 위도·경도가
@@ -104,3 +106,31 @@ APK·역컴파일 코드·원본 위치·식별자 원문·토큰은 저장소�
 기기 시험은 ID 없는 장소 연동 1건, 기존 외부 ID 연동 1건, Keystore·접근 복구 4건,
 실제 프로세스 재실행 준비·검증 2건, 기존 픽업·경로 복구 회귀 3건이다.
 debug APK·androidTest APK 빌드와 Lint 통과. 기존 Lint 경고 4개는 유지됐다.
+
+## 2026-10-29 최신 main 재확인
+
+`WaypointResponseRegressionTest`가 별도 Pleos 에뮬레이터에서 **76.231초, OK (1 test)**로 통과했다.
+앱의 SDK 읽기 코드와 원본 `onWayPointInfo` 콜백을 별도로 관찰했다. 운영 API·실제 계정은 사용하지 않았다.
+
+| 확인 항목 | addWaypoint | requestRouteWithWaypoints |
+| --- | --- | --- |
+| SDK 원본 경유지 좌표 | (0, 0) 재현 | (0, 0) 재현 |
+| 요청 ID가 같은 경유지 하나 반환 | 확인 | 확인 |
+| 앱에서 확인한 픽업 좌표 | 선택 장소와 일치 | 선택 장소와 일치 |
+| 경유지 ETA | 원본 경유지 ETA와 일치 | 원본 경유지 ETA와 일치 |
+| 최종 목적지 | 유지 | 유지 |
+| 새 DestinationReader로 재연결 | 복구 | 복구 |
+
+최종 목적지와 경유지 ETA가 서로 달랐고, 앱은 경유지 값을 사용했다.
+[좌표·식별자 원문을 제외한 결과](evidence/waypoint-response-recheck-2026-10-29.json)를 남겼다.
+이 시험은 새 SDK 연결 복구이며 OS 프로세스 강제 종료 시험을 새로 반복한 것은 아니다.
+실제 프로세스 재실행의 이전 결과는 위 10월 24일 기록을 따른다.
+
+```sh
+adb -s emulator-5556 shell am instrument --user 10 -w \
+  -e class app.majung.vehicle.WaypointResponseRegressionTest -e waypointResponse true \
+  app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+이 시험은 DEBUG·로컬 API 설정에서만 실행되며 별도 시험 AVD를 사용한다.
+SDK 원본 응답이 향후 정상 좌표로 바뀌어도 같은 요청 지점인지 검증한다. 원본이 계속 0이어야 통과하도록 만들지 않았다.
