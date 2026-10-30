@@ -36,7 +36,7 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
         val input=EditText(views.context).apply {
             id=R.id.people_search
             hint="닉네임 또는 마중 ID"
-            textSize=20f
+            textSize=28f
             isSingleLine=true
             imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             filters=arrayOf(InputFilter.LengthFilter(32))
@@ -139,7 +139,7 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
     private fun rows(labels: List<String>): ArrayAdapter<String> = object: ArrayAdapter<String>(views.context,android.R.layout.simple_list_item_1,labels) {
         override fun getView(position: Int,convertView: View?,parent: ViewGroup): View {
             return (super.getView(position,convertView,parent) as TextView).apply {
-                textSize=22f
+                textSize=28f
                 minHeight=(72*resources.displayMetrics.density).toInt()
                 maxLines=3
                 gravity=Gravity.CENTER_VERTICAL

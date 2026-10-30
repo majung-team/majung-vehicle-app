@@ -180,7 +180,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                 val row = android.widget.Button(views.context).apply {
                     flattenButtonSurface()
                     text = "${item.optString("nickname")} · ${stateLabel(item.optString("status"))}\n${item.getJSONObject("place").optString("label")}"
-                    isAllCaps = false; textSize = 20f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                    isAllCaps = false; textSize = 28f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                     setTextColor(android.graphics.Color.rgb(32,40,46))
                     setPadding(dp(24), dp(16), dp(24), dp(16))
                     backgroundTintList = null

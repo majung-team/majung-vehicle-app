@@ -17,7 +17,8 @@
 
 - [마중 프로젝트 소개](https://github.com/majung-team/majung)
 - [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 다운로드](https://github.com/majung-team/majung-vehicle-app/releases)
+- [차량 앱 APK 0.2.15-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.15-preview.20261030)
+- [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
 - [모바일 웹](https://majung.cloud/account)
 - [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
 

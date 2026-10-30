@@ -19,9 +19,9 @@ internal class DrivingPickupSection(context: Context, private val app: VehicleAp
         setBackgroundColor(Color.rgb(17,38,56))
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
-    private val phase = label(context, 30f, true).apply { id = R.id.driving_phase }
-    private val readiness = label(context, 25f, false).apply { id = R.id.driving_readiness }
-    private val eta = label(context, 52f, true).apply { id = R.id.driving_eta }
+    private val phase = label(context, 40f, true).apply { id = R.id.driving_phase }
+    private val readiness = label(context, 32f, false).apply { id = R.id.driving_readiness }
+    private val eta = label(context, 64f, true).apply { id = R.id.driving_eta }
 
     init { root.addView(phase); root.addView(readiness); root.addView(eta) }
 
