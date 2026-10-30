@@ -67,7 +67,8 @@ internal class VehicleViews(val context: Context, private val container: LinearL
                     setStroke(1.dp, Color.rgb(225, 230, 237))
                 }
                 view.setPadding(20.dp, 16.dp, 20.dp, 16.dp)
-                view.minimumHeight = 72.dp
+                view.minimumHeight = 80.dp
+                view.textSize = 28f
                 view.setTextColor(Color.rgb(25, 31, 40))
                 view.setHintTextColor(Color.rgb(107, 118, 132))
             }
@@ -76,13 +77,14 @@ internal class VehicleViews(val context: Context, private val container: LinearL
                 val size = if (android.os.Build.VERSION.SDK_INT >= 34)
                     android.util.TypedValue.deriveDimension(android.util.TypedValue.COMPLEX_UNIT_SP, view.textSize, metrics)
                 else view.textSize / metrics.scaledDensity
-                view.textSize = maxOf(20f, size)
+                view.textSize = maxOf(24f, size)
                 view.setTextColor(Color.rgb(41, 53, 65))
                 view.setLineSpacing(4.dp.toFloat(), 1f)
             }
             if (view is ViewGroup) for (index in 0 until view.childCount) readable(view.getChildAt(index))
         }
         readable(window.decorView)
+        dialog.findViewById<TextView>(context.resources.getIdentifier("alertTitle", "id", "android"))?.textSize = 32f
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
             setPadding(paddingLeft, paddingTop + 8.dp, paddingRight, paddingBottom + 16.dp)
         }
@@ -95,10 +97,10 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         }
         listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL).forEach { which ->
             dialog.getButton(which)?.apply {
-                textSize = 20f
+                textSize = 28f
                 isAllCaps = false
                 flattenButtonSurface()
-                minimumHeight = 64.dp
+                minimumHeight = 80.dp
                 backgroundTintList = null
                 (layoutParams as? ViewGroup.MarginLayoutParams)?.let {
                     it.marginStart = 8.dp
@@ -107,7 +109,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
                     it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                     layoutParams = it
                 }
-                minWidth = 120.dp
+                minWidth = 144.dp
                 setPadding(20.dp, 12.dp, 20.dp, 12.dp)
                 setTextColor(if (which == AlertDialog.BUTTON_POSITIVE) Color.WHITE else Color.rgb(38, 83, 117))
                 background = android.graphics.drawable.StateListDrawable().apply {
@@ -132,9 +134,18 @@ internal class VehicleViews(val context: Context, private val container: LinearL
     fun addView(view: View) { target.addView(view) }
     fun prependView(view: View) { target.addView(view, 0) }
 
+    // Legacy section sizes map to a shared vehicle scale; sp still follows system font scaling.
+    private fun readableTextSize(size: Float): Float = when {
+        size < 20f -> 24f
+        size < 24f -> 28f
+        size < 30f -> 32f
+        size < 40f -> 40f
+        else -> maxOf(56f, size)
+    }
+
     fun label(value: String, size: Float): TextView = TextView(context).apply {
         text = value
-        textSize = size
+        textSize = readableTextSize(size)
         setTextColor(Color.rgb(32,40,46))
         setPadding(0, 8.dp, 0, 8.dp)
         setLineSpacing(3.dp.toFloat(), 1f)
@@ -144,13 +155,13 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         text = title
         isAllCaps = false
         flattenButtonSurface()
-        textSize = 20f
+        textSize = 28f
         maxLines = 2
-        minimumHeight = 72.dp
+        minimumHeight = 80.dp
         gravity = android.view.Gravity.CENTER
         setTextColor(android.content.res.ColorStateList(
             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-            intArrayOf(Color.rgb(133, 149, 162), if (primary) Color.WHITE else Color.rgb(51, 61, 75))))
+            intArrayOf(Color.rgb(92, 105, 119), if (primary) Color.WHITE else Color.rgb(51, 61, 75))))
         backgroundTintList = null
         background = android.graphics.drawable.StateListDrawable().apply {
             fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
@@ -164,7 +175,7 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         setPadding(16.dp, 12.dp, 16.dp, 12.dp)
         setOnClickListener { if (canInteract) action(); if (refreshAfterAction) onAction() }
         buttons.add(this)
-        (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8.dp })
+        (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16.dp })
     }
 
     private val Int.dp: Int get() = (this * context.resources.displayMetrics.density).toInt()

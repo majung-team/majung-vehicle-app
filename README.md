@@ -8,7 +8,7 @@
 
 ## 바로 시험하기
 
-1. [서명 APK 0.2.14-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.14-preview.20261029)를 공식 Pleos 에뮬레이터에 설치한다.
+1. [서명 APK 0.2.15-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.15-preview.20261030)를 공식 Pleos 에뮬레이터에 설치한다.
 2. 앱 목록의 **마중**을 연다. 첫 화면에서 위치 공유 안내를 읽고 사용할지 선택한다.
 3. 처음 한 번 **휴대전화로 시작하기 · QR 만들기** → 운전자 본인 카카오 로그인 → 차량에서 계정 확인 순서로 연결한다. 관리자 코드는 필요 없다.
 4. 내비에서 경로 안내를 시작한 뒤 **픽업**으로 돌아온다. 장소 확인이 끝나면 **연결된 사람 선택** 또는 **QR로 초대 링크 공유**를 고른다.
@@ -54,3 +54,5 @@ adb -s 장치이름 shell am start --user current -n app.majung.vehicle/.MainAct
 실제 휴대전화 전체 흐름·실차·장시간 실행·음성 청취는 별도 확인이 필요하다.
 SDK 내비 취소 후 안내 유지 [이슈 #56](https://github.com/majung-team/majung-vehicle-app/issues/56)은 미해결이다.
 [현재 개발 기준](docs/revised-plan.md) · [기여 규칙](CONTRIBUTING.md)
+
+차량 화면 가독성 변경: [글자·버튼 크기와 확인 화면](docs/readability-2026-10-30.md).

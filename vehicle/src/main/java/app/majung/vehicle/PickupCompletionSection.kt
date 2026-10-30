@@ -57,6 +57,7 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
         completeButton.isEnabled = pickup.canComplete
         cancelButton.isEnabled = pickup.canCancel
         val ended = pickup.status in setOf("CANCELLED", "COMPLETED", "EXPIRED")
+        if (!ended) nextRequested = false
         nextFeedback.visibility = if (ended && nextRequested && !app.account.requestsFresh) android.view.View.VISIBLE else android.view.View.GONE
         nextFeedback.updateText(if (app.account.busy) "다음 대기자를 확인하고 있어요." else app.account.message)
         val queued = app.account.requests.count { it.optString("status") == "QUEUED" }

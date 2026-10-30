@@ -45,13 +45,17 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
     }
     fun render() {
         val pickup = app.pickup
+        val ended = pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")
         connectionText.updateText(when {
+            ended -> ""
             pickup.busy -> "요청 처리 중…"
             pickup.pickupId == null -> ""
             pickup.online -> "서버 연결됨"
             else -> "연결을 다시 확인하고 있어요"
         })
         pickupText.updateText(pickup.place?.label ?: "이번 픽업")
+        connectionText.visibility = if (connectionText.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
+        passenger.visibility = if (ended) android.view.View.GONE else android.view.View.VISIBLE
         passenger.updateText(pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기")
         readiness.updateText(if (!pickup.online && pickup.status in setOf("ACTIVE", "ARRIVED")) "마지막 준비 상태\n연결 확인 중" else when(pickup.status) {
             "INVITING", "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
@@ -76,6 +80,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         })
         eta.visibility = if (eta.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
         sharing.updateText(when {
+            ended -> "차량 위치와 도착 시간 공유가 끝났어요."
             !pickup.online -> "서버 연결이 끊겼어요. 이전 도착 시간을 표시하지 않고 연결을 다시 확인해요."
             pickup.needsSharingConfirmation -> "계속하기를 누르기 전에는 위치를 공유하지 않아요."
             pickup.status == "ARRIVED" -> "탑승할 때까지 위치 공유를 유지해요. 탑승했다면 완료해주세요."
@@ -84,8 +89,8 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             pickup.status == "INVITING" -> "아래 QR을 운전자 휴대전화로 열고, 탑승자에게 초대 링크를 보내주세요."
             else -> "픽업이 끝나면 위치 공유도 끝나요."
         })
-        problem.updateText(pickup.message)
-        problem.visibility = if(pickup.message.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
+        problem.updateText(if (ended) "" else pickup.message)
+        problem.visibility = if(problem.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
     }
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
 }

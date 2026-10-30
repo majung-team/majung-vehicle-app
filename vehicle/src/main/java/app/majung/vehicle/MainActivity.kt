@@ -86,7 +86,7 @@ class MainActivity : Activity() {
         }
         views.addView(restrictionText)
         stageTitle = views.label("", 36f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }
-        stageDescription = views.label("", 18f).apply { setTextColor(Color.rgb(92, 111, 128)) }
+        stageDescription = views.label("", 18f).apply { setTextColor(Color.rgb(71, 87, 104)) }
         views.addView(stageTitle)
         views.addView(stageDescription)
         enrollmentGroup = views.section()
@@ -136,7 +136,7 @@ class MainActivity : Activity() {
             val tab = Button(this).apply {
                 text = title
                 isAllCaps = false
-                textSize = 20f
+                textSize = 28f
                 gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                 setPadding(20.dp, 0, 12.dp, 0)
                 backgroundTintList = null
@@ -144,17 +144,17 @@ class MainActivity : Activity() {
                 setOnClickListener { if (driving.allowed) changeTab(key) }
             }
             tabs[key] = tab
-            navigation.addView(tab, LinearLayout.LayoutParams(-1, 76.dp).apply { bottomMargin = 12.dp })
+            navigation.addView(tab, LinearLayout.LayoutParams(-1, 88.dp).apply { bottomMargin = 12.dp })
         }
         navigation.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         navigation.addView(views.label("함께 만날 약속", 15f).apply {
-            setTextColor(Color.rgb(139, 149, 161))
+            setTextColor(Color.rgb(92, 105, 119))
             setPadding(12.dp, 0, 0, 0)
         })
         parkedRoot = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
-            addView(navigation, LinearLayout.LayoutParams(184.dp, -1))
+            addView(navigation, LinearLayout.LayoutParams(216.dp, -1))
             addView(FrameLayout(this@MainActivity).apply {
                 clipChildren = true
                 addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
@@ -198,7 +198,7 @@ class MainActivity : Activity() {
             addView(views.label(SharingNotice.TEXT, 20f))
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
-                textSize = 22f
+                textSize = 28f
                 minimumHeight = 76.dp
                 flattenButtonSurface()
                 backgroundTintList = null
@@ -221,7 +221,7 @@ class MainActivity : Activity() {
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(Color.rgb(242, 244, 247)); cornerRadius = 16.dp.toFloat()
                 }
-                textSize = 20f
+                textSize = 28f
                 minimumHeight = 72.dp
                 setOnClickListener { finish() }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
@@ -427,6 +427,8 @@ class MainActivity : Activity() {
             "settings" -> if (app.account.state.optString("status") == "LINKED") "운전자 계정과 연결된 사람, 음성 안내를 관리해요."
                 else "처음 한 번 운전자 휴대전화로 연결해주세요."
             else -> if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
+                else if (app.pickup.status == "COMPLETED") "탑승을 확인했어요. 다음 픽업을 준비할 수 있어요."
+                else if (app.pickup.status in setOf("CANCELLED", "EXPIRED")) "위치 공유가 끝났어요. 새 픽업을 준비할 수 있어요."
                 else if (hasPickup) "픽업을 마치면 위치 공유도 끝나요."
                 else "내비 장소를 확인한 뒤 초대할 사람이나 초대 링크를 선택하세요."
         })
