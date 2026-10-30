@@ -1,90 +1,505 @@
-# 픽업 접근 정보 저장과 재실행 복구
 
-기능: 9.2 토큰 저장·복구. 차량 등록 권한(9.1)과 화면 밖 전송(3.2)은 별도다.
+# 픽업 접근 정보 저장 및 재실행 복구
 
-## 저장하는 것
+마중 차량 앱은 픽업 진행 중 앱 프로세스가 종료되더라도 필요한 접근 정보를 안전하게 보관하고, 재실행 후 서버 상태를 확인하여 픽업을 복구할 수 있도록 구성했다.
 
-픽업 ID, 운전자 토큰, 아직 연결 전인 초대 토큰, 마지막 차량 정보 전송 순번을 저장한다.
-픽업 경유지로 생성한 경우에는 SDK 응답을 대조할 장소 식별자도 같은 암호문에 저장한다.
-위치·ETA·약속 장소·탑승자 이름은 저장하지 않는다. 약속 장소와 상태는 재실행 후 서버에서 다시 받는다.
+Android Keystore와 AES-GCM을 사용하여 픽업 접근 정보를 암호화하며, **앱이 재실행됐다는 이유만으로 차량 위치 공유를 자동으로 재개하지 않는다.**
 
-`EncryptedPickupSessionStore`가 Android Keystore의 AES 키로 AES-GCM 암호화한다.
-암호문은 `noBackupFilesDir/pickup-session.bin`에 AtomicFile로 교체 저장한다. 매번 새 IV를 사용한다.
-파일 버전과 API origin을 인증 데이터에 묶어, 다른 서버 설정의 앱에서 기존 토큰을 복구하지 않는다.
-저장 실패 때 평문으로 우회하지 않는다. 원문 토큰을 로그·toString·화면에 출력하지 않는다.
+이 문서는 픽업 접근 정보 저장과 재실행 복구를 다룬다. 차량 최초 등록 권한과 화면 밖 백그라운드 공유는 별도 기능이다.
 
-노션에서 예로 든 EncryptedSharedPreferences는 공식 API 문서에서 deprecated로 표시돼 있어 사용하지 않았다.
-키 관리에는 Android Keystore를 쓰고, 작은 세션 하나만 암호화해 파일에 저장한다.
-하드웨어 키 보호 지원 여부는 기기마다 다르다. 에뮬레이터 시험을 실차의 하드웨어 보호 검증으로 표현하지 않는다.
+- [차량 최초 연결](vehicle-enrollment.md)
+- [백그라운드 위치 공유](background-sharing.md)
 
-공식 근거: [Android Keystore](https://developer.android.com/privacy-and-security/keystore),
-[EncryptedSharedPreferences API](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences).
+---
 
-## 복구 순서
+## 1. 저장 대상
 
-1. Application이 암호문을 읽는다. 파일이 없으면 새 픽업을 준비할 수 있다.
-2. 파일이 있으면 생성 버튼을 막고 `RESTORING` 상태에서 운전자 토큰으로 서버를 조회한다.
-3. 성공하면 서버의 픽업 상태·장소·참여 상태를 표시한다. ACTIVE·ARRIVED 복구는 ‘이전 픽업 계속하기’를 누르기 전까지 전송하지 않는다. 선택 후 새 SDK 정보만 사용한다. 경유지 식별자는 암호문에서, 확정 장소는 서버에서 받아 다시 대조한다.
-4. 네트워크 오류·서버 5xx는 저장을 유지한다. 화면의 3초 주기 조회 또는 ‘서버 상태 다시 확인’으로 재시도한다.
-5. 완료·취소·만료 상태 또는 401/403/404/410이면 암호문과 메모리의 접근 정보를 지운다.
-6. 변조·키 손실·지원하지 않는 파일 형식은 복원하지 않고 파일을 삭제한다.
+### 암호화하여 저장하는 정보
 
-삭제 실패 시 새 픽업 생성을 막는다. 새 픽업 준비 시에도 다시 삭제를 확인한다.
-생성 후 저장 실패는 사용자에게 안내하고 현재 메모리의 픽업은 종료할 수 있게 유지한다.
-파일 삭제는 파일시스템 수준 삭제이며 저장 장치의 물리적 덮어쓰기를 보장하지 않는다.
+| 항목 | 용도 |
+| --- | --- |
+| 픽업 ID | 복구할 픽업 식별 |
+| 운전자 토큰 | 서버의 픽업 상태 및 접근 권한 확인 |
+| 초대 토큰 | 아직 참여 연결 전인 초대 정보 복구 |
+| 마지막 차량 정보 전송 순번 | 중복·역순 전송 방지 |
+| 경유지 식별자 | SDK 응답과 기존 픽업 장소 대조 |
 
-## 전송 순번
+경유지 식별자는 픽업 장소가 경유지로 생성된 경우에 함께 저장한다.
 
-다음 순번을 네트워크 전송 **전**에 저장한다. 서버가 받았지만 앱이 응답을 받기 전에 종료돼도 같은 순번을 다시 보내지 않는다.
-저장에 실패하면 그 차량 정보 요청은 전송하지 않는다. 복구한 순번에서 다음 번호로 이어 보낸다.
-새 픽업을 만들 때는 기존처럼 별도의 순번을 사용한다.
+### 저장하지 않는 정보
 
-## 코드 연결점
+- 차량 위치 좌표
+- 예상 도착 시간(ETA)
+- 약속 장소의 상세 정보
+- 탑승자 이름
 
-- `PickupSessionStore`: load/save/clear 경계. 컨트롤러 시험에서는 메모리 저장소를 사용할 수 있다.
-- `EncryptedPickupSessionStore`: Keystore·암호화·파일 읽기/쓰기·삭제. 앱은 이 구현을 반드시 주입한다.
-- `VehicleApplication`: 컨트롤러 생성 직후 restoreSession 호출.
-- `PickupController`: 생성·초대 상태 변경·전송 전 저장, 서버 확인 후 복구, 종료/거절 시 삭제.
-- `PickupStatusSection`: 서버 확인 중 상태 표시.
+픽업 장소와 진행 상태는 앱 재실행 후 서버에서 다시 조회한다.
 
-저장·삭제는 작은 파일에 동기적으로 수행한다. 원자적 교체와 전송 전 저장 순서를 우선한 초기 구현이다.
-장시간 작업·큰 데이터를 여기에 추가하지 않는다. 이후 비동기 저장으로 바꾸면 순번 저장 완료 전 전송하지 않는 조건을 유지해야 한다.
+이전에 수신한 차량 위치나 ETA를 파일에서 복원해 다시 전송하지 않는다.
 
-## 확인한 범위
+---
 
-- 기존 단위 시험 8개·debug/시험 APK 빌드·lint 통과.
-- 실제 Keystore 저장소를 쓰는 instrumentation 4개: 암호문 비평문·새 저장소에서 복원·변조 거절, 서버 확인·종료 삭제, 503 후 재시도, 401/403/404/410·잘린 파일 삭제.
-- 두 프로세스 시험: prepare → force-stop → verify. 실제 로컬 API에서 ACTIVE 복구, 전송 순번 500→501, 도착·완료 후 삭제 확인.
-- 이 두 프로세스 시험의 위치·ETA는 합성 fixture다. 실제 SDK 수신 검증과 구분한다.
-- 기존 SDK 통합 시험 2개도 통과했다. 실제 SDK 위치·ETA·해제·재연결·준비·취소·도착·완료 흐름을 확인했다. 원본 결과는 Git 제외 evidence/private에 보관한다.
+## 2. 암호화 저장 구조
+
+`EncryptedPickupSessionStore`가 접근 정보의 암호화와 파일 저장을 담당한다.
+
+| 항목 | 구현 |
+| --- | --- |
+| 키 관리 | Android Keystore |
+| 암호화 | AES-GCM |
+| 저장 파일 | `noBackupFilesDir/pickup-session.bin` |
+| 파일 기록 | `AtomicFile` |
+| IV | 암호화할 때마다 새로 생성 |
+| 추가 인증 데이터 | 파일 버전 및 API origin |
+| 저장 실패 | 평문 저장으로 전환하지 않음 |
+
+### Android Keystore
+
+암호화 키는 Android Keystore를 통해 관리한다.
+
+`EncryptedSharedPreferences` 대신 작은 픽업 세션 데이터를 직접 암호화하여 파일에 저장하는 구조를 사용한다.
+
+`EncryptedSharedPreferences`는 공식 Android API 문서에서 deprecated로 표시되어 있어 사용하지 않았다.
+
+### AES-GCM
+
+AES-GCM은 암호문과 함께 데이터의 무결성을 확인할 수 있는 인증 암호화 방식이다.
+
+저장된 암호문이 변조되었거나 올바른 키로 인증할 수 없는 경우에는 세션을 복구하지 않는다.
+
+암호화할 때마다 새로운 IV를 사용한다.
+
+### 파일 및 서버 환경 분리
+
+암호화 파일은 다음 경로에 저장한다.
+
+```text
+noBackupFilesDir/pickup-session.bin
+```
+
+파일 버전과 API origin을 인증 데이터에 포함한다.
+
+따라서 다른 API 서버 설정으로 실행한 앱에서 기존 픽업 접근 정보를 그대로 복구하지 않도록 구성했다.
+
+### 저장 원칙
+
+- 토큰을 평문 파일로 저장하지 않음
+- 저장 실패 시 암호화 우회 금지
+- 토큰을 로그·화면·`toString()`에 출력하지 않음
+- 파일 저장에는 원자적 교체 방식 사용
+- 복원 불가능한 암호문을 정상 세션으로 취급하지 않음
+
+하드웨어 기반 키 보호 지원 여부는 기기마다 다르다.
+
+에뮬레이터에서 Android Keystore가 정상 동작했다는 사실이 실제 차량 장치의 하드웨어 키 보호까지 검증했다는 의미는 아니다.
+
+---
+
+## 3. 앱 재실행 후 복구 흐름
+
+복구는 저장된 암호문을 읽고 서버에서 실제 픽업 상태를 확인하는 순서로 진행한다.
+
+### 3.1 저장된 세션 확인
+
+`VehicleApplication`이 컨트롤러 생성 직후 `restoreSession`을 호출한다.
+
+**저장 파일이 없는 경우**
+
+복구할 픽업이 없으므로 새로운 픽업을 준비할 수 있다.
+
+**저장 파일이 있는 경우**
+
+새로운 픽업 생성을 제한하고 `RESTORING` 상태로 전환한다.
+
+이후 저장된 운전자 접근 정보로 서버 상태를 조회한다.
+
+### 3.2 서버 상태 확인
+
+서버에서 다음 정보를 다시 확인한다.
+
+- 현재 픽업 상태
+- 픽업 장소
+- 참여 상태
+- 운전자 접근 권한
+
+로컬에 저장된 정보가 있다고 해서 픽업이 여전히 유효하다고 판단하지 않는다.
+
+### 3.3 진행 중인 픽업 복구
+
+서버에서 `ACTIVE` 또는 `ARRIVED` 상태가 확인되면 현재 픽업 정보를 화면에 표시한다.
+
+다만 위치 공유는 바로 재개하지 않는다.
+
+1. 저장된 세션 복원
+2. 서버의 픽업 상태 확인
+3. **이전 픽업 계속하기** 표시
+4. 운전자의 재개 선택
+5. SDK에서 새로운 위치·ETA 확인
+6. 유효한 정보로 위치 공유 재개
+
+재개 이전에 저장된 위치나 ETA를 다시 전송하지 않는다.
+
+### 3.4 경유지 복구
+
+경유지로 생성된 픽업이라면 암호문에 저장된 장소 식별자를 복원한다.
+
+이후 서버에서 받은 확정 픽업 장소와 새 SDK 응답을 다시 대조한다.
+
+장소 식별자가 존재한다는 이유만으로 경로가 유효하다고 판단하지 않는다.
+
+---
+
+## 4. 서버 오류 및 접근 권한 처리
+
+서버 응답에 따라 세션을 유지하거나 삭제한다.
+
+| 상황 | 처리 |
+| --- | --- |
+| 네트워크 연결 실패 | 저장 정보 유지 및 상태 재확인 |
+| 서버 5xx | 저장 정보 유지 및 재조회 |
+| 서버 상태 확인 성공 | 현재 픽업 상태에 따라 복구 |
+| 픽업 완료·취소·만료 | 저장된 접근 정보 삭제 |
+| 401 / 403 / 404 / 410 | 저장된 접근 정보 삭제 |
+| 암호문 변조 | 복구 거부 및 파일 삭제 |
+| Keystore 키 손실 | 복구 거부 및 파일 삭제 |
+| 지원하지 않는 파일 버전 | 복구 거부 및 파일 삭제 |
+
+### 일시적인 통신 오류
+
+네트워크 오류나 서버 5xx 응답이 발생해도 저장된 접근 정보를 즉시 삭제하지 않는다.
+
+다음 방법으로 상태를 다시 확인한다.
+
+- 화면의 3초 주기 조회
+- **서버 상태 다시 확인** 선택
+
+### 복구할 수 없는 세션
+
+파일이 손상되었거나 암호화 키가 유실된 경우에는 해당 접근 정보를 복구하지 않는다.
+
+지원하지 않는 파일 형식도 정상 세션으로 읽지 않는다.
+
+복원할 수 없는 저장 파일은 삭제한다.
+
+### 삭제 실패
+
+저장 파일 삭제에 실패하면 새로운 픽업 생성을 제한한다.
+
+새 픽업 준비 시에도 기존 접근 정보가 삭제됐는지 다시 확인한다.
+
+파일 삭제는 파일시스템 수준의 삭제이며, 저장 장치의 물리적인 덮어쓰기를 보장하지 않는다.
+
+---
+
+## 5. 픽업 생성 후 저장 실패
+
+새 픽업 생성에 성공했지만 접근 정보 저장에 실패하는 경우가 발생할 수 있다.
+
+이때 저장되지 않은 접근 정보를 복구 가능한 세션으로 취급하지 않는다.
+
+사용자에게 저장 실패를 안내하고, 현재 프로세스 메모리에 남아 있는 픽업은 종료할 수 있도록 유지한다.
+
+암호화 저장 실패를 해결하기 위해 평문으로 토큰을 기록하지 않는다.
+
+---
+
+## 6. 차량 정보 전송 순번 관리
+
+마중은 차량 위치·ETA 정보에 전송 순번을 사용한다.
+
+전송 순번은 중복 또는 오래된 정보가 최신 상태를 덮어쓰는 상황을 방지하기 위한 값이다.
+
+### 전송 전 저장
+
+다음 전송에 사용할 순번을 **네트워크 요청보다 먼저 저장**한다.
+
+```text
+다음 전송 순번 결정
+          ↓
+암호화 저장소에 순번 저장
+          ↓
+저장 성공 확인
+          ↓
+차량 위치·ETA 전송
+          ↓
+서버 응답 처리
+```
+
+### 응답 유실 및 재실행
+
+예를 들어 순번 `500`을 저장한 뒤 서버에 전송했지만, 응답을 받기 전에 앱이 종료될 수 있다.
+
+이 경우 재실행 후 `500`을 다시 전송하지 않는다.
+
+저장된 순번 다음 값인 `501`부터 전송을 이어간다.
+
+### 저장 실패
+
+순번 저장에 실패하면 해당 차량 정보 요청은 전송하지 않는다.
+
+전송을 우선하기 위해 순번 저장 조건을 생략하지 않는다.
+
+새 픽업에서는 기존 구현에 따라 별도의 전송 순번을 사용한다.
+
+---
+
+## 7. 코드 구성
+
+| 구성 요소 | 역할 |
+| --- | --- |
+| `PickupSessionStore` | 세션 `load`·`save`·`clear` 인터페이스 |
+| `EncryptedPickupSessionStore` | Keystore 암호화 및 파일 읽기·쓰기·삭제 |
+| `VehicleApplication` | 컨트롤러 생성 후 저장 세션 복구 연결 |
+| `PickupController` | 생성·초대 상태 저장, 전송 순번 관리, 서버 상태 확인 및 종료 삭제 |
+| `PickupStatusSection` | 복구 및 서버 확인 상태 표시 |
+
+### 저장소 구현 분리
+
+`PickupSessionStore`는 저장소의 공통 경계를 제공한다.
+
+컨트롤러 단위 시험에서는 메모리 저장소를 사용할 수 있다.
+
+실제 차량 앱 실행에는 `EncryptedPickupSessionStore`를 주입한다.
+
+### 동기식 파일 작업
+
+현재 구현은 작은 세션 파일을 동기적으로 저장하고 삭제한다.
+
+초기 구현에서는 다음 조건을 우선했다.
+
+- 암호문 파일의 원자적 교체
+- 순번 저장 완료 후 전송
+- 복구 상태의 일관성 유지
+
+장시간 작업이나 대용량 데이터를 해당 저장소에 추가하지 않는다.
+
+이후 비동기 저장으로 변경하더라도 **전송 순번 저장 완료 전에는 위치·ETA를 전송하지 않는다**는 조건을 유지해야 한다.
+
+---
+
+## 8. 테스트 및 검증 결과
+
+### 단위 테스트 및 빌드
+
+| 항목 | 결과 |
+| --- | --- |
+| 기존 차량 단위 테스트 | 8개 통과 |
+| Debug APK 빌드 | 성공 |
+| AndroidTest APK 빌드 | 성공 |
+| Android Lint | 통과 |
+
+위 수치는 저장·복구 기능 구현 당시의 시험 기록이다.
+
+### Android 계측 테스트
+
+실제 Android Keystore 저장소를 사용한 계측 테스트 **4개 통과**.
+
+검증한 주요 항목:
+
+- 접근 정보의 암호화 저장
+- 평문 토큰 미노출
+- 새 저장소 인스턴스에서 복구
+- 암호문 변조 거절
+- 서버 상태 확인 후 복구
+- 종료 후 접근 정보 삭제
+- HTTP 503 이후 재시도
+- HTTP 401·403·404·410 처리
+- 잘린 파일의 복구 거부 및 삭제
+
+### 두 프로세스 복구 시험
+
+로컬 API를 사용하여 다음 순서로 시험했다.
+
+```text
+첫 번째 프로세스
+    ├── 픽업 준비
+    ├── 세션 저장
+    └── 앱 강제 종료
+             ↓
+두 번째 프로세스
+    ├── 저장 세션 복원
+    ├── 서버 ACTIVE 상태 확인
+    ├── 사용자 재개 확인
+    ├── 전송 순번 500 → 501
+    └── 도착·완료 후 저장 파일 삭제
+```
+
+이 시험에서는 합성 fixture를 사용해 위치와 ETA를 제공했다.
+
+실제 SDK 위치·ETA 수신 검증과는 구분한다.
+
+### 기존 SDK 통합 테스트
+
+기존 SDK 통합 시험 2개도 통과했다.
+
+확인한 흐름:
+
+- 실제 SDK 위치·ETA 수신
+- SDK 연결 해제 및 재연결
+- 준비 상태 반영
+- 픽업 취소
+- 도착 및 탑승 완료
+
+원본 결과는 Git에서 제외된 `evidence/private`에 보관한다.
+
+---
+
+## 9. 시험 재현 방법
+
+공식 Pleos 에뮬레이터가 실행된 개발 환경에서 진행한다.
+
+### 빌드 및 검사
 
 ```sh
-# 공식 에뮬레이터가 실행 중인 개발 환경
-./gradlew :vehicle:testDebugUnitTest :vehicle:assembleDebug :vehicle:assembleDebugAndroidTest :vehicle:lintDebug
-# APK 설치 후
-adb shell am instrument --user 10 -w -e class app.majung.vehicle.PickupRecoveryTest \
-  app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
-# 두 프로세스 시험에는 Mac의 기본 로컬 API가 필요하다. 토큰은 명령 인자로 전달하지 않는다.
-adb shell am instrument --user 10 -w -e class app.majung.vehicle.PickupProcessRecoveryTest -e recoveryPhase prepare \
-  app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
-adb shell am force-stop --user 10 app.majung.vehicle
-adb shell am instrument --user 10 -w -e class app.majung.vehicle.PickupProcessRecoveryTest -e recoveryPhase verify \
+./gradlew \
+  :vehicle:testDebugUnitTest \
+  :vehicle:assembleDebug \
+  :vehicle:assembleDebugAndroidTest \
+  :vehicle:lintDebug
+```
+
+### Android 계측 테스트
+
+APK를 설치한 뒤 시험한다.
+
+기록 당시 Android 사용자 번호는 `10`이었다.
+
+```sh
+adb shell am instrument --user 10 -w \
+  -e class app.majung.vehicle.PickupRecoveryTest \
   app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-사용자 강제 중지 후 앱을 열지 않아도 자동 실행되는 기능은 아니다. 화면 밖 지속 전송은 [별도 서비스 검증](background-sharing.md)을 확인한다. 재부팅 자동 시작·실차·실제 휴대전화는 검증 범위에 없다.
-debug만 에뮬레이터 호스트(10.0.2.2)와 시험 fixture 루프백(127.0.0.1)의 HTTP를 허용한다. release 설정은 바꾸지 않았다.
+### 두 프로세스 복구 시험
 
-완료 후 접근 정보 삭제 안내와 재실행 복구 문구를 확인한 에뮬레이터 화면이다.
+Mac에서 로컬 API가 실행 중이어야 한다.
+
+**1단계 — 복구용 세션 준비**
+
+```sh
+adb shell am instrument --user 10 -w \
+  -e class app.majung.vehicle.PickupProcessRecoveryTest \
+  -e recoveryPhase prepare \
+  app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+**2단계 — 앱 강제 종료**
+
+```sh
+adb shell am force-stop --user 10 app.majung.vehicle
+```
+
+**3단계 — 새로운 프로세스에서 복구 확인**
+
+```sh
+adb shell am instrument --user 10 -w \
+  -e class app.majung.vehicle.PickupProcessRecoveryTest \
+  -e recoveryPhase verify \
+  app.majung.vehicle.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+토큰은 명령 인자나 공개 로그에 전달하지 않는다.
+
+실제 ADB 장치가 여러 대 연결돼 있다면 `-s` 옵션으로 대상 에뮬레이터를 명시한다.
+
+---
+
+## 10. 실제 SDK 경유지 복구 시험
+
+기존 합성 fixture 기반 복구 시험과 별도로, 실제 SDK를 사용한 두 프로세스 시험도 수행했다.
+
+### 시험 흐름
+
+1. 픽업 생성
+2. 탑승자 참여 승인
+3. 경유지 식별자 암호화 저장
+4. 앱 강제 종료
+5. 새 프로세스에서 저장 세션 복원
+6. 서버에서 확정 장소 재조회
+7. 운전자 공유 재개 확인
+8. 실제 SDK 경유지 응답 확인
+9. 새 ETA 전송
+
+### 결과
+
+**전체 흐름 통과**
+
+경유지의 외부 ID가 없는 경우 마중이 자체 식별자를 부여해 SDK 경유지 요청과 응답을 대조한다.
+
+해당 식별자는 다른 접근 정보와 함께 암호화하여 저장한다.
+
+재실행 후에는 서버에서 받은 확정 장소와 새 SDK 응답을 확인한다.
+
+이 과정에서 저장된 과거 좌표나 ETA를 재전송하지 않는다.
+
+시험 기록:
+
+[waypoint-process-recovery-2026-10-24.json](evidence/waypoint-process-recovery-2026-10-24.json)
+
+경유지 좌표 및 ID 처리의 세부 구조는 [경유지 좌표 누락 대응](waypoint-coordinates.md)을 참고한다.
+
+---
+
+## 11. 복구 화면
 
 ![완료 후 접근 정보 삭제 안내](media/recovery-completed.png)
 
-## 경유지 식별자 복구 추가 확인
+공식 에뮬레이터에서 픽업 완료 후 접근 정보 삭제 안내와 재실행 복구 문구를 확인한 화면이다.
 
-외부 ID가 없는 장소는 마중이 식별자를 발급해 경유지 요청·응답을 대조한다.
-그 식별자를 같은 암호문에 저장하고, 재실행 후 서버에서 받은 확정 장소와 함께 새 SDK 응답을 확인한다.
-좌표·ETA를 저장해서 다시 보내는 방식은 아니다.
+실제 휴대전화나 실차에서의 복구 검증 결과는 아니다.
 
-[실제 SDK 두 프로세스 시험](evidence/waypoint-process-recovery-2026-10-24.json):
-픽업 생성·참여 승인 → 앱 강제 종료 → 새 프로세스의 서버 확인 → 사용자 공유 재개 → 새 경유지 ETA 전송을 통과했다.
-위의 기존 합성 fixture 시험과 구분한다.
+---
+
+## 12. 실행 환경과 검증 한계
+
+### Debug 네트워크 설정
+
+Debug 빌드에서는 시험을 위해 다음 HTTP 주소를 허용한다.
+
+- 에뮬레이터에서 호스트 접근: `10.0.2.2`
+- 시험 fixture 루프백: `127.0.0.1`
+
+Release 빌드의 네트워크 보안 설정은 변경하지 않았다.
+
+### 아직 검증하지 않은 항목
+
+- 차량 시동 OFF/ON 이후 복구
+- 기기 재부팅 후 자동 시작
+- 사용자 강제 종료 상태에서 자동 실행
+- 실제 차량의 Android Keystore 하드웨어 보호
+- 실제 차량의 장시간 위치 공유
+- 실제 휴대전화와의 전체 복구 흐름
+
+사용자가 앱을 강제 종료한 후 앱을 다시 열지 않아도 자동으로 실행되는 기능은 아니다.
+
+화면이 내려간 상태의 지속 전송은 [백그라운드 공유](background-sharing.md)에서 별도로 다룬다.
+
+---
+
+## 13. 관련 문서
+
+- [차량 앱 README](../README.md)
+- [차량 최초 연결](vehicle-enrollment.md)
+- [차량 화면 코드 구조](vehicle-screen.md)
+- [백그라운드 공유](background-sharing.md)
+- [경유지 좌표 누락 대응](waypoint-coordinates.md)
+- [요청에서 픽업 시작하기](request-pickup-flow.md)
+- [전체 시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md)
+- [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
+
+### 공식 참고 자료
+
+- [Android Keystore](https://developer.android.com/privacy-and-security/keystore)
+- [EncryptedSharedPreferences API](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences)
+
+---
+
+## 문서 관리 기준
+
+이 문서는 픽업 접근 정보의 암호화 저장과 프로세스 재실행 복구를 설명한다.
+
+차량 최초 등록 권한, 화면 밖 공유 서비스, SDK 경로 검증은 별도 문서에서 관리한다.
+
+새로운 저장 형식이나 복구 방식을 도입할 때는 기존 파일과의 호환성, 서버 상태 확인, 전송 순번 및 접근 정보 삭제 조건을 함께 검증한다.
+
+합성 fixture 기반 시험과 실제 SDK 시험 결과는 서로 구분하여 기록한다.
