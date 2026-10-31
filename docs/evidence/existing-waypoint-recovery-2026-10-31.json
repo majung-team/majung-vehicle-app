@@ -11,5 +11,9 @@
   "androidSessionRecoveryTestsPassed": 4,
   "providerRawResponseFixed": false,
   "realVehicleIgnitionTested": false,
-  "phonePushReceiptTested": false
+  "phonePushReceiptTested": false,
+  "finalSdkAndRecoveryTestsPassed": 6,
+  "finalSdkAndRecoveryTestSeconds": 156.079,
+  "unitTestsPassed": 60,
+  "lintPassed": true
 }
