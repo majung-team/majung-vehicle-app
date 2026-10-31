@@ -19,6 +19,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
     private val placeName: TextView
     private val routeDetails: TextView
     private val createButton: Button
+    private val existingWaypointButton: Button
     private val addWaypointButton: Button
     private val finalDestinationButton: Button
     private val retryButton: Button
@@ -68,6 +69,19 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         }.apply { id = R.id.create_pickup }
         actionHint = views.label("", 17f).also(columns.trailing::addView)
         retryButton = views.button("내비 장소 다시 확인", parent = columns.leading) { app.destination.retryPickupPreparation() }
+        existingWaypointButton = views.button("경유지에서 만나기", parent = columns.leading) {
+            val route = app.destination.currentStops() ?: return@button
+            AlertDialog.Builder(views.context).setTitle("어느 경유지에서 만날까요?")
+                .setItems(route.waypoints.mapIndexed { index, stop ->
+                    "${index + 1}. ${stop.place.label}" + if (stop.usable) "" else " · 위치 다시 선택"
+                }.toTypedArray()) { _, index ->
+                    if (!views.canInteract || !app.pickup.canCreate) return@setItems
+                    if (route.waypoints[index].usable) {
+                        app.destination.selectVerifiedStop(route.waypoints[index].place)
+                        render()
+                    } else reselectWaypoints(route, index)
+                }.setNegativeButton("닫기", null).show().also(views::trackDialog)
+        }
         addWaypointButton = views.button("다른 장소에서 만나기", parent = columns.leading) {
             if (!views.canInteract || !app.pickup.canCreate) return@button
             app.destination.loadRecentPlaces { places ->
@@ -131,10 +145,55 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         })
         retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
         retryButton.isEnabled = app.pickup.canCreate
+        existingWaypointButton.visibility = if (ready && stops?.waypoints?.isNotEmpty() == true) View.VISIBLE else View.GONE
+        existingWaypointButton.isEnabled = ready
         addWaypointButton.visibility = if (ready) View.VISIBLE else View.GONE
-        addWaypointButton.isEnabled = ready
+        addWaypointButton.isEnabled = ready && stops?.all?.all { it.usable } == true
+        addWaypointButton.updateText(if (ready && stops?.waypoints?.any { !it.usable } == true)
+            "기존 경유지 위치를 먼저 확인해주세요" else "다른 장소에서 만나기")
         finalDestinationButton.visibility = if (ready && stop?.kind == NavigationStopKind.WAYPOINT) View.VISIBLE else View.GONE
         finalDestinationButton.isEnabled = ready
+    }
+
+    private fun reselectWaypoints(expected: NavigationStops, selectedIndex: Int) {
+        app.destination.loadRecentPlaces { places ->
+            if (!views.canInteract || !app.pickup.canCreate) return@loadRecentPlaces
+            if (places.isEmpty()) {
+                AlertDialog.Builder(views.context)
+                    .setMessage("최근 장소에서 위치를 찾지 못했어요. 내비에서 만날 장소를 검색한 뒤 다시 선택해주세요. 기존 경로는 바꾸지 않았어요.")
+                    .setPositiveButton("확인", null).show().also(views::trackDialog)
+                return@loadRecentPlaces
+            }
+            val unknown = expected.waypoints.indices.filter { !expected.waypoints[it].usable }
+            val chosen = linkedMapOf<Int, SdkPickupPlace>()
+            fun choose(position: Int) {
+                if (!views.canInteract || !app.pickup.canCreate) return
+                if (position == unknown.size) {
+                    val summary = expected.waypoints.mapIndexed { index, stop ->
+                        "${index + 1}. ${chosen[index]?.place?.label ?: stop.place.label}"
+                    }.joinToString("\n")
+                    AlertDialog.Builder(views.context).setTitle("이 경유지로 안내할까요?")
+                        .setMessage("$summary\n\n최종 목적지 ‘${expected.destination.place.label}’는 유지해요. 확인한 뒤에만 경로를 변경해요.")
+                        .setPositiveButton("경로 확인하고 변경") { _, _ ->
+                            if (!views.canInteract || !app.pickup.canCreate) return@setPositiveButton
+                            if (!app.destination.reselectUnverifiedWaypoints(expected, chosen, selectedIndex)) {
+                                AlertDialog.Builder(views.context).setMessage("경로나 장소가 바뀌었어요. 현재 장소를 다시 확인해주세요.")
+                                    .setPositiveButton("확인", null).show().also(views::trackDialog)
+                            }
+                            render()
+                        }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+                    return
+                }
+                val index = unknown[position]
+                AlertDialog.Builder(views.context).setTitle("${index + 1}. ${expected.waypoints[index].place.label} · 장소 다시 선택")
+                    .setItems(places.map { it.place.label + if (it.address.isBlank()) "" else "\n${it.address}" }.toTypedArray()) { _, choice ->
+                        if (!views.canInteract || !app.pickup.canCreate) return@setItems
+                        chosen[index] = places[choice]
+                        choose(position + 1)
+                    }.setNegativeButton("취소", null).show().also(views::trackDialog)
+            }
+            choose(0)
+        }
     }
 
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()

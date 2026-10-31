@@ -85,6 +85,16 @@ class PickupRecoveryTest {
                 server.reply.set(200 to """{"status":"ACTIVE","place":{"label":"예시 장소","latitude":37,"longitude":127}}""")
                 main.runOnMainSync { controller.refresh() }
                 await { controller.online && controller.status == "ACTIVE" }
+                main.runOnMainSync {
+                    assertTrue(controller.needsSharingConfirmation)
+                    val reader = DestinationReader(context)
+                    val now = SystemClock.elapsedRealtime()
+                    reader.telemetry.location(37.0, 127.0, now, java.time.Instant.now())
+                    reader.telemetry.destination(controller.place!!, 180, now, java.time.Instant.now())
+                    controller.syncVehicle(reader)
+                    // A successful retry must not silently resume uploading.
+                    assertTrue(store().load()?.vehicleSequence == value.vehicleSequence)
+                }
             }
         } finally { store().clear() }
     }
