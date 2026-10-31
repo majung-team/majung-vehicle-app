@@ -1,0 +1,29 @@
+{
+  "phase": "complete",
+  "backgroundRequestRecoveryMs": 8056,
+  "routingCompletedCallbacks": 0,
+  "rerouteEndedCallbacks": 0,
+  "cancelledRouteStayedHiddenMs": 12000,
+  "newRouteRecoveryMs": 13081,
+  "reconnectRecoveryMs": 12073,
+  "counts": {
+    "ROUTE_CANCELLED": 2,
+    "DRIVING_ETA": 4,
+    "ROUTE_STATE": 17,
+    "GUIDANCE_INVALID": 8,
+    "WAYPOINT": 8,
+    "DESTINATION_ETA": 9,
+    "ROUTE_STATE_REQUEST": 13,
+    "ROUTE_STARTED": 2,
+    "GUIDANCE_VALID": 9,
+    "DESTINATION_REQUEST": 7,
+    "WAYPOINT_REQUEST": 6,
+    "LOCATION_REQUEST": 3,
+    "LOCATION": 3,
+    "DISCONNECTED": 1,
+    "CONNECTED": 1
+  },
+  "canCreate": false,
+  "selectionAvailable": true,
+  "controllerStatus": "ACTIVE"
+}
