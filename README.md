@@ -365,7 +365,7 @@ adb -s emulator-5554 shell am start \
 
 **내비게이션 취소 후 상태 유지**
 
-공식 에뮬레이터에서 `cancelRoute` 호출 후 일정 시간 `ROUTE_GUIDING` 상태가 유지되는 현상이 확인됐다.
+과거 공식 에뮬레이터 시험에서 `cancelRoute` 호출 후 `ROUTE_GUIDING` 상태가 유지된 기록이 있다. 10/31 복제 AVD의 저장 정보를 지운 환경에서는 SDK 직접 취소 2회와 전체 경로 복구 시험이 모두 통과했다.
 
 [GitHub Issue #56](https://github.com/majung-team/majung-vehicle-app/issues/56)
 
@@ -373,7 +373,7 @@ adb -s emulator-5554 shell am start \
 
 마중의 픽업 완료·취소는 서버 위치 공유를 종료하며, 이 과정에서 내비게이션 안내를 취소하는 명령을 호출하지 않는다.
 
-현재 정확한 원인은 확인되지 않았으며 추가 검증이 필요하다.
+과거 실패 원인은 확정하지 않았으며 재발 시 실행 환경과 함께 다시 확인한다. 현재 버전 재시험 통과 근거는 [시험 기록](evidence/2026-10-31-sdk-cancel/README.md)에 있다.
 
 ---
 
