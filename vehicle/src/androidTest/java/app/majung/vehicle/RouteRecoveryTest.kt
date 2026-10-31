@@ -32,6 +32,8 @@ class RouteRecoveryTest {
             report.put("phase", value)
             main.sendStatus(0, android.os.Bundle().apply { putString("routePhase", value) })
         }
+        // This opt-in test uses only synthetic pickups on the isolated local API.
+        main.runOnMainSync { check(app.sharingNotice.accept()) }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             try {
                 main.runOnMainSync {
