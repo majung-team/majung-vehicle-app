@@ -1,0 +1,19 @@
+{
+  "environment": "separate Pleos Connect 2.1 ARM64 emulator / NaviHelper 3.0.5",
+  "syntheticPlacesOnly": true,
+  "productionApiUsed": false,
+  "initialSdkTestSeconds": 86.356,
+  "existingWaypointRecoveredWithoutSavedRequest": true,
+  "explicitReselectionConfirmed": true,
+  "twoUnknownStopsExplicitlyReselectedInOrder": true,
+  "finalDestinationPreserved": true,
+  "waypointCountPreserved": true,
+  "androidSessionRecoveryTestsPassed": 4,
+  "providerRawResponseFixed": false,
+  "realVehicleIgnitionTested": false,
+  "phonePushReceiptTested": false,
+  "finalSdkAndRecoveryTestsPassed": 6,
+  "finalSdkAndRecoveryTestSeconds": 156.079,
+  "unitTestsPassed": 60,
+  "lintPassed": true
+}

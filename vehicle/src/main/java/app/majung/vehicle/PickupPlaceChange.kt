@@ -11,6 +11,17 @@ class PickupPlaceChange private constructor(val requested: PickupPlace, val prev
     }
 
     companion object {
+        /** The driver explicitly reselects every unknown stop before rebuilding the route. */
+        fun reselect(previous: NavigationStops, replacements: Map<Int, PickupPlace>, selectedIndex: Int): PickupPlaceChange? {
+            val unknown = previous.waypoints.indices.filter { !previous.waypoints[it].usable }.toSet()
+            if (previous.waypoints.size !in 1..2 || !previous.destination.usable || unknown.isEmpty() || replacements.keys != unknown || selectedIndex !in unknown) return null
+            val points = previous.waypoints.mapIndexed { index, stop -> replacements[index] ?: stop.place }
+            if (points.any { !NavigationStop(it, 0, NavigationStopKind.WAYPOINT).usable }) return null
+            val all = listOf(previous.destination.place) + points
+            if (all.any { point -> all.count { it.sameCoordinates(point) } != 1 }) return null
+            return PickupPlaceChange(points[selectedIndex], previous, points)
+        }
+
         fun plan(previous: NavigationStops, old: PickupPlace, next: PickupPlace): PickupPlaceChange? {
             val selected = previous.resolve(old) ?: return null
             if (!NavigationStop(next, 0, NavigationStopKind.WAYPOINT).usable ||

@@ -1,7 +1,9 @@
 
 # 마중 차량 앱 (Majung Vehicle App)
 
-### 차량 내비게이션과 탑승자를 연결하는 픽업 지원 애플리케이션
+#- [기존 경유지 좌표 복구·장소 다시 선택](docs/waypoint-coordinates.md#2026-10-31-기존-경유지-보완)
+
+## 차량 내비게이션과 탑승자를 연결하는 픽업 지원 애플리케이션
 
 마중 차량 앱은 **Android Automotive OS(AAOS)와 Pleos Connect SDK**를 기반으로 개발한 차량용 애플리케이션이다.
 

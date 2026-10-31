@@ -15,7 +15,8 @@ data class SdkPickupPlace(
         copy(poiId = "majung:" + UUID.randomUUID(), poiProvider = "majung") else this
 }
 
-internal data class SdkWaypoint(val place: PickupPlace, val durationSeconds: Long, val poiId: String)
+internal data class SdkWaypoint(val place: PickupPlace, val durationSeconds: Long, val poiId: String,
+                                val poiProvider: String = "", val poiSubId: String = "0")
 
 /** Emulator 2.1 returns zero coordinates but preserves POI identity. No index/name fallback. */
 internal object WaypointCoordinates {
