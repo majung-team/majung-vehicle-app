@@ -215,9 +215,12 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         manageConnections.visibility=if (settings && state=="LINKED") View.VISIBLE else View.GONE
         manageConnections.isEnabled=state=="LINKED" && !app.account.busy
         issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
+        views.styleButton(issue, primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"))
         qr.visibility=if (settings && app.account.qrLink!=null) View.VISIBLE else View.GONE
+        views.styleButton(qr, primary = state == "AWAITING_ACCOUNT")
         confirm.visibility=if (settings && state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
         confirm.isEnabled=!app.account.busy
+        views.styleButton(confirm, primary = state == "AWAITING_VEHICLE_CONFIRMATION")
         inbox.isEnabled=state=="LINKED" && !app.account.busy
         refresh.updateText(when {
             app.account.refreshing -> "새로운 정보 확인 중…"
