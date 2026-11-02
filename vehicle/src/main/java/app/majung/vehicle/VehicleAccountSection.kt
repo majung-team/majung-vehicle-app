@@ -177,21 +177,34 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             renderedRequests = requestSignature
             requestRows.removeAllViews()
             app.account.requests.sortedBy { when(it.optString("status")) { "ACTIVE" -> 0; "PENDING" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
+                val statusKey = item.optString("status")
                 val row = android.widget.Button(views.context).apply {
                     flattenButtonSurface()
-                    text = "${item.optString("nickname")} · ${stateLabel(item.optString("status"))}\n${item.getJSONObject("place").optString("label")}"
+                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}"
                     isAllCaps = false; textSize = 28f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                     setTextColor(android.graphics.Color.rgb(32,40,46))
                     setPadding(dp(24), dp(16), dp(24), dp(16))
                     backgroundTintList = null
                     background = android.graphics.drawable.StateListDrawable().apply {
+                        val restColor = when (statusKey) {
+                            "ACTIVE" -> android.graphics.Color.rgb(236, 253, 245)
+                            "PENDING" -> android.graphics.Color.rgb(235, 243, 255)
+                            "INVITED" -> android.graphics.Color.rgb(255, 251, 235)
+                            else -> android.graphics.Color.rgb(241, 247, 251)
+                        }
+                        val borderColor = when (statusKey) {
+                            "ACTIVE" -> android.graphics.Color.rgb(167, 243, 208)
+                            "PENDING" -> android.graphics.Color.rgb(147, 197, 253)
+                            "INVITED" -> android.graphics.Color.rgb(253, 230, 138)
+                            else -> android.graphics.Color.rgb(208, 225, 237)
+                        }
                         fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
                             setColor(color); cornerRadius = dp(14).toFloat()
-                            setStroke(dp(1), android.graphics.Color.rgb(208, 225, 237))
+                            setStroke(dp(1), borderColor)
                         }
                         addState(intArrayOf(android.R.attr.state_pressed), shape(android.graphics.Color.rgb(218, 236, 247)))
                         addState(intArrayOf(android.R.attr.state_focused), shape(android.graphics.Color.rgb(218, 236, 247)).apply { setStroke(dp(3), android.graphics.Color.rgb(50, 112, 155)) })
-                        addState(intArrayOf(), shape(android.graphics.Color.rgb(241, 247, 251)))
+                        addState(intArrayOf(), shape(restColor))
                     }
                     setOnClickListener { if (views.canInteract && !app.account.busy) details(item) }
                 }

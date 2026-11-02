@@ -25,7 +25,15 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         minLines = 1; maxLines = 2
     }
     private val sharing = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
-    private val problem = views.label("", 17f).apply { setTextColor(Color.rgb(145,81,27)) }
+    private val problem = views.label("", 17f).apply {
+        setTextColor(Color.rgb(146, 64, 14))
+        setPadding(16.dp, 10.dp, 16.dp, 10.dp)
+        background = GradientDrawable().apply {
+            setColor(Color.rgb(254, 243, 199))
+            cornerRadius = 12.dp.toFloat()
+            setStroke(1.dp, Color.rgb(253, 224, 71))
+        }
+    }
     init {
         views.addView(connectionText)
         val card = LinearLayout(views.context).apply {
@@ -53,6 +61,11 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             pickup.online -> "서버 연결됨"
             else -> "연결을 다시 확인하고 있어요"
         })
+        connectionText.setTextColor(when {
+            pickup.busy -> Color.rgb(38, 105, 221)
+            pickup.online -> Color.rgb(15, 118, 110)
+            else -> Color.rgb(180, 83, 9)
+        })
         pickupText.updateText(pickup.place?.label ?: "이번 픽업")
         connectionText.visibility = if (connectionText.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
         passenger.visibility = if (ended) android.view.View.GONE else android.view.View.VISIBLE
@@ -67,6 +80,11 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
                 "PREPARING" -> "탑승자가\n준비 중이에요"
                 else -> "준비 상태를\n기다리고 있어요"
             }
+        })
+        readiness.setTextColor(when {
+            !pickup.online && pickup.status in setOf("ACTIVE", "ARRIVED") -> Color.rgb(180, 83, 9)
+            pickup.status in setOf("ARRIVED", "COMPLETED") || (pickup.status == "ACTIVE" && pickup.readiness == "READY") -> Color.rgb(15, 118, 110)
+            else -> Color.rgb(32, 40, 46)
         })
         val seconds = pickup.place?.let { app.destination.telemetry.current(it,SystemClock.elapsedRealtime())?.durationSeconds }
         eta.updateText(when {
