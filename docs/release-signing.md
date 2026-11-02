@@ -21,7 +21,7 @@
 
 **[v0.2.17-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.17-preview.20261102)**
 
-게시 소스는 `8294592ed0453e7d5e1b288c4d0f0c98239b9bd8`이며 #92의 복구 수정과 #96·#99·#101의 차량 UI·UX 보강(연결 요청 깜빡임 제거, 경유지·장소 선택 버튼 카드화, 트랙패드 스크롤 개선)을 포함한다. APK SHA-256은 `658fdc6a0212f64d017b0a3e014dcba36913ec5bdb45ecb6ebeb8acf4a01aef9`다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
+게시 소스는 `505ad0c28357aac07a296ab8e4bb5ef0fd25e313`이며 #92의 복구 수정과 #96·#99·#101·#105의 차량 UI·UX 및 제안 장소 경로 확인·백그라운드 알림 보강을 포함한다. APK SHA-256은 `1503e8b3f6e75eb2b8befcaff162da9220fc1f23385652dc6ada15afbaeab5b1`이다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
 
 기존 0.2.16과 서명 인증서가 같은지 확인하고, 공식 Pleos 에뮬레이터에서 업데이트 설치·Activity 기동을 확인했다. 게시 파일을 다시 내려받아 해시도 대조했다. 실제 시동 종료·재시동 시험과는 구분한다.
 
