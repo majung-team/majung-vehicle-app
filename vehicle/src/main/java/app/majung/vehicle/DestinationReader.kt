@@ -105,6 +105,8 @@ class DestinationReader(private val context: Context) {
         recentCallback = null
         recentRequestPending = false
         insertion = null
+        requiredInsertion = null
+        placeChange = null
         invalidateRoute()
         status = reason.message
         android.util.Log.w("MajungNavigation", "code=${reason.name}")
@@ -630,10 +632,15 @@ class DestinationReader(private val context: Context) {
         handler.removeCallbacks(connectionTimeout)
         cancelResponseTimeout()
         handler.removeCallbacks(recentTimeout)
+        handler.removeCallbacks(insertionTimeout)
         connected = false
         waitingForGuidance = false
         recentCallback = null
         recentRequestPending = false
+        insertion = null
+        requiredInsertion = null
+        placeChange = null
+        reviewedProposal = null
         invalidateRoute()
         val instance = helper
         helper = null
