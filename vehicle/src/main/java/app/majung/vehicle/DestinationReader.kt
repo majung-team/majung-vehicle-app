@@ -442,7 +442,19 @@ class DestinationReader(private val context: Context) {
                     invalidateRoute()
                     query()
                 }
-                callback?.invoke(places.filter { NavigationStop(it.place, 0, NavigationStopKind.WAYPOINT).usable }.take(20).distinctBy { it.place.latitude to it.place.longitude })
+                val usable = places.filter {
+                    NavigationStop(it.place, 0, NavigationStopKind.WAYPOINT).usable &&
+                        !it.place.label.startsWith("시험 ") &&
+                        !it.place.label.startsWith("SDK ") &&
+                        it.place.label != "두 번째 시험 경유지"
+                }
+                val deduplicated = usable.filter { candidate ->
+                    candidate.address.isNotBlank() || usable.none { other ->
+                        other !== candidate && other.address.isNotBlank() &&
+                            (other.place.label == candidate.place.label || other.place.sameCoordinates(candidate.place))
+                    }
+                }.distinctBy { it.place.latitude to it.place.longitude }.take(20)
+                callback?.invoke(deduplicated)
             }
             override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) = update {
                 timing(SdkTimingType.WAYPOINT_CHANGED)
