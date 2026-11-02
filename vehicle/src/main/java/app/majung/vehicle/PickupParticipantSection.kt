@@ -74,10 +74,10 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             }
         }
         invitationPanel = VehicleColumns(views.context)
-        invitationPanel.leading.addView(inlineQr, android.widget.LinearLayout.LayoutParams(-1, 280.dp))
-        invitationPanel.trailing.addView(views.label("휴대전화로 초대해주세요", 26f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-        invitationPanel.trailing.addView(views.label("1. 운전자 휴대전화로 QR 스캔\n2. 열린 화면에서 초대 링크 공유\n3. 탑승자가 참여하면 연결 완료", 20f))
-        invitationPanel.trailing.addView(views.label("QR을 열기만 해서는 픽업에 참여되지 않아요.", 17f))
+        invitationPanel.leading.addView(inlineQr, android.widget.LinearLayout.LayoutParams(-1, 240.dp))
+        invitationPanel.trailing.addView(views.label("휴대전화로 초대해주세요", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+        invitationPanel.trailing.addView(views.label("1. 운전자 휴대전화로 QR 스캔\n2. 열린 화면에서 초대 링크 공유\n3. 탑승자가 참여하면 연결 완료", 19f))
+        invitationPanel.trailing.addView(views.label("QR을 열기만 해서는 픽업에 참여되지 않아요.", 16f))
         views.prependView(invitationPanel)
         approveButton = views.button("참여자 확인하고 공유 시작") {
             AlertDialog.Builder(views.context).setMessage("초대한 사람이 맞나요? 확인하면 이번 픽업의 장소를 공유해요.")

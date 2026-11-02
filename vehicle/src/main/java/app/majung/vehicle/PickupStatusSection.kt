@@ -104,10 +104,10 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             pickup.status == "ARRIVED" -> "탑승할 때까지 위치 공유를 유지해요. 탑승했다면 완료해주세요."
             pickup.status == "ACTIVE" && app.sharingRunning -> pickup.vehicleMessage
             pickup.status == "ACTIVE" -> "위치 공유를 시작하면 탑승자가 도착 시간을 확인할 수 있어요."
-            pickup.status == "INVITING" -> "아래 QR을 운전자 휴대전화로 열고, 탑승자에게 초대 링크를 보내주세요."
+            pickup.status == "INVITING" -> "초대 링크로 탑승자가 참여하면 바로 연결돼요."
             else -> "픽업이 끝나면 위치 공유도 끝나요."
         })
-        problem.updateText(if (ended) "" else pickup.message)
+        problem.updateText(if (ended || (pickup.status == "INVITING" && pickup.message == "픽업을 만들었어요. 초대 링크로 참여하면 바로 연결돼요.")) "" else pickup.message)
         problem.visibility = if(problem.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
     }
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
