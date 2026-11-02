@@ -73,7 +73,10 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
             val route = app.destination.currentStops() ?: return@button
             AlertDialog.Builder(views.context).setTitle("어느 경유지에서 만날까요?")
                 .setItems(route.waypoints.mapIndexed { index, stop ->
-                    "${index + 1}. ${stop.place.label}" + if (stop.usable) "" else " · 위치 다시 선택"
+                    if (stop.usable) {
+                        val minutes = if (stop.durationSeconds < 60) "1분 미만" else "약 ${ceil(stop.durationSeconds / 60.0).toInt()}분"
+                        "${index + 1}. ${stop.place.label}\n${minutes} 후 도착 예정 · 경유지"
+                    } else "${index + 1}. ${stop.place.label} · 위치 다시 선택"
                 }.toTypedArray()) { _, index ->
                     if (!views.canInteract || !app.pickup.canCreate) return@setItems
                     if (route.waypoints[index].usable) {

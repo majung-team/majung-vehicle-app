@@ -27,7 +27,11 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
         owner=currentDriver()
         if(!allowed() || controller.busy) return
         AlertDialog.Builder(views.context).setTitle("사람 연결")
-            .setAdapter(rows(listOf("닉네임·마중 ID로 사람 찾기","연결 요청·연결된 사람 보기","휴대전화로 연결하기 · QR"))) { _,index ->
+            .setAdapter(rows(listOf(
+                "닉네임·마중 ID로 사람 찾기\n새로 연결할 사람을 검색해 요청을 보내요",
+                "연결 요청·연결된 사람 보기\n받은 연결 요청을 승인하거나 연결 목록을 확인해요",
+                "휴대전화로 연결하기 · QR\n마중 웹에서 사람을 찾고 연결을 관리해요"
+            ))) { _,index ->
                 if(allowed()) when(index) { 0->searchInput(); 1->connections(0); 2->openPhone() }
             }.setNegativeButton("닫기",null).show().also(views::trackDialog)
     }
@@ -83,7 +87,7 @@ internal class VehiclePeopleSection(private val app: VehicleApplication,private 
             .setNegativeButton("닫기",null)
         if(items.isEmpty()) dialog.setMessage("일치하는 사람이 없어요. 상대방의 마중 ID를 확인하거나 다른 닉네임으로 검색해주세요.")
             .setPositiveButton("다시 검색") { _,_->searchInput() }
-        else dialog.setAdapter(rows(items.map { "${it.getString("nickname")} · ${it.getString("majungId")}" })) { _,index ->
+        else dialog.setAdapter(rows(items.map { "${it.getString("nickname")}\n마중 ID · ${it.getString("majungId")} · 눌러서 연결 요청" })) { _,index ->
             if(allowed()) confirmRequest(items[index])
         }
         if(page>0) dialog.setNeutralButton("이전 결과") { _,_->search(query,page-1) }

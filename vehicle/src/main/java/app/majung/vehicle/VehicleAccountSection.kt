@@ -86,11 +86,11 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                     app.pickup.create(place, app.destination.referenceFor(place))
             }
         }
-        if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")} · ${it.optString("majungId")}" }.toTypedArray()) { _, index ->
+        if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")}\n마중 ID · ${it.optString("majungId")} · 눌러서 초대" }.toTypedArray()) { _, index ->
             if (!invitationPlaceStillCurrent(place)) return@setItems
             val person = items[index]
             AlertDialog.Builder(views.context).setTitle("${person.optString("nickname")} 님께 초대할까요?")
-                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘픽업’에서 수락하면 픽업 대기에 들어가요. 웹을 닫아두면 알림이 오지 않아요.")
+                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘픽업’에서 수락하면 픽업 대기에 들어가요.")
                 .setPositiveButton("초대 보내기") { _, _ ->
                     if (invitationPlaceStillCurrent(place))
                         app.account.invite(person.getString("connectionId"), place)
@@ -164,11 +164,14 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         }
     }
     fun render(settings: Boolean = false) {
-        heading.updateText(if (settings) "운전자와 사람 연결" else "받은 요청 · ${app.account.requests.size}건")
-        status.updateText(app.account.message+"\n받은 요청·진행 중인 픽업 ${app.account.requests.size}건")
+        val state=app.account.state.optString("status")
+        val count=app.account.requests.size
+        heading.updateText(if (settings) "운전자와 사람 연결" else "받은 요청 · ${count}건")
+        status.updateText(if (settings) app.account.message else "${app.account.message}\n" +
+            if (count > 0) "받은 요청·진행 중인 픽업 ${count}건" else "받은 마중 요청과 보낸 초대가 여기에 표시돼요")
 
-        issue.visibility = if (settings && app.account.state.optString("status") != "LINKED") View.VISIBLE else View.GONE
-        qr.visibility = if (settings) View.VISIBLE else View.GONE
+        issue.visibility = if (settings && state != "LINKED") View.VISIBLE else View.GONE
+        qr.visibility = if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE else View.GONE
         emptyRequests.visibility = if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
         inbox.visibility = if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
         requestRows.visibility = if (settings) View.GONE else View.VISIBLE
@@ -211,13 +214,11 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                 requestRows.addView(row, android.widget.LinearLayout.LayoutParams(-1,-2).apply { topMargin = (8*views.context.resources.displayMetrics.density).toInt() })
             }
         }
-        val state=app.account.state.optString("status")
-        manageConnections.visibility=if (settings && state=="LINKED") View.VISIBLE else View.GONE
+        manageConnections.visibility=if (state=="LINKED" && (settings || app.account.requests.isEmpty())) View.VISIBLE else View.GONE
         manageConnections.isEnabled=state=="LINKED" && !app.account.busy
-        views.styleButton(manageConnections, primary = true)
+        views.styleButton(manageConnections, primary = settings)
         issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
         views.styleButton(issue, primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"))
-        qr.visibility=if (settings && app.account.qrLink!=null) View.VISIBLE else View.GONE
         views.styleButton(qr, primary = state == "AWAITING_ACCOUNT")
         confirm.visibility=if (settings && state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
         confirm.isEnabled=!app.account.busy
