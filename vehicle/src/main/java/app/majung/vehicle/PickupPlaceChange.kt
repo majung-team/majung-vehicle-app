@@ -23,13 +23,29 @@ class PickupPlaceChange private constructor(val requested: PickupPlace, val prev
         }
 
         fun plan(previous: NavigationStops, old: PickupPlace, next: PickupPlace): PickupPlaceChange? {
-            val selected = previous.resolve(old) ?: return null
-            if (!NavigationStop(next, 0, NavigationStopKind.WAYPOINT).usable ||
-                previous.all.any { it.place.sameCoordinates(next) } || previous.all.any { !it.usable }) return null
-            val points = if (selected.kind == NavigationStopKind.DESTINATION)
-                listOf(next) + previous.waypoints.map { it.place }
-            else previous.waypoints.map { if (it.place.sameCoordinates(old)) next else it.place }
-            if (points.size > 2) return null
+            if (!previous.destination.usable || !NavigationStop(next, 0, NavigationStopKind.WAYPOINT).usable ||
+                previous.destination.place.sameCoordinates(next)) return null
+            val selected = previous.resolve(old)
+                ?: previous.waypoints.singleOrNull { !it.usable && it.place.label == old.label }
+                ?: return null
+            val points = when {
+                selected.kind == NavigationStopKind.DESTINATION -> {
+                    val existingIndex = previous.waypoints.indexOfFirst {
+                        it.place.sameCoordinates(next) || (!it.usable && it.place.label == next.label)
+                    }
+                    if (existingIndex >= 0) {
+                        previous.waypoints.mapIndexed { i, stop -> if (i == existingIndex) next else stop.place }
+                    } else {
+                        listOf(next) + previous.waypoints.map { it.place }
+                    }
+                }
+                else -> previous.waypoints.map { stop ->
+                    if (stop === selected || stop.place.sameCoordinates(old)) next else stop.place
+                }
+            }
+            if (points.size > 2 ||
+                points.any { !NavigationStop(it, 0, NavigationStopKind.WAYPOINT).usable } ||
+                points.any { point -> points.count { it.sameCoordinates(point) } != 1 }) return null
             return PickupPlaceChange(next, previous, points)
         }
     }

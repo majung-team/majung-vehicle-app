@@ -262,12 +262,14 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        app.activityResumed = true
         startRequested = false
         render()
     }
 
     override fun onPause() {
         resumed = false
+        app.activityResumed = false
         super.onPause()
     }
 

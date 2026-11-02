@@ -25,6 +25,8 @@ class VehicleApplication : Application() {
 
     var sharingRunning: Boolean = false
         internal set
+    var activityResumed: Boolean = false
+        internal set
     var sharingMessage: String = "위치 권한을 허용하면 화면 밖에서도 공유할 수 있어요"
         internal set
 
@@ -82,6 +84,7 @@ class VehicleApplication : Application() {
         destination.pickupArrived = pickup::arriveFromSdk
         destination.telemetryChanged = {
             if (sharingRunning) pickup.syncVehicle(destination)
+            pickup.changed?.invoke()
         }
     }
 }

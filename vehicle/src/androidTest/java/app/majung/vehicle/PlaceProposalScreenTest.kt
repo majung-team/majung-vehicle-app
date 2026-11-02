@@ -55,8 +55,8 @@ class PlaceProposalScreenTest {
                             else -> emptyList()
                         }
                         val all = buttons(activity.window.decorView)
-                        val proposal = all.singleOrNull { it.text.toString() == "1. 제안 장소로 경로 확인" && it.visibility == View.VISIBLE }
-                        val confirm = all.singleOrNull { it.text.toString() == "2. 새 장소 확정" }
+                        val proposal = all.singleOrNull { it.text.toString() == "제안 장소로 경로 확인" && it.visibility == View.VISIBLE }
+                        val confirm = all.singleOrNull { it.text.toString() == "새 장소 확정" }
                         if (proposal != null && confirm != null && activity.hasWindowFocus()) { assertFalse(confirm.isEnabled); assertEquals(View.GONE, confirm.visibility); found = true }
                     }
                     if (!found) SystemClock.sleep(200)

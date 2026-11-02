@@ -33,6 +33,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val proposalDetails = views.label("", 22f)
     private val proposalHint = views.label("", 18f)
     private val disconnectButton: Button
+    private var autoConfirmProposalId: String? = null
 
     init {
         inviteButton = views.button("탑승자 초대 링크 복사") {
@@ -92,23 +93,25 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         proposalPanel.addView(proposalDetails)
         proposalPanel.addView(proposalHint)
         views.prependView(proposalPanel)
-        changePlaceButton = views.button("1. 제안 장소로 경로 확인", primary = true, parent = proposalPanel) {
+        confirmPlaceButton = views.button("새 장소 확정", primary = true, parent = proposalPanel) {
+            autoConfirmProposalId = null
+            if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
+        }
+        changePlaceButton = views.button("제안 장소로 경로 확인", primary = true, parent = proposalPanel) {
             val old = app.pickup.place ?: return@button
             val next = app.pickup.placeProposal ?: return@button
             val proposal = app.pickup.proposalId
             AlertDialog.Builder(views.context).setTitle("${next.label}로 바꿀까요?")
-                .setMessage("최종 목적지와 다른 경유지는 유지하고 추천 경로를 다시 찾아요. 내비 확인 후 ‘새 장소 확정’을 눌러야 탑승자의 장소도 바뀌어요.")
+                .setMessage("최종 목적지와 다른 경유지는 유지하고 추천 경로를 다시 찾아요. 내비 경로와 도착 시간이 확인되면 약속 장소도 함께 바뀌어요.")
                 .setPositiveButton("내비 경로 확인") { _, _ ->
-                    if (views.canInteract && app.pickup.status == "ACTIVE" && app.pickup.proposalId == proposal &&
-                        !app.destination.changePickupPlace(old, next, proposal ?: return@setPositiveButton)) {
-                        app.destination.reviewProposedPlace(next, proposal)
-                        AlertDialog.Builder(views.context).setMessage("기존 경로를 다시 바꾸지는 않았어요. 이미 제안 장소가 내비에 있다면 다시 확인해요. 경로와 최종 목적지가 맞는지 확인한 뒤 새 장소를 확정해주세요.")
-                            .setPositiveButton("확인", null).show().also(views::trackDialog)
+                    if (views.canInteract && app.pickup.status == "ACTIVE" && app.pickup.proposalId == proposal && proposal != null) {
+                        autoConfirmProposalId = proposal
+                        if (!app.destination.changePickupPlace(old, next, proposal)) {
+                            app.destination.reviewProposedPlace(next, proposal)
+                        }
+                        render()
                     }
                 }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
-        }
-        confirmPlaceButton = views.button("2. 새 장소 확정", primary = true, parent = proposalPanel) {
-            if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
         }
         views.button("픽업 상태 새로고침") { app.pickup.refresh() }
     }
@@ -137,6 +140,9 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         approveButton.visibility = if (app.pickup.canApprove) View.VISIBLE else View.GONE
         approveButton.isEnabled = app.pickup.canApprove
         val proposed = app.pickup.placeProposal
+        if (! app.pickup.online || app.pickup.status != "ACTIVE" || app.pickup.proposalId == null || app.destination.failure != null) {
+            if (app.pickup.proposalId != autoConfirmProposalId || app.destination.failure != null) autoConfirmProposalId = null
+        }
         val canChange = app.pickup.status == "ACTIVE" && app.pickup.online && !app.pickup.busy &&
             !app.pickup.needsSharingConfirmation && app.pickup.proposalId != null && proposed != null
         val hasProposal = app.pickup.proposalId != null && proposed != null && app.pickup.status == "ACTIVE"
@@ -144,17 +150,29 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             app.destination.verifiedPlaceChange(it) != null &&
                 app.destination.telemetry.current(it, android.os.SystemClock.elapsedRealtime()) != null
         } == true
+        val checkingRoute = hasProposal && !verified && app.destination.checkingPlaceProposal
+        if (verified && canChange && autoConfirmProposalId != null && autoConfirmProposalId == app.pickup.proposalId) {
+            autoConfirmProposalId = null
+            app.pickup.confirmProposedPlace(app.destination)
+            return
+        }
         proposalPanel.visibility = if (hasProposal) View.VISIBLE else View.GONE
         proposalDetails.updateText("현재 약속 · ${app.pickup.place?.label.orEmpty()}\n제안 장소 · ${proposed?.label.orEmpty()}")
         proposalHint.updateText(when {
             !app.pickup.online -> "연결을 다시 확인하고 있어요. 연결되면 제안을 확인할 수 있어요."
             app.pickup.needsSharingConfirmation -> "이전 픽업을 계속한 뒤 장소 변경을 확인해주세요."
-            app.pickup.busy -> "요청을 처리하고 있어요. 잠시 기다려주세요."
+            app.pickup.busy -> "새 약속 장소를 반영하고 있어요. 잠시만 기다려주세요."
+            checkingRoute -> "내비게이션에 제안 장소 경유 경로를 반영하고 도착 시간을 확인하고 있어요…"
             verified -> "내비 경로를 확인했어요. 아래에서 확정하면 탑승자의 약속 장소도 바뀌어요."
             else -> "아직 약속 장소는 그대로예요. 먼저 제안 장소로 경로를 확인해주세요."
         })
-        changePlaceButton.updateText(if (verified) "1. 내비 경로 다시 확인" else "1. 제안 장소로 경로 확인")
-        changePlaceButton.isEnabled = canChange
+        views.styleButton(changePlaceButton, primary = !verified)
+        changePlaceButton.updateText(when {
+            checkingRoute -> "내비 경로 확인 중…"
+            verified -> "내비 경로 다시 확인"
+            else -> "제안 장소로 경로 확인"
+        })
+        changePlaceButton.isEnabled = canChange && !checkingRoute
         confirmPlaceButton.visibility = if (verified) View.VISIBLE else View.GONE
         confirmPlaceButton.isEnabled = canChange && verified
         disconnectButton.isEnabled = app.pickup.canDisconnect

@@ -36,8 +36,20 @@ internal class WaypointRecentRecovery {
         recovered = points.mapNotNull { point ->
             if (point.place.latitude != 0.0 || point.place.longitude != 0.0 || point.poiId.isBlank() ||
                 points.count { it.poiId == point.poiId } != 1) return@mapNotNull null
-            recent.filter { it.poiId == point.poiId && it.poiProvider == point.poiProvider &&
-                it.poiSubId == point.poiSubId }.singleOrNull()?.takeIf {
+            val exact = recent.filter {
+                it.poiId == point.poiId &&
+                    (it.poiProvider == point.poiProvider || (point.poiProvider.isBlank() && point.poiId.startsWith("majung:") && it.poiProvider == "majung")) &&
+                    it.poiSubId == point.poiSubId
+            }.singleOrNull()
+            val candidate = exact ?: if (point.poiId.startsWith("majung:")) {
+                recent.filter {
+                    it.place.label == point.place.label &&
+                        NavigationStop(it.place, point.durationSeconds, NavigationStopKind.WAYPOINT).usable
+                }.distinctBy { it.place.latitude to it.place.longitude }
+                    .singleOrNull()
+                    ?.copy(poiId = point.poiId, poiProvider = point.poiProvider, poiSubId = point.poiSubId)
+            } else null
+            candidate?.takeIf {
                 NavigationStop(it.place, point.durationSeconds, NavigationStopKind.WAYPOINT).usable
             }
         }

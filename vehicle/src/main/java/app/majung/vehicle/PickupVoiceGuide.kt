@@ -36,7 +36,7 @@ internal class PickupVoiceGuide(context: Context, private val pickup: PickupCont
     private fun observe() {
         val eligible = enabled && pickup.online && !pickup.needsSharingConfirmation &&
             pickup.status in setOf("ACTIVE", "ARRIVED")
-        val notice = policy.observe(pickup.pickupId, pickup.status, pickup.readiness, eligible)
+        val notice = policy.observe(pickup.pickupId, pickup.status, pickup.readiness, eligible, pickup.proposalId)
         if (!eligible) output?.stop()
         if (notice != null && output?.ready == true) output?.speak(notice.text)
     }
