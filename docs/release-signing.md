@@ -19,7 +19,7 @@
 | 운영 API | `https://majung.cloud` |
 | 배포 위치 | GitHub Releases |
 
-**[v0.2.14-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.14-preview.20261029)**
+**[v0.2.17-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.17-preview.20261102)**
 
 이 문서의 빌드 절차는 직접 APK를 만드는 개발자를 대상으로 한다.
 
