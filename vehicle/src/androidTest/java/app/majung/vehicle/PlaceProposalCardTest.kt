@@ -38,8 +38,8 @@ class PlaceProposalCardTest {
                 val title = all.filterIsInstance<TextView>().single { it.text == "탑승자가 장소 변경을 요청했어요" }
                 assertEquals(View.VISIBLE, (title.parent as View).visibility)
                 assertTrue(all.filterIsInstance<TextView>().any { it.text.contains("현재 약속 · 기존 만날 장소") && it.text.contains("제안 장소 · 새로 제안한 장소") })
-                val review = all.filterIsInstance<Button>().single { it.text == "1. 제안 장소로 경로 확인" }
-                val confirm = all.filterIsInstance<Button>().single { it.text == "2. 새 장소 확정" }
+                val review = all.filterIsInstance<Button>().single { it.text == "제안 장소로 경로 확인" }
+                val confirm = all.filterIsInstance<Button>().single { it.text == "새 장소 확정" }
                 assertTrue(review.isEnabled)
                 assertEquals(View.GONE, confirm.visibility)
                 assertFalse(confirm.isEnabled)

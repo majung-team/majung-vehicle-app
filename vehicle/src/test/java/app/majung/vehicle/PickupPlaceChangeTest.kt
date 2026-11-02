@@ -31,4 +31,11 @@ class PickupPlaceChangeTest {
         assertNull(PickupPlaceChange.plan(route(old, PickupPlace("미확인", 0.0, 0.0)), old, next))
         assertNull(PickupPlaceChange.plan(route(old), other, next))
     }
+    @Test fun finalPickupCanSwitchToExistingOrUnverifiedSameNameWaypoint() {
+        val unverifiedNext = PickupPlace(next.label, 0.0, 0.0)
+        val planFromUnverified = requireNotNull(PickupPlaceChange.plan(route(unverifiedNext), final, next))
+        assertNotNull(planFromUnverified.confirmed(route(next)))
+        val planFromExisting = requireNotNull(PickupPlaceChange.plan(route(next), final, next))
+        assertNotNull(planFromExisting.confirmed(route(next)))
+    }
 }

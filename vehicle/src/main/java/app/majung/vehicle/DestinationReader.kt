@@ -72,9 +72,13 @@ class DestinationReader(private val context: Context) {
     private var desiredPickup: PickupPlace? = null
     private var selectedSdkPlace: SdkPickupPlace? = null
     private val knownSdkPlaces = linkedMapOf<String, SdkPickupPlace>()
+    private data class PendingPlaceChange(val old: PickupPlace, val next: PickupPlace, val proposalId: String)
+    private var lastObservedStops: NavigationStops? = null
+    private var pendingPlaceChange: PendingPlaceChange? = null
     private var insertion: WaypointInsertion? = null
     private var placeChange: PickupPlaceChange? = null
     private var reviewedProposal: PickupPlace? = null
+    val checkingPlaceProposal: Boolean get() = pendingPlaceChange != null || (placeChange != null && route == null)
     private var requiredInsertion: WaypointInsertion? = null
     private val recentRecovery = WaypointRecentRecovery()
     private var recentRequestPending = false
@@ -106,7 +110,12 @@ class DestinationReader(private val context: Context) {
         recentRequestPending = false
         insertion = null
         requiredInsertion = null
+        pendingPlaceChange = null
         placeChange = null
+        if (reviewedProposal != null) {
+            reviewedProposal = null
+            desiredPickup = pickupPlace?.invoke()
+        }
         invalidateRoute()
         status = reason.message
         android.util.Log.w("MajungNavigation", "code=${reason.name}")
@@ -168,9 +177,9 @@ class DestinationReader(private val context: Context) {
     fun useFinalDestination() {
         desiredPickup = null
         selectedSdkPlace = null
-        knownSdkPlaces.clear()
         insertion = null
         requiredInsertion = null
+        pendingPlaceChange = null
         placeChange = null
         reviewedProposal = null
         handler.removeCallbacks(insertionTimeout)
@@ -252,9 +261,18 @@ class DestinationReader(private val context: Context) {
     }
 
     fun changePickupPlace(old: PickupPlace, next: PickupPlace, proposalId: String): Boolean {
-        val previous = currentStops() ?: return false
-        val plan = PickupPlaceChange.plan(previous, old, next) ?: return false
-        return requestPlaceChange(plan, "majung:proposal:$proposalId")
+        val previous = currentStops() ?: lastObservedStops
+        if (previous != null) {
+            val plan = PickupPlaceChange.plan(previous, old, next) ?: return false
+            pendingPlaceChange = null
+            return requestPlaceChange(plan, "majung:proposal:$proposalId")
+        }
+        if (insertion != null) return false
+        pendingPlaceChange = PendingPlaceChange(old, next, proposalId)
+        failure = null
+        status = "내비 경로를 확인한 뒤 제안 장소를 반영하고 있어요"
+        if (!connected) connect() else query()
+        return true
     }
 
     fun reselectUnverifiedWaypoints(expected: NavigationStops, replacements: Map<Int, SdkPickupPlace>, selectedIndex: Int): Boolean {
@@ -381,6 +399,17 @@ class DestinationReader(private val context: Context) {
                 val stops = NavigationStops(
                     NavigationStop(finalPlace, final.remainTime.toLong(), NavigationStopKind.DESTINATION),
                     WaypointCoordinates.resolveKnown(rawPoints, knownSdkPlaces.values.toList() + recovered))
+                lastObservedStops = stops
+                val deferredChange = pendingPlaceChange
+                if (deferredChange != null) {
+                    pendingPlaceChange = null
+                    val plan = PickupPlaceChange.plan(stops, deferredChange.old, deferredChange.next)
+                    if (plan != null && requestPlaceChange(plan, "majung:proposal:${deferredChange.proposalId}")) {
+                        return@update
+                    }
+                    reviewProposedPlace(deferredChange.next, deferredChange.proposalId)
+                    return@update
+                }
                 // Show the received name early, but never expose an actionable place or ETA
                 // until both route observations pass validation.
                 previewPlaceLabel = (desiredPickup?.let { stops.resolve(it)?.place }
@@ -651,8 +680,10 @@ class DestinationReader(private val context: Context) {
         recentRequestPending = false
         insertion = null
         requiredInsertion = null
+        pendingPlaceChange = null
         placeChange = null
         reviewedProposal = null
+        lastObservedStops = null
         invalidateRoute()
         val instance = helper
         helper = null

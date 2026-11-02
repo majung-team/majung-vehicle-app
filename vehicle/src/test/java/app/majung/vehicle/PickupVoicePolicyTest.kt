@@ -40,4 +40,12 @@ class PickupVoicePolicyTest {
         policy.observe("one", "ACTIVE", "PREPARING", true)
         assertEquals(PickupVoicePolicy.Notice.ARRIVED, policy.observe("one", "ARRIVED", "READY", true))
     }
+
+    @Test fun announcesNewPlaceProposalOncePerProposalId() {
+        val policy = PickupVoicePolicy()
+        assertNull(policy.observe("one", "ACTIVE", "PREPARING", true, null))
+        assertEquals(PickupVoicePolicy.Notice.PROPOSED, policy.observe("one", "ACTIVE", "PREPARING", true, "prop-1"))
+        assertNull(policy.observe("one", "ACTIVE", "PREPARING", true, "prop-1"))
+        assertEquals(PickupVoicePolicy.Notice.PROPOSED, policy.observe("one", "ACTIVE", "PREPARING", true, "prop-2"))
+    }
 }
