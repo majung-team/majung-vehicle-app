@@ -96,6 +96,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
                     driverToken = saved.driverToken
                     inviteToken = saved.inviteToken
                     vehicleSequence = saved.vehicleSequence
+                    vehicleKnownEmpty = saved.vehicleSequence == 0L
                     navigationReference = saved.navigationReference
                     savedSession = saved
                     status = "RESTORING"

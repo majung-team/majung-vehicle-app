@@ -61,8 +61,9 @@ class PickupRecoveryTest {
                     assertTrue(store().load()?.vehicleSequence == 9L)
                     controller.confirmRecoveredSharing()
                     assertTrue(!controller.needsSharingConfirmation)
+                    controller.syncVehicle(DestinationReader(context))
                 }
-                assertTrue(store().load()?.vehicleSequence == 9L)
+                assertTrue(store().load()?.vehicleSequence == 10L)
             }
             ReplyServer(200, """{"status":"COMPLETED","place":null,"participant":null}""").use { server ->
                 val controller = controller(server)
