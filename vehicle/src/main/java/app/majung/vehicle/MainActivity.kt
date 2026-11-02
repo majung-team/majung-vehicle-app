@@ -58,8 +58,8 @@ class MainActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             render()
-            if (ticks % 10 == 0) app.account.refresh()
-            if (ticks % 3 == 0 && driving.allowed && app.registration.needsRegistration) app.enrollment.refresh()
+            if (ticks % 10 == 0) app.account.refresh(background = true)
+            if (ticks % 3 == 0 && driving.allowed && app.registration.needsRegistration) app.enrollment.refresh(background = true)
             preparePickup()
             if (++ticks % 3 == 0 && !app.sharingRunning) app.pickup.refresh()
             handler.postDelayed(this, 1000)

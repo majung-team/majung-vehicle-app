@@ -18,8 +18,11 @@ class VehicleEnrollmentController(
     private var pending: VehicleCredential? = null
     private var qr: String? = null
     private var qrUntil = 0L
+    private var polling = false
     var changed: (() -> Unit)? = null
     var busy = false
+        private set
+    var refreshing = false
         private set
     var state = JSONObject()
         private set
@@ -59,9 +62,9 @@ class VehicleEnrollmentController(
             JSONObject().put("enrollmentId", credential.vehicleId).put("status", "AWAITING_ACCOUNT").put("code", issued.getString("code"))
         }
     }
-    fun refresh() {
-        if (pending == null || busy) return
-        execute { val saved = pending ?: error("No pending enrollment")
+    fun refresh(background: Boolean = false, showProgress: Boolean = false) {
+        if (pending == null || busy || (background && polling)) return
+        execute(background = background, showProgress = showProgress) { val saved = pending ?: error("No pending enrollment")
             api.requestApi("GET", "/vehicles/enrollments/${saved.vehicleId}", saved.token)
         }
     }
@@ -73,9 +76,15 @@ class VehicleEnrollmentController(
                 JSONObject().put("majungId", expectedMajungId))
         }
     }
-    private fun execute(call: () -> JSONObject) {
-        if (busy) return
-        busy = true; changed?.invoke()
+    private fun execute(background: Boolean = false, showProgress: Boolean = false, call: () -> JSONObject) {
+        if (busy || (background && polling)) return
+        if (background) {
+            polling = true
+        } else {
+            busy = true
+            refreshing = showProgress
+            changed?.invoke()
+        }
         worker.execute {
             val result = runCatching {
                 call().also { data ->
@@ -93,7 +102,7 @@ class VehicleEnrollmentController(
                 }
             }
             handler.post {
-                busy = false
+                if (background) polling = false else { busy = false; refreshing = false }
                 result.fold(onSuccess = { data ->
                     state = data
                     if (data.has("code")) {

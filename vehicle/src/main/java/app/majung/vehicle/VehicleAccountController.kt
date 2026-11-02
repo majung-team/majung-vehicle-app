@@ -12,6 +12,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     private val worker = Executors.newSingleThreadExecutor()
     private var generation = 0
     private var qrUntil = 0L
+    private var polling = false
     var changed: (() -> Unit)? = null
     var busy = false
         private set
@@ -42,8 +43,8 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
     }
-    fun refresh(showProgress: Boolean = false, loaded: (() -> Unit)? = null) {
-        execute(loaded = loaded, refreshingAccount = showProgress) {
+    fun refresh(showProgress: Boolean = false, background: Boolean = false, loaded: (() -> Unit)? = null) {
+        execute(loaded = loaded, refreshingAccount = showProgress, background = background) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
             val list=if (account.optString("status")=="LINKED") api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests") else org.json.JSONArray()
             JSONObject().put("account",account).put("requests",list)
@@ -101,13 +102,17 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
     }
-    private fun execute(loaded: (() -> Unit)? = null, failed: (() -> Unit)? = null, invitationFeedback: Boolean = false, refreshingAccount: Boolean = false, call: (String) -> JSONObject) {
+    private fun execute(loaded: (() -> Unit)? = null, failed: (() -> Unit)? = null, invitationFeedback: Boolean = false, refreshingAccount: Boolean = false, background: Boolean = false, call: (String) -> JSONObject) {
         val token=registration.vehicleToken ?: return
-        if (busy) return
+        if (busy || (background && polling)) return
         val epoch=generation
         if (invitationFeedback) invitationMessage = null
-        refreshing = refreshingAccount
-        busy=true; changed?.invoke()
+        if (background) {
+            polling = true
+        } else {
+            refreshing = refreshingAccount
+            busy=true; changed?.invoke()
+        }
         worker.execute {
             val result=runCatching {
                 call(token).also { data ->
@@ -122,8 +127,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                 }
             }
             handler.post {
-                busy=false
-                refreshing=false
+                if (background) polling = false else { busy=false; refreshing=false }
                 if (epoch!=generation || token!=registration.vehicleToken) { failed?.invoke(); changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
                     data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }

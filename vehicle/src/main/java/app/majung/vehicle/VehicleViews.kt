@@ -151,19 +151,14 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         setLineSpacing(3.dp.toFloat(), 1f)
     }
 
-    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, refreshAfterAction: Boolean = true, action: () -> Unit): Button = Button(context).apply {
-        text = title
-        isAllCaps = false
-        flattenButtonSurface()
-        textSize = 28f
-        maxLines = 2
-        minimumHeight = 80.dp
-        gravity = android.view.Gravity.CENTER
-        setTextColor(android.content.res.ColorStateList(
+    fun styleButton(button: Button, primary: Boolean) {
+        if (button.tag == primary) return
+        button.tag = primary
+        button.setTextColor(android.content.res.ColorStateList(
             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
             intArrayOf(Color.rgb(92, 105, 119), if (primary) Color.WHITE else Color.rgb(51, 61, 75))))
-        backgroundTintList = null
-        background = android.graphics.drawable.StateListDrawable().apply {
+        button.backgroundTintList = null
+        button.background = android.graphics.drawable.StateListDrawable().apply {
             fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
                 setColor(color); cornerRadius = 16.dp.toFloat()
             }
@@ -172,7 +167,18 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             addState(intArrayOf(android.R.attr.state_focused), shape(if (primary) Color.rgb(29, 80, 172) else Color.rgb(222, 235, 245)).apply { setStroke(3.dp, Color.rgb(112, 190, 244)) })
             addState(intArrayOf(), shape(if (primary) Color.rgb(38, 105, 221) else Color.rgb(242, 244, 247)))
         }
-        setPadding(16.dp, 12.dp, 16.dp, 12.dp)
+        button.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
+    }
+
+    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, refreshAfterAction: Boolean = true, action: () -> Unit): Button = Button(context).apply {
+        text = title
+        isAllCaps = false
+        flattenButtonSurface()
+        textSize = 28f
+        maxLines = 2
+        minimumHeight = 80.dp
+        gravity = android.view.Gravity.CENTER
+        styleButton(this, primary)
         setOnClickListener { if (canInteract) action(); if (refreshAfterAction) onAction() }
         buttons.add(this)
         (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16.dp })
