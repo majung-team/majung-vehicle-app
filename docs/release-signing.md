@@ -9,17 +9,21 @@
 
 ## 1. 현재 배포 버전
 
-**기준일: 2026년 10월 29일**
+**기준일: 2026년 11월 2일**
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | `0.2.14-preview` |
-| versionCode | `16` |
+| 버전 | `0.2.17-preview` |
+| versionCode | `19` |
 | 배포 형식 | 서명된 Release APK |
 | 운영 API | `https://majung.cloud` |
 | 배포 위치 | GitHub Releases |
 
 **[v0.2.17-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.17-preview.20261102)**
+
+게시 소스는 `c4a4f30650211091c94fc636b2e66dc8fc42aff0`이며 #92의 복구 수정을 포함한다. APK SHA-256은 `d9f3997921698b4fa4028957ca2632ceafec3cfd06716b32871fc2df85403fee`다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
+
+기존 0.2.16과 서명 인증서가 같은지 확인하고, 공식 Pleos 에뮬레이터에서 업데이트 설치·Activity 기동을 확인했다. 게시 파일을 다시 내려받아 해시도 대조했다. 실제 시동 종료·재시동 시험과는 구분한다.
 
 이 문서의 빌드 절차는 직접 APK를 만드는 개발자를 대상으로 한다.
 
@@ -303,7 +307,7 @@ APK 자체에는 서명용 개인 키가 포함되지 않는다.
 
 위 이미지는 `0.2.0-preview` 당시의 설치 시험 기록이다.
 
-현재 게시된 `0.2.14-preview`의 전체 기능 검증 결과를 나타내는 화면은 아니다.
+현재 게시된 APK의 전체 기능 검증 결과를 나타내는 화면은 아니다.
 
 ---
 
