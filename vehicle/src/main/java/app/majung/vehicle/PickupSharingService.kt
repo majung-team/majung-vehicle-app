@@ -34,6 +34,7 @@ class PickupSharingService : Service() {
             }
             app.destination.restorePickupReference(app.pickup.place, app.pickup.navigationReference)
             if (ticks % 3 == 0) app.pickup.refresh()
+            if (ticks % 6 == 0) app.account.refresh(background = true)
             if (ticks % 5 == 0) {
                 app.destination.connect()
                 app.destination.pollTelemetry()

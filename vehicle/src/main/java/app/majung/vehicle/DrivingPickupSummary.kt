@@ -6,7 +6,8 @@ import kotlin.math.ceil
 internal data class DrivingPickupSummary(val phase: String, val readiness: String, val eta: String) {
     companion object {
         fun from(known: Boolean, status: String, online: Boolean, needsConfirmation: Boolean,
-                 sharing: Boolean, readiness: String, durationSeconds: Long?): DrivingPickupSummary {
+                 sharing: Boolean, readiness: String, durationSeconds: Long?,
+                 quickMessage: String? = null): DrivingPickupSummary {
             if (!known) return DrivingPickupSummary("차량 상태 확인 중", "", "정차 후 확인해주세요")
             if (status.isBlank()) return DrivingPickupSummary("진행 중인 픽업 없음", "", "정차 후 픽업을 준비해주세요")
             if (status in setOf("COMPLETED", "CANCELLED", "EXPIRED"))
@@ -15,9 +16,10 @@ internal data class DrivingPickupSummary(val phase: String, val readiness: Strin
             if (needsConfirmation) return DrivingPickupSummary("이전 픽업 확인 필요", "", "정차 후 계속하기를 눌러주세요")
             if (status !in setOf("ACTIVE", "ARRIVED"))
                 return DrivingPickupSummary("탑승자 연결 대기", "", "정차 후 확인해주세요")
-            val ready = when (readiness) {
-                "READY" -> "탑승자 준비 완료"
-                "PREPARING" -> "탑승자 준비 중"
+            val ready = when {
+                quickMessage != null -> "메시지: “$quickMessage”"
+                readiness == "READY" -> "탑승자 준비 완료"
+                readiness == "PREPARING" -> "탑승자 준비 중"
                 else -> "탑승자 준비 상태 대기"
             }
             val time = when {

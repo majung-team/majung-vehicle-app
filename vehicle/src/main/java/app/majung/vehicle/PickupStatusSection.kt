@@ -69,7 +69,8 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         pickupText.updateText(pickup.place?.label ?: "이번 픽업")
         connectionText.visibility = if (connectionText.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
         passenger.visibility = if (ended) android.view.View.GONE else android.view.View.VISIBLE
-        passenger.updateText(pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기")
+        val msgSuffix = pickup.quickMessage?.let { " · “$it”" } ?: ""
+        passenger.updateText((pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기") + msgSuffix)
         readiness.updateText(if (!pickup.online && pickup.status in setOf("ACTIVE", "ARRIVED")) "마지막 준비 상태\n연결 확인 중" else when(pickup.status) {
             "INVITING", "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
             "ARRIVED" -> "도착했어요"

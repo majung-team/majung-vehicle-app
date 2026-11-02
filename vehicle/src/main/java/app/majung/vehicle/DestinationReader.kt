@@ -135,6 +135,14 @@ class DestinationReader(private val context: Context) {
         pickupArrived?.invoke(evidence)
     }
 
+    internal fun checkProximityArrival() {
+        val selected = pickupPlace?.invoke() ?: return
+        val now = SystemClock.elapsedRealtime()
+        val sample = telemetry.current(selected, now) ?: return
+        val evidence = PickupArrivalEvidence.resolveByProximity(currentStops(), selected, sample) ?: return
+        pickupArrived?.invoke(evidence)
+    }
+
     fun referenceFor(place: PickupPlace): String? {
         val stop = currentStops()?.resolve(place) ?: return null
         if (stop.kind != NavigationStopKind.WAYPOINT) return null

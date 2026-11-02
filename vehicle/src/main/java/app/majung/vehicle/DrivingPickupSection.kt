@@ -29,7 +29,7 @@ internal class DrivingPickupSection(context: Context, private val app: VehicleAp
         val pickup = app.pickup
         val seconds = pickup.place?.let { app.destination.telemetry.current(it, SystemClock.elapsedRealtime())?.durationSeconds }
         val summary = DrivingPickupSummary.from(known, pickup.status, pickup.online, pickup.needsSharingConfirmation,
-            app.sharingRunning, pickup.readiness, seconds)
+            app.sharingRunning, pickup.readiness, seconds, pickup.quickMessage)
         val rows = listOf(phase to summary.phase, readiness to summary.readiness, eta to summary.eta)
         var remaining = if (known) itemLimit.coerceIn(0, 3) else 1
         val limit = if (known) stringLimit.coerceIn(0, 40) else 16

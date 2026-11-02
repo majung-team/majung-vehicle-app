@@ -13,6 +13,12 @@ internal object PickupArrivalEvidence {
         if (sample.durationSeconds !in 0..60 || !nearby(sample, target.place)) return null
         return target.place
     }
+    fun resolveByProximity(stops: NavigationStops?, selected: PickupPlace?, sample: VehicleSample?): PickupPlace? {
+        if (stops == null || selected == null || sample == null) return null
+        val target = stops.resolve(selected) ?: return null
+        if (sample.durationSeconds !in 0..30 || !nearby(sample, target.place)) return null
+        return target.place
+    }
     private fun nearby(sample: VehicleSample, place: PickupPlace): Boolean {
         val latitude = Math.toRadians(place.latitude - sample.latitude)
         val longitude = Math.toRadians(place.longitude - sample.longitude)
