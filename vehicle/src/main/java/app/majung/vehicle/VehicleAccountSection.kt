@@ -214,6 +214,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         val state=app.account.state.optString("status")
         manageConnections.visibility=if (settings && state=="LINKED") View.VISIBLE else View.GONE
         manageConnections.isEnabled=state=="LINKED" && !app.account.busy
+        views.styleButton(manageConnections, primary = true)
         issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
         views.styleButton(issue, primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"))
         qr.visibility=if (settings && app.account.qrLink!=null) View.VISIBLE else View.GONE

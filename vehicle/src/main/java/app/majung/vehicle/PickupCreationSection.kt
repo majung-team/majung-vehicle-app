@@ -91,7 +91,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
                         .setPositiveButton("확인", null).show().also(views::trackDialog)
                 } else {
                     AlertDialog.Builder(views.context).setTitle("어디서 태울까요?")
-                        .setItems(places.map { it.place.label }.toTypedArray()) { _, index ->
+                        .setItems(places.map { it.place.label + if (it.address.isBlank()) "" else "\n${it.address}" }.toTypedArray()) { _, index ->
                             if (!views.canInteract) return@setItems
                             val place = places[index]
                             AlertDialog.Builder(views.context)
@@ -141,7 +141,7 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         actionHint.updateText(app.account.invitationMessage ?: when {
             !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
             !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
-            else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 초대하는 사람은 QR을 휴대전화로 열어 링크를 보내주세요."
+            else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 만나는 분은 QR을 스캔해 링크를 보내주세요."
         })
         retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
         retryButton.isEnabled = app.pickup.canCreate

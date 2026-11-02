@@ -116,7 +116,7 @@ class MainActivity : Activity() {
         sharingButton = views.button("화면 밖에서도 공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
         layout.removeView(permissionGroup)
         layout.addView(permissionGroup, layout.indexOfChild(statusGroup))
-        parkedScreen = ScrollView(this).apply {
+        parkedScreen = createSmoothScrollView().apply {
             id = R.id.parked_controls
             setBackgroundColor(Color.rgb(247,248,250))
             addView(layout, FrameLayout.LayoutParams(-1,-2,android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
@@ -162,13 +162,15 @@ class MainActivity : Activity() {
         }
         views.useRoot()
         noticeGroup = views.section()
-        views.addView(views.label("위치 공유와 개인정보", 24f))
-        views.button("공유 안내 다시 보기") {
+        views.addView(views.label("위치 공유와 개인정보", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+        val noticeButtons = VehicleColumns(this)
+        views.addView(noticeButtons)
+        views.button("공유 안내 다시 보기", parent = noticeButtons.leading) {
             android.app.AlertDialog.Builder(this).setTitle("위치 공유 안내")
                 .setMessage(SharingNotice.TEXT).setPositiveButton("확인", null)
                 .show().also(views::trackDialog)
         }
-        views.button("사용 동의 철회") {
+        views.button("사용 동의 철회", parent = noticeButtons.trailing) {
             if (app.pickup.pickupId != null && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED")) {
                 android.app.AlertDialog.Builder(this).setTitle("먼저 픽업을 종료해주세요")
                     .setMessage("현재 픽업을 완료하거나 취소하면 위치 접근이 끝나요. 서버에서 종료를 확인한 뒤 동의를 철회할 수 있어요.")
@@ -226,7 +228,7 @@ class MainActivity : Activity() {
                 setOnClickListener { finish() }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
         }
-        noticeScreen = ScrollView(this).apply {
+        noticeScreen = createSmoothScrollView().apply {
             setBackgroundColor(Color.rgb(247, 248, 250))
             addView(noticeContent, FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
             visibility = View.GONE
@@ -315,6 +317,30 @@ class MainActivity : Activity() {
     }
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
+    private fun createSmoothScrollView(): ScrollView = object : ScrollView(this) {
+        init {
+            isSmoothScrollingEnabled = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        override fun computeScrollDeltaToGetChildRectOnScreen(rect: android.graphics.Rect?): Int = 0
+        override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+            if (event.action == android.view.MotionEvent.ACTION_SCROLL &&
+                event.isFromSource(android.view.InputDevice.SOURCE_CLASS_POINTER)) {
+                val vscroll = event.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
+                if (vscroll != 0f) {
+                    val child = getChildAt(0)
+                    val range = if (child != null) maxOf(0, child.height - (height - paddingTop - paddingBottom)) else 0
+                    val target = (scrollY - (vscroll * 96.dp).toInt()).coerceIn(0, range)
+                    if (target != scrollY) {
+                        scrollTo(0, target)
+                        return true
+                    }
+                }
+            }
+            return super.dispatchGenericMotionEvent(event)
+        }
+    }
 
     private fun preparePickup(refresh: Boolean = false) {
         if (app.sharingNotice.accepted && driving.allowed && selectedTab == "pickup" && app.pickup.canCreate && !app.sharingRunning)

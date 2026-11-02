@@ -84,10 +84,15 @@ internal class VehicleViews(val context: Context, private val container: LinearL
             if (view is ViewGroup) for (index in 0 until view.childCount) readable(view.getChildAt(index))
         }
         readable(window.decorView)
-        dialog.findViewById<TextView>(context.resources.getIdentifier("alertTitle", "id", "android"))?.textSize = 32f
+        dialog.findViewById<TextView>(context.resources.getIdentifier("alertTitle", "id", "android"))?.apply {
+            textSize = 32f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(Color.rgb(25, 31, 40))
+        }
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
             setPadding(paddingLeft, paddingTop + 8.dp, paddingRight, paddingBottom + 16.dp)
         }
+        styleDialogList(dialog)
         // The platform ButtonBarLayout baseline can place taller custom buttons above its bounds.
         (dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.parent as? LinearLayout)?.apply {
             isBaselineAligned = false
@@ -125,6 +130,107 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         }
     }
 
+    private fun styleDialogList(dialog: AlertDialog) {
+        val listView = dialog.listView ?: return
+        val baseAdapter = listView.adapter ?: return
+        listView.divider = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        listView.dividerHeight = 12.dp
+        listView.setPadding(24.dp, 12.dp, 24.dp, 16.dp)
+        listView.clipToPadding = false
+        listView.overScrollMode = View.OVER_SCROLL_NEVER
+        listView.selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        listView.setOnGenericMotionListener { _, event ->
+            if (event.action == android.view.MotionEvent.ACTION_SCROLL &&
+                event.isFromSource(android.view.InputDevice.SOURCE_CLASS_POINTER)) {
+                val vscroll = event.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
+                if (vscroll != 0f) {
+                    listView.scrollListBy((-vscroll * 96.dp).toInt())
+                    return@setOnGenericMotionListener true
+                }
+            }
+            false
+        }
+        listView.adapter = object : android.widget.BaseAdapter() {
+            override fun getCount(): Int = baseAdapter.count
+            override fun getItem(position: Int): Any? = baseAdapter.getItem(position)
+            override fun getItemId(position: Int): Long = baseAdapter.getItemId(position)
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val raw = baseAdapter.getItem(position)?.toString().orEmpty()
+                return (convertView as? TextView ?: TextView(context)).apply {
+                    text = formatDialogChoice(raw)
+                    textSize = 28f
+                    minHeight = 88.dp
+                    maxLines = 3
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                    setTextColor(Color.rgb(25, 31, 40))
+                    setLineSpacing(4.dp.toFloat(), 1f)
+                    setPadding(24.dp, 18.dp, 24.dp, 18.dp)
+                    compoundDrawablePadding = 16.dp
+                    setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, choiceChevron(), null)
+                    background = android.graphics.drawable.StateListDrawable().apply {
+                        fun card(fill: Int, strokeColor: Int, strokeWidth: Int = 1.dp) =
+                            android.graphics.drawable.GradientDrawable().apply {
+                                setColor(fill)
+                                cornerRadius = 16.dp.toFloat()
+                                setStroke(strokeWidth, strokeColor)
+                            }
+                        addState(intArrayOf(android.R.attr.state_pressed), card(Color.rgb(216, 233, 252), Color.rgb(38, 105, 221), 2.dp))
+                        addState(intArrayOf(android.R.attr.state_focused), card(Color.rgb(216, 233, 252), Color.rgb(38, 105, 221), 3.dp))
+                        addState(intArrayOf(android.R.attr.state_selected), card(Color.rgb(216, 233, 252), Color.rgb(38, 105, 221), 2.dp))
+                        addState(intArrayOf(), card(Color.rgb(240, 246, 253), Color.rgb(190, 210, 234), 1.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun formatDialogChoice(raw: String): CharSequence {
+        val span = android.text.SpannableString(raw)
+        val newline = raw.indexOf('\n')
+        val reselect = raw.indexOf(" · 위치 다시 선택")
+        if (newline > 0) {
+            span.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, newline, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            span.setSpan(android.text.style.AbsoluteSizeSpan(22, true), newline + 1, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            span.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(71, 87, 104)), newline + 1, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else if (reselect > 0) {
+            span.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            span.setSpan(android.text.style.AbsoluteSizeSpan(24, true), reselect, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            span.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(38, 105, 221)), reselect, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else if (raw.isNotEmpty()) {
+            span.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, raw.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return span
+    }
+
+    private fun choiceChevron(): android.graphics.drawable.Drawable = object : android.graphics.drawable.Drawable() {
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(38, 105, 221)
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 3.dp.toFloat()
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        override fun getIntrinsicWidth(): Int = 20.dp
+        override fun getIntrinsicHeight(): Int = 20.dp
+        override fun draw(canvas: android.graphics.Canvas) {
+            val b = bounds
+            val cx = b.exactCenterX()
+            val cy = b.exactCenterY()
+            val d = 5.dp.toFloat()
+            val path = android.graphics.Path().apply {
+                moveTo(cx - d * 0.5f, cy - d)
+                lineTo(cx + d * 0.5f, cy)
+                lineTo(cx - d * 0.5f, cy + d)
+            }
+            canvas.drawPath(path, paint)
+        }
+        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+    }
+
     fun applyRestrictions() {
         if (!canInteract) {
             buttons.forEach { lockedButtons[it] = it.isEnabled; it.isEnabled = false }
@@ -156,16 +262,18 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         button.tag = primary
         button.setTextColor(android.content.res.ColorStateList(
             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-            intArrayOf(Color.rgb(92, 105, 119), if (primary) Color.WHITE else Color.rgb(51, 61, 75))))
+            intArrayOf(Color.rgb(132, 144, 158), if (primary) Color.WHITE else Color.rgb(32, 45, 62))))
         button.backgroundTintList = null
         button.background = android.graphics.drawable.StateListDrawable().apply {
-            fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
-                setColor(color); cornerRadius = 16.dp.toFloat()
-            }
-            addState(intArrayOf(-android.R.attr.state_enabled), shape(Color.rgb(239,242,244)))
-            addState(intArrayOf(android.R.attr.state_pressed), shape(if (primary) Color.rgb(29, 80, 172) else Color.rgb(222, 235, 245)))
-            addState(intArrayOf(android.R.attr.state_focused), shape(if (primary) Color.rgb(29, 80, 172) else Color.rgb(222, 235, 245)).apply { setStroke(3.dp, Color.rgb(112, 190, 244)) })
-            addState(intArrayOf(), shape(if (primary) Color.rgb(38, 105, 221) else Color.rgb(242, 244, 247)))
+            fun shape(color: Int, strokeColor: Int = Color.TRANSPARENT, strokeWidth: Int = 0) =
+                android.graphics.drawable.GradientDrawable().apply {
+                    setColor(color); cornerRadius = 16.dp.toFloat()
+                    if (strokeWidth > 0) setStroke(strokeWidth, strokeColor)
+                }
+            addState(intArrayOf(-android.R.attr.state_enabled), shape(Color.rgb(242, 244, 247)))
+            addState(intArrayOf(android.R.attr.state_pressed), shape(if (primary) Color.rgb(29, 80, 172) else Color.rgb(218, 232, 248), if (primary) Color.TRANSPARENT else Color.rgb(154, 184, 222), if (primary) 0 else 1.dp))
+            addState(intArrayOf(android.R.attr.state_focused), shape(if (primary) Color.rgb(29, 80, 172) else Color.rgb(218, 232, 248), Color.rgb(112, 190, 244), 3.dp))
+            addState(intArrayOf(), shape(if (primary) Color.rgb(38, 105, 221) else Color.rgb(238, 243, 249), if (primary) Color.TRANSPARENT else Color.rgb(198, 212, 228), if (primary) 0 else 1.dp))
         }
         button.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
     }
