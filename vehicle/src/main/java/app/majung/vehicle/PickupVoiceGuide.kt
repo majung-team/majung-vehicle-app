@@ -8,7 +8,7 @@ internal class PickupVoiceGuide(context: Context, private val pickup: PickupCont
     private val createOutput: (() -> Unit) -> PickupVoiceOutput = { PleosPickupVoiceOutput(context, it) }) {
     private val policy = PickupVoicePolicy()
     private var output: PickupVoiceOutput? = null
-    var enabled = preferences.getBoolean("enabled", false)
+    var enabled = preferences.getBoolean("enabled", true)
         private set
     var changed: (() -> Unit)? = null
     private var saveFailed = false
