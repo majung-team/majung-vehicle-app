@@ -338,6 +338,8 @@ class MainActivity : Activity() {
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     private fun createSmoothScrollView(): ScrollView = object : ScrollView(this) {
+        private var accumulatedScroll = 0f
+
         init {
             isSmoothScrollingEnabled = true
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -350,11 +352,19 @@ class MainActivity : Activity() {
                 if (vscroll != 0f) {
                     val child = getChildAt(0)
                     val range = if (child != null) maxOf(0, child.height - (height - paddingTop - paddingBottom)) else 0
-                    val target = (scrollY - (vscroll * 96.dp).toInt()).coerceIn(0, range)
-                    if (target != scrollY) {
-                        scrollTo(0, target)
-                        return true
+                    accumulatedScroll += vscroll * 96.dp
+                    val delta = accumulatedScroll.toInt()
+                    if (delta != 0) {
+                        accumulatedScroll -= delta
+                        val newScroll = (scrollY - delta).coerceIn(0, range)
+                        val actualDelta = newScroll - scrollY
+                        if (actualDelta != 0) {
+                            smoothScrollBy(0, actualDelta)
+                        } else {
+                            accumulatedScroll = 0f
+                        }
                     }
+                    return true
                 }
             }
             return super.dispatchGenericMotionEvent(event)

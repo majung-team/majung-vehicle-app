@@ -139,12 +139,18 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         listView.clipToPadding = false
         listView.overScrollMode = View.OVER_SCROLL_NEVER
         listView.selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        var accumulatedListScroll = 0f
         listView.setOnGenericMotionListener { _, event ->
             if (event.action == android.view.MotionEvent.ACTION_SCROLL &&
                 event.isFromSource(android.view.InputDevice.SOURCE_CLASS_POINTER)) {
                 val vscroll = event.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
                 if (vscroll != 0f) {
-                    listView.scrollListBy((-vscroll * 96.dp).toInt())
+                    accumulatedListScroll += -vscroll * 96.dp
+                    val delta = accumulatedListScroll.toInt()
+                    if (delta != 0) {
+                        accumulatedListScroll -= delta
+                        listView.scrollListBy(delta)
+                    }
                     return@setOnGenericMotionListener true
                 }
             }
