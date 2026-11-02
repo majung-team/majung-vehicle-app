@@ -264,7 +264,24 @@ class MainActivity : Activity() {
         resumed = true
         app.activityResumed = true
         startRequested = false
+        checkPendingRequestIntent(intent)
         render()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkPendingRequestIntent(intent)
+    }
+
+    private fun checkPendingRequestIntent(intent: Intent?) {
+        val targetId = intent?.getStringExtra(VehicleApplication.EXTRA_OPEN_REQUEST_ID) ?: return
+        intent.removeExtra(VehicleApplication.EXTRA_OPEN_REQUEST_ID)
+        val req = app.account.requests.firstOrNull { it.optString("requestId") == targetId }
+        if (req != null && driving.allowed) {
+            changeTab("requests")
+            accountSection.details(req)
+        }
     }
 
     override fun onPause() {

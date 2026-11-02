@@ -49,6 +49,10 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         private set
     var participantName: String? = null
         private set
+    var quickMessage: String? = null
+        private set
+    private var lastQuickMessageAt: String? = null
+    var onQuickMessageReceived: ((String) -> Unit)? = null
     var readiness = ""
         private set
     var busy = false
@@ -314,6 +318,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         inviteToken = null
         participantId = null
         participantName = null
+        quickMessage = null
+        lastQuickMessageAt = null
         place = null
         navigationReference = null
         readiness = ""
@@ -430,6 +436,14 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         readinessSequence = participant?.optLong("readinessSequence", 0) ?: 0
         receivedReadinessSequence = participant?.optLong("readinessReceivedSequence", 0) ?: 0
         supportsReadinessReceipt = participant?.has("readinessReceivedSequence") == true
+        val quickMsgObj = data.optJSONObject("quickMessage")
+        val quickMsgText = quickMsgObj?.optString("text")?.takeIf { it.isNotBlank() }
+        val quickMsgSentAt = quickMsgObj?.optString("sentAt")
+        if (quickMsgText != null && (quickMsgSentAt != lastQuickMessageAt || quickMsgText != quickMessage)) {
+            lastQuickMessageAt = quickMsgSentAt
+            quickMessage = quickMsgText
+            onQuickMessageReceived?.invoke(quickMsgText)
+        }
         if (status != "INVITING") inviteToken = null
         if (status in ended) {
             clearSavedSession()
@@ -438,6 +452,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             inviteToken = null
             participantId = null
             participantName = null
+            quickMessage = null
+            lastQuickMessageAt = null
             place = null
             navigationReference = null
             if (!storageCleanupFailed) message = "픽업 공유가 종료됐어요. 이 앱의 접근 정보도 지웠어요."

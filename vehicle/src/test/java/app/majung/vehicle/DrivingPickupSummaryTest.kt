@@ -30,4 +30,8 @@ class DrivingPickupSummaryTest {
             assertEquals("픽업 공유 종료",ended.phase); assertEquals("",ended.readiness); assertEquals("",ended.eta)
         }
     }
+    @Test fun quickMessageOverridesReadinessWhenPresent() {
+        val summary = DrivingPickupSummary.from(true, "ACTIVE", true, false, true, "READY", 300, "1번 출구 앞이에요")
+        assertEquals("메시지: “1번 출구 앞이에요”", summary.readiness)
+    }
 }

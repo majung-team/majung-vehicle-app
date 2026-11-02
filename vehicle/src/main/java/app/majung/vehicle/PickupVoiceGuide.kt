@@ -33,6 +33,10 @@ internal class PickupVoiceGuide(context: Context, private val pickup: PickupCont
         changed?.invoke()
     }
 
+    fun speak(text: String) {
+        if (enabled && text.isNotBlank() && output?.ready == true) output?.speak(text)
+    }
+
     private fun observe() {
         val eligible = enabled && pickup.online && !pickup.needsSharingConfirmation &&
             pickup.status in setOf("ACTIVE", "ARRIVED")

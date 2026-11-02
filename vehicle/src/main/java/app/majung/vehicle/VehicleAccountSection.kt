@@ -134,7 +134,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     private var renderedRequests = ""
     private val manageConnections=views.button("사람 찾기 · 연결 관리") { people.open() }
     private val refresh=views.button("요청 목록 새로고침", refreshAfterAction = false) { if (!app.account.busy) app.account.refresh(showProgress = true) }
-    private fun details(item: JSONObject) {
+    internal fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
         val id=item.getString("requestId")
         val dialog=AlertDialog.Builder(views.context).setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")

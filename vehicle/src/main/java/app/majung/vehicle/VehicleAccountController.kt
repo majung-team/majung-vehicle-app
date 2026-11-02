@@ -35,10 +35,13 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         private set
     private var pendingInvitation: JSONObject? = null
     private var qr: String? = null
+    private var hasLoadedRequests = false
+    internal var onNewPendingRide: ((RequestedRide) -> Unit)? = null
     val qrLink: String? get() = qr?.takeIf { SystemClock.elapsedRealtime() < qrUntil && state.optString("status") in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION") && registration.vehicleToken != null }
     fun registrationChanged() {
         generation++
         requestsCheckedAt = 0
+        hasLoadedRequests = false
         invitationMessage = null
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
@@ -131,7 +134,28 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                 if (epoch!=generation || token!=registration.vehicleToken) { failed?.invoke(); changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
                     data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }
-                    data.optJSONArray("requests")?.let { array -> requests=(0 until array.length()).map { array.getJSONObject(it) }; requestsCheckedAt = SystemClock.elapsedRealtime() }
+                    data.optJSONArray("requests")?.let { array ->
+                        val newRequests = (0 until array.length()).map { array.getJSONObject(it) }
+                        val previousPendingIds = requests.filter { it.optString("status") == "PENDING" }.map { it.optString("requestId") }.toSet()
+                        requests = newRequests
+                        requestsCheckedAt = SystemClock.elapsedRealtime()
+                        if (hasLoadedRequests) {
+                            for (item in newRequests) {
+                                val id = item.optString("requestId")
+                                val itemStatus = item.optString("status")
+                                if (itemStatus == "PENDING" && id.isNotBlank() && id !in previousPendingIds) {
+                                    item.optJSONObject("place")?.let { point ->
+                                        val place = PickupPlace(point.optString("label"), point.optDouble("latitude"), point.optDouble("longitude"))
+                                        if (NavigationStop(place, 0, NavigationStopKind.WAYPOINT).usable) {
+                                            val ride = RequestedRide(id, item.optString("nickname"), place, itemStatus)
+                                            onNewPendingRide?.invoke(ride)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        hasLoadedRequests = true
+                    }
                     data.optJSONArray("contacts")?.let { array ->
                         contacts = (0 until array.length()).map { array.getJSONObject(it) }
                         contactsPage = data.getInt("contactsPage")
