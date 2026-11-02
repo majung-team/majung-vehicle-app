@@ -23,10 +23,12 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         background = android.graphics.drawable.GradientDrawable().apply {
             setColor(android.graphics.Color.rgb(239, 245, 255))
             cornerRadius = 20.dp.toFloat()
+            setStroke(1.dp, android.graphics.Color.rgb(191, 219, 254))
         }
     }
     private val proposalTitle = views.label("탑승자가 장소 변경을 요청했어요", 26f).apply {
         setTypeface(typeface, android.graphics.Typeface.BOLD)
+        setTextColor(android.graphics.Color.rgb(30, 64, 175))
     }
     private val proposalDetails = views.label("", 22f)
     private val proposalHint = views.label("", 18f)
@@ -64,6 +66,11 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             maxHeight = (240 * resources.displayMetrics.density).toInt()
             contentDescription = "운전자 휴대전화로 열어 탑승자에게 전달하는 초대 QR"
             setPadding(16,16,16,16)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(android.graphics.Color.WHITE)
+                cornerRadius = 16.dp.toFloat()
+                setStroke(1.dp, android.graphics.Color.rgb(225, 235, 249))
+            }
         }
         invitationPanel = VehicleColumns(views.context)
         invitationPanel.leading.addView(inlineQr, android.widget.LinearLayout.LayoutParams(-1, 280.dp))
