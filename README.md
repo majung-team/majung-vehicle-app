@@ -19,7 +19,7 @@
 
 - [마중 프로젝트 소개](https://github.com/majung-team/majung)
 - [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 0.2.18-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.18-preview.20261103)
+- [차량 앱 APK 0.2.19-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)
 - [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
 - [모바일 웹](https://majung.cloud/account)
 - [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
@@ -122,7 +122,7 @@ Pleos NaviHelper SDK를 활용해 다음 정보를 확인한다.
 
 현재 안내 기준 버전:
 
-**[v0.2.18-preview (2026.11.03)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.18-preview.20261103)**
+**[v0.2.19-preview (2026.11.03)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)**
 
 APK 파일명:
 

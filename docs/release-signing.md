@@ -13,15 +13,15 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 버전 | `0.2.18-preview` |
-| versionCode | `20` |
+| 버전 | `0.2.19-preview` |
+| versionCode | `21` |
 | 배포 형식 | 서명된 Release APK |
 | 운영 API | `https://majung.cloud` |
 | 배포 위치 | GitHub Releases |
 
-**[v0.2.18-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.18-preview.20261103)**
+**[v0.2.19-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)**
 
-게시 소스는 `338045c34b80ad83e2f3a2031dbf0f181f8b6217`이며 설정 및 다이얼로그 목록 스크롤 미세 입력 누적·부드러운 스크롤(`smoothScrollBy`) 개선, 음성 안내 기본 활성화, 직접 메시지 수신, 백그라운드 헤드업 픽업 알림 및 100m 자동 도착 감지를 포함한다. APK SHA-256은 `8e1a10c640ae2bca46b32892695ad7d64ef669c2123a30857dfd5e9dcb0422cd`이다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
+게시 소스는 `4b3bbe5ac8cb1a311f95bf22261ec7335ef98c3e`이며 패키지 계층형 구조(ui, domain, data, navi, util, service) 클린 아키텍처 리팩터링, 주행 중 장소제안 상단 헤즈업 원터치 수락 지원, 내비게이션 목적지 검증 및 준비 대기 간격 2초 단축 패치를 포함한다. APK SHA-256은 `e7a944c1a62c6a7bac36fe7b80f90bd9bfb248fb51f7012aec98d3883fa14ee6`이다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
 
 기존 0.2.16과 서명 인증서가 같은지 확인하고, 공식 Pleos 에뮬레이터에서 업데이트 설치·Activity 기동을 확인했다. 게시 파일을 다시 내려받아 해시도 대조했다. 실제 시동 종료·재시동 시험과는 구분한다.
 
