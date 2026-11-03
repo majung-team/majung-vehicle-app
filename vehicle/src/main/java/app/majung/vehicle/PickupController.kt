@@ -43,6 +43,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         private set
     var proposalId: String? = null
         private set
+    var autoConfirmProposalId: String? = null
     var navigationReference: String? = null
         private set
     var status = ""
@@ -217,6 +218,21 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             })
     }
 
+    fun checkAutoConfirmProposal(reader: DestinationReader) {
+        val target = autoConfirmProposalId ?: return
+        val proposed = placeProposal ?: return
+        if (proposalId != target) {
+            autoConfirmProposalId = null
+            return
+        }
+        val verified = reader.verifiedPlaceChange(proposed) != null &&
+            reader.telemetry.current(proposed, SystemClock.elapsedRealtime()) != null
+        if (verified && !busy && online && status == "ACTIVE" && !needsSharingConfirmation) {
+            autoConfirmProposalId = null
+            confirmProposedPlace(reader)
+        }
+    }
+
     fun refresh() {
         val id = pickupId ?: return
         val token = driverToken ?: return
@@ -340,6 +356,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     fun invitationForSharingBrowser(): String? = invitationForHostBrowser()?.replace("/#join/", "/#share/")
 
     fun syncVehicle(reader: DestinationReader) {
+        checkAutoConfirmProposal(reader)
         if (needsSharingConfirmation || status !in setOf("ACTIVE", "ARRIVED")) return
         val id = pickupId ?: return
         val token = driverToken ?: return

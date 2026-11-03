@@ -33,7 +33,6 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val proposalDetails = views.label("", 22f)
     private val proposalHint = views.label("", 18f)
     private val disconnectButton: Button
-    private var autoConfirmProposalId: String? = null
 
     init {
         inviteButton = views.button("탑승자 초대 링크 복사") {
@@ -94,7 +93,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         proposalPanel.addView(proposalHint)
         views.prependView(proposalPanel)
         confirmPlaceButton = views.button("새 장소 확정", primary = true, parent = proposalPanel) {
-            autoConfirmProposalId = null
+            app.pickup.autoConfirmProposalId = null
             if (views.canInteract) app.pickup.confirmProposedPlace(app.destination)
         }
         changePlaceButton = views.button("제안 장소로 경로 확인", primary = true, parent = proposalPanel) {
@@ -105,7 +104,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                 .setMessage("최종 목적지와 다른 경유지는 유지하고 추천 경로를 다시 찾아요. 내비 경로와 도착 시간이 확인되면 약속 장소도 함께 바뀌어요.")
                 .setPositiveButton("내비 경로 확인") { _, _ ->
                     if (views.canInteract && app.pickup.status == "ACTIVE" && app.pickup.proposalId == proposal && proposal != null) {
-                        autoConfirmProposalId = proposal
+                        app.pickup.autoConfirmProposalId = proposal
                         if (!app.destination.changePickupPlace(old, next, proposal)) {
                             app.destination.reviewProposedPlace(next, proposal)
                         }
@@ -141,7 +140,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         approveButton.isEnabled = app.pickup.canApprove
         val proposed = app.pickup.placeProposal
         if (! app.pickup.online || app.pickup.status != "ACTIVE" || app.pickup.proposalId == null || app.destination.failure != null) {
-            if (app.pickup.proposalId != autoConfirmProposalId || app.destination.failure != null) autoConfirmProposalId = null
+            if (app.pickup.proposalId != app.pickup.autoConfirmProposalId || app.destination.failure != null) app.pickup.autoConfirmProposalId = null
         }
         val canChange = app.pickup.status == "ACTIVE" && app.pickup.online && !app.pickup.busy &&
             !app.pickup.needsSharingConfirmation && app.pickup.proposalId != null && proposed != null
@@ -151,8 +150,8 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                 app.destination.telemetry.current(it, android.os.SystemClock.elapsedRealtime()) != null
         } == true
         val checkingRoute = hasProposal && !verified && app.destination.checkingPlaceProposal
-        if (verified && canChange && autoConfirmProposalId != null && autoConfirmProposalId == app.pickup.proposalId) {
-            autoConfirmProposalId = null
+        if (verified && canChange && app.pickup.autoConfirmProposalId != null && app.pickup.autoConfirmProposalId == app.pickup.proposalId) {
+            app.pickup.autoConfirmProposalId = null
             app.pickup.confirmProposedPlace(app.destination)
             return
         }

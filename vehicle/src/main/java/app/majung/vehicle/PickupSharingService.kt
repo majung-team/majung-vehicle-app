@@ -24,7 +24,10 @@ class PickupSharingService : Service() {
     private var lastNotifiedProposalId: String? = null
     private var lastNotifiedReadiness: String = ""
     private val stateChanged: () -> Unit = {
-        if (!shouldShare()) stopSelf() else notifyPassengerEvents()
+        if (!shouldShare()) stopSelf() else {
+            app.pickup.checkAutoConfirmProposal(app.destination)
+            notifyPassengerEvents()
+        }
     }
     private val tick = object : Runnable {
         override fun run() {
@@ -39,6 +42,7 @@ class PickupSharingService : Service() {
                 app.destination.connect()
                 app.destination.pollTelemetry()
             }
+            app.pickup.checkAutoConfirmProposal(app.destination)
             app.pickup.syncVehicle(app.destination)
             ticks++
             handler.postDelayed(this, 1000)
@@ -48,6 +52,10 @@ class PickupSharingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_ACCEPT_PROPOSAL) {
+            handleAcceptProposal(intent.getStringExtra(EXTRA_PROPOSAL_ID))
+            return START_NOT_STICKY
+        }
         if (!shouldShare() || !hasLocationPermission(this)) {
             app.sharingMessage = "위치 권한과 픽업 상태를 확인한 뒤 공유를 시작해주세요"
             stopSelf()
@@ -109,6 +117,26 @@ class PickupSharingService : Service() {
         super.onDestroy()
     }
 
+    private fun handleAcceptProposal(proposalId: String?) {
+        val proposal = proposalId ?: app.pickup.proposalId ?: return
+        val old = app.pickup.place ?: return
+        val next = app.pickup.placeProposal ?: return
+        if (app.pickup.proposalId != proposal || app.pickup.status != "ACTIVE") return
+
+        app.pickup.autoConfirmProposalId = proposal
+        if (!app.destination.changePickupPlace(old, next, proposal)) {
+            app.destination.reviewProposedPlace(next, proposal)
+        }
+
+        runCatching { getSystemService(NotificationManager::class.java)?.cancel(ALERT_NOTIFICATION_ID) }
+
+        android.widget.Toast.makeText(
+            this,
+            "마중: ‘${next.label}’(으)로 장소를 수락하고 내비를 변경해요.",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
     private fun notifyPassengerEvents() {
         val notifications = getSystemService(NotificationManager::class.java) ?: return
         val proposal = app.pickup.proposalId
@@ -123,11 +151,26 @@ class PickupSharingService : Service() {
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val acceptIntent = Intent(this, PickupSharingService::class.java).apply {
+                action = ACTION_ACCEPT_PROPOSAL
+                putExtra(EXTRA_PROPOSAL_ID, proposal)
+            }
+            val acceptPending = PendingIntent.getService(
+                this, 2, acceptIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val acceptAction = Notification.Action.Builder(
+                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_sharing),
+                "수락 및 내비 변경",
+                acceptPending
+            ).build()
+
             val alert = Notification.Builder(this, ALERT_CHANNEL)
                 .setSmallIcon(R.drawable.ic_sharing)
                 .setContentTitle("마중 · 장소 변경 요청")
-                .setContentText("탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요. 눌러서 확인해주세요.")
+                .setContentText("탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.")
                 .setContentIntent(openApp)
+                .addAction(acceptAction)
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_MESSAGE)
                 .build()
@@ -158,6 +201,8 @@ class PickupSharingService : Service() {
     private fun shouldShare(): Boolean = app.sharingNotice.accepted && !app.pickup.needsSharingConfirmation && app.pickup.status in setOf("ACTIVE", "ARRIVED")
 
     companion object {
+        const val ACTION_ACCEPT_PROPOSAL = "app.majung.vehicle.action.ACCEPT_PROPOSAL"
+        const val EXTRA_PROPOSAL_ID = "proposalId"
         private const val CHANNEL = "pickup-sharing"
         private const val ALERT_CHANNEL = "pickup-alerts"
         private const val NOTIFICATION_ID = 32
