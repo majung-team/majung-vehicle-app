@@ -87,6 +87,6 @@ class RouteValidation {
 
     companion object {
         private const val RESPONSE_TIMEOUT_MS = 4000L
-        private const val CONFIRMATION_GAP_MS = 2000L
+        private const val CONFIRMATION_GAP_MS = 1000L
     }
 }

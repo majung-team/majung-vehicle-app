@@ -62,7 +62,7 @@ class DestinationReader(private val context: Context) {
         routeValidation.confirmationDelay(SystemClock.elapsedRealtime()) > 0 -> "장소를 받았어요. 경로가 같은지 한 번 더 확인하고 있어요."
         else -> "내비에서 안내 중인 장소와 경로를 확인하고 있어요."
     }
-    private var lastPreparationRequestAt = -2000L
+    private var lastPreparationRequestAt = -1000L
     private var routeRequestStartedAt = 0L
     private var routeResponseLatencyMs = 0L
     private var awaitingDestination: DestinationInfo? = null
@@ -431,7 +431,7 @@ class DestinationReader(private val context: Context) {
                         telemetryChanged?.invoke()
                         val delay = routeValidation.confirmationRequestDelay(now,routeResponseLatencyMs)
                         handler.removeCallbacks(validationRetry)
-                        handler.postDelayed(validationRetry, delay.coerceAtLeast(200L))
+                        handler.postDelayed(validationRetry, delay.coerceAtLeast(100L))
                     }
                     return@update
                 }
@@ -652,7 +652,7 @@ class DestinationReader(private val context: Context) {
         }
         if (!connected || addingWaypoint) return
         if (refresh && failure != null) { query(); return }
-        if (SystemClock.elapsedRealtime() - lastPreparationRequestAt >= 2000) pollTelemetry()
+        if (SystemClock.elapsedRealtime() - lastPreparationRequestAt >= 1000) pollTelemetry()
     }
 
     fun retryPickupPreparation() {
