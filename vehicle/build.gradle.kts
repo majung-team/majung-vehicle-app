@@ -30,8 +30,8 @@ android {
         applicationId = "app.majung.vehicle"
         minSdk = 28
         targetSdk = 34
-        versionCode = 20
-        versionName = "0.2.18-preview"
+        versionCode = 21
+        versionName = "0.2.19-preview"
         buildConfigField("String", "SOURCE_REVISION", "\"$buildRevision\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
