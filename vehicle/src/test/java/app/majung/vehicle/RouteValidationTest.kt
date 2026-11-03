@@ -92,27 +92,27 @@ class RouteValidationTest {
         assertTrue(gate.requestState(0))
         assertTrue(gate.receiveState(true,100))
         assertFalse(gate.receiveDestination(place,900))
-        assertEquals(900L,gate.confirmationDelay(5000))
-        assertEquals(0L,gate.confirmationDelay(5900))
-        assertTrue(gate.requestState(5900))
-        assertTrue(gate.receiveState(true,5901))
-        assertTrue(gate.receiveDestination(place,5902))
-        assertEquals(0L,gate.confirmationDelay(5903))
+        assertEquals(900L,gate.confirmationDelay(2000))
+        assertEquals(0L,gate.confirmationDelay(2900))
+        assertTrue(gate.requestState(2900))
+        assertTrue(gate.receiveState(true,2901))
+        assertTrue(gate.receiveDestination(place,2902))
+        assertEquals(0L,gate.confirmationDelay(2903))
         gate.invalidate()
-        assertEquals(0L,gate.confirmationDelay(6000))
+        assertEquals(0L,gate.confirmationDelay(3000))
     }
 
     @Test fun measuredReadLatencyCanOverlapConfirmationWithoutOpeningEarly() {
         val gate=RouteValidation()
         assertTrue(gate.requestState(0)); assertTrue(gate.receiveState(true,1))
         assertFalse(gate.receiveDestination(place,2000))
-        assertEquals(3100L,gate.confirmationRequestDelay(2000,2000))
-        assertTrue(gate.requestState(5100)); assertTrue(gate.receiveState(true,5101))
-        assertFalse(gate.receiveDestination(place,6900)) // faster than expected: stay locked
+        assertEquals(100L,gate.confirmationRequestDelay(2000,2000))
+        assertTrue(gate.requestState(2100)); assertTrue(gate.receiveState(true,2101))
+        assertFalse(gate.receiveDestination(place,3900)) // faster than expected: stay locked
         assertFalse(gate.ready)
-        assertTrue(gate.requestState(7100)); assertTrue(gate.receiveState(true,7101))
-        assertTrue(gate.receiveDestination(place,7200))
-        assertEquals(0L,gate.confirmationRequestDelay(7201,2000))
+        assertTrue(gate.requestState(4100)); assertTrue(gate.receiveState(true,4101))
+        assertTrue(gate.receiveDestination(place,4200))
+        assertEquals(0L,gate.confirmationRequestDelay(4201,2000))
     }
 
 }
