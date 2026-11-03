@@ -21,7 +21,7 @@
 
 **[v0.2.19-preview APK 받기](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)**
 
-게시 소스는 `4b3bbe5ac8cb1a311f95bf22261ec7335ef98c3e`이며 패키지 계층형 구조(ui, domain, data, navi, util, service) 클린 아키텍처 리팩터링, 주행 중 장소제안 상단 헤즈업 원터치 수락 지원, 내비게이션 목적지 검증 및 준비 대기 간격 2초 단축 패치를 포함한다. APK SHA-256은 `e7a944c1a62c6a7bac36fe7b80f90bd9bfb248fb51f7012aec98d3883fa14ee6`이다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
+게시 소스는 `0d6c3994bcf98e59bf12617fa06715d3b8b10c7b`이며 패키지 계층형 구조(ui, domain, data, navi, util, service) 클린 아키텍처 리팩터링, 주행 중 장소제안 상단 헤즈업 원터치 수락 지원, 내비게이션 목적지 검증 및 준비 대기 간격 1초 단축 패치를 포함한다. APK SHA-256은 `d5e97181947120f3bb5cb58e1a4b62d787bdceda05a9f0531218a995154d278f`이다. Release의 `release.json`과 `SHA256SUMS`로 대조할 수 있다.
 
 기존 0.2.16과 서명 인증서가 같은지 확인하고, 공식 Pleos 에뮬레이터에서 업데이트 설치·Activity 기동을 확인했다. 게시 파일을 다시 내려받아 해시도 대조했다. 실제 시동 종료·재시동 시험과는 구분한다.
 
