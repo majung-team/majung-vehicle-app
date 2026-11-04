@@ -132,4 +132,19 @@ class RequestPickupFlowTest {
         assertEquals(RequestPickupFlow.Stage.FAILED, flow.stage)
         repeat(10) { flow.tick() }; assertEquals(1, host.starts)
     }
+
+    @Test fun startsRouteDirectlyWhenNoNavigationDestinationExists() {
+        val host = Host()
+        host.current = null
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
+        assertEquals(1, host.insertions)
+        assertEquals("요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요.", flow.message)
+        host.current = NavigationStops(NavigationStop(station, 600, NavigationStopKind.DESTINATION), emptyList())
+        flow.tick()
+        assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
+        flow.confirm(true)
+        assertEquals(1, host.starts)
+    }
 }

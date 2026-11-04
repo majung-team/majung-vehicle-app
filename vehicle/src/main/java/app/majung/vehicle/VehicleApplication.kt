@@ -97,7 +97,7 @@ class VehicleApplication : Application() {
             }
             override fun stops() = destination.currentStops()
             override fun select(place: PickupPlace) = destination.selectVerifiedStop(place)
-            override fun insert(place: PickupPlace) = destination.addPickupWaypoint(place)
+            override fun insert(place: PickupPlace) = destination.navigateToPickup(place)
             override fun clearEnded() { pickup.prepareNextPickup() }
             override fun start(ride: RequestedRide) { pickup.startRequested(ride.id, ride.place, destination.referenceFor(ride.place)) }
         }, android.os.SystemClock::elapsedRealtime)

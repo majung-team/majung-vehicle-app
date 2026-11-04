@@ -101,10 +101,9 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
             host.prepareRoute(retry = false)
             host.routeFailure?.let { fail(it); return }
             val route = host.stops()
-            if (route == null) { stage = Stage.PREPARING; message = "내비 경로와 만날 장소를 확인하고 있어요."; return }
             val before = baseline
-            if (before != null && !route.preserves(before)) { fail("기존 내비 경로가 바뀌었어요. 요청을 다시 선택해주세요."); return }
-            if (route.resolve(target.place) != null) {
+            if (before != null && route != null && !route.preserves(before)) { fail("기존 내비 경로가 바뀌었어요. 요청을 다시 선택해주세요."); return }
+            if (route != null && route.resolve(target.place) != null) {
                 if (baseline == null) baseline = route
                 if (host.select(target.place)) { stage = Stage.READY; message = "경로를 확인했어요. 마중을 시작하면 위치를 공유해요." }
                 return
@@ -113,9 +112,9 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
                 baseline = route
                 inserted = true // Never repeat a navigation mutation from polling or a lost callback.
                 stage = Stage.PREPARING
-                message = "최종 목적지는 유지하고 만날 장소를 경유지로 추가하고 있어요."
-                if (!host.insert(target.place)) fail(host.routeFailure ?: "경유지를 추가하지 못했어요. 내비 경로를 확인해주세요.")
-            } else { stage = Stage.PREPARING; message = "추가한 경유지가 맞는지 확인하고 있어요." }
+                message = "요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요."
+                if (!host.insert(target.place)) fail(host.routeFailure ?: "내비 목적지를 설정하지 못했어요. 내비 앱을 확인해주세요.")
+            } else { stage = Stage.PREPARING; message = "내비 경로와 만날 장소를 확인하고 있어요." }
         } finally { updating = false }
     }
 

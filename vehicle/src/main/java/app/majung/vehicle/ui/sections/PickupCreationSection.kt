@@ -25,7 +25,12 @@ import android.view.View
 import kotlin.math.ceil
 
 /** The Figma draft is a visual reference; every place and ETA here comes from the SDK. */
-internal class PickupCreationSection(private val app: VehicleApplication, private val views: VehicleViews, private val inviteConnected: () -> Unit = {}) {
+internal class PickupCreationSection(
+    private val app: VehicleApplication,
+    private val views: VehicleViews,
+    private val inviteConnected: () -> Unit = {},
+    private val onNavigateToSettings: () -> Unit = {}
+) {
     private val destinationText: TextView
     private val placeName: TextView
     private val routeDetails: TextView
@@ -37,6 +42,8 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
     private val directInviteButton: Button
     private val actionHint: TextView
     private val progress: ProgressBar
+    private val openNaviButton: Button
+    private val goToSettingsButton: Button
 
     init {
         val columns = VehicleColumns(views.context)
@@ -79,6 +86,18 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
                 app.pickup.create(selected, app.destination.referenceFor(selected))
         }.apply { id = R.id.create_pickup }
         actionHint = views.label("", 17f).also(columns.trailing::addView)
+        goToSettingsButton = views.button("설정에서 운전자 계정 연결하기", primary = true, parent = columns.leading) {
+            onNavigateToSettings()
+        }
+        openNaviButton = views.button("내비게이션 열기", primary = true, parent = columns.leading) {
+            val pm = views.context.packageManager
+            val intent = pm.getLaunchIntentForPackage("ai.umos.maps.android.navigation.app")
+                ?: android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0"))
+            try {
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                views.context.startActivity(intent)
+            } catch (_: Exception) { }
+        }
         retryButton = views.button("내비 장소 다시 확인", parent = columns.leading) { app.destination.retryPickupPreparation() }
         existingWaypointButton = views.button("경유지에서 만나기", parent = columns.leading) {
             val route = app.destination.currentStops() ?: return@button
@@ -128,36 +147,59 @@ internal class PickupCreationSection(private val app: VehicleApplication, privat
         val failure = app.destination.failure
         val adding = app.destination.addingWaypoint
         val ready = place != null && stop != null && app.pickup.canCreate && !adding
-        progress.visibility = if (!ready && failure == null && !app.destination.waitingForGuidance) View.VISIBLE else View.GONE
+        val linked = app.account.state.optString("status") == "LINKED"
+        val registered = app.registration.isRegistered
+        val unlinked = !linked || !registered
+
+        // Do not keep spinning an indeterminate progress bar when idle/waiting for user action
+        progress.visibility = if (app.pickup.busy || adding) View.VISIBLE else View.GONE
         destinationText.updateText(when {
             app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
             adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
+            unlinked -> if (!registered) "차량 등록이 필요해요." else "운전자 계정 연결이 필요해요."
             ready -> "내비에서 확인한 장소예요."
             failure != null -> failure.message
             else -> app.destination.preparationMessage
         })
-        placeName.updateText(place?.label ?: app.destination.previewPlaceLabel ?: if (failure != null) "내비 장소를 확인해주세요" else "장소 확인 중")
+        placeName.updateText(
+            place?.label
+                ?: app.destination.previewPlaceLabel
+                ?: if (app.destination.waitingForGuidance) "내비 목적지 없음"
+                else if (unlinked) (if (!registered) "차량 미등록" else "운전자 미연결")
+                else if (failure != null) "내비 장소를 확인해주세요"
+                else "장소 확인 중"
+        )
         val eta = stop?.durationSeconds?.takeIf { it >= 0 }?.let {
             if (it < 60) "1분 미만" else "약 ${ceil(it / 60.0).toInt()}분"
         } ?: "도착 시간 확인 중"
         routeDetails.updateText(when {
             stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
             ready -> "$eta 후 도착 예정\n내비 최종 목적지"
+            unlinked -> if (!registered) "차량 등록 후 마중을 시작할 수 있어요.\n[설정에서 차량 등록하기]를 눌러주세요."
+                        else "운전자 계정을 연결해야 마중을 시작할 수 있어요.\n[설정에서 운전자 계정 연결하기]를 눌러주세요."
+            app.destination.waitingForGuidance -> "내비 앱에서 목적지를 검색하거나\n[내비게이션 열기]를 눌러 안내를 시작해주세요."
             failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤 돌아와주세요."
             else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
         })
-        val linked = app.account.state.optString("status") == "LINKED"
         directInviteButton.visibility = if (ready || app.pickup.busy) View.VISIBLE else View.GONE
         createButton.visibility = directInviteButton.visibility
         directInviteButton.isEnabled = ready && linked && !app.account.busy
         directInviteButton.updateText("연결된 사람 선택")
         createButton.isEnabled = ready
         actionHint.updateText(app.account.invitationMessage ?: when {
+            unlinked -> "운전자 계정이 연결되면 연결된 사람을 목록에서 바로 선택하고 마중을 시작할 수 있어요."
+            !ready && app.destination.waitingForGuidance -> "차량 내비게이션에 목적지가 설정되면 탑승자 초대 버튼이 열려요."
             !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
-            !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
             else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 만나는 분은 QR을 스캔해 링크를 보내주세요."
         })
-        retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
+        goToSettingsButton.visibility = if (unlinked && !ready && !app.pickup.busy) View.VISIBLE else View.GONE
+        goToSettingsButton.isEnabled = views.canInteract
+        goToSettingsButton.updateText(if (!registered) "설정에서 차량 등록하기" else "설정에서 운전자 계정 연결하기")
+
+        val waitingGuidance = (app.destination.waitingForGuidance || (!ready && failure == null && stops == null)) && !unlinked
+        openNaviButton.visibility = if (waitingGuidance && !ready && !adding) View.VISIBLE else View.GONE
+        openNaviButton.isEnabled = views.canInteract
+        retryButton.visibility = if (failure != null && !adding && !unlinked) View.VISIBLE else View.GONE
         retryButton.isEnabled = app.pickup.canCreate
         existingWaypointButton.visibility = if (ready && stops?.waypoints?.isNotEmpty() == true) View.VISIBLE else View.GONE
         existingWaypointButton.isEnabled = ready

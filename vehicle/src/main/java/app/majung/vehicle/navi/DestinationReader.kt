@@ -257,6 +257,55 @@ class DestinationReader(private val context: Context) {
         if (requested) handler.postDelayed(validationRetry, 5000)
         return requested
     }
+
+    fun navigateToPickup(place: PickupPlace): Boolean =
+        navigateToPickup(SdkPickupPlace(place, "", "", "0"))
+
+    fun navigateToPickup(selected: SdkPickupPlace): Boolean {
+        val place = selected.place
+        if (!connected) {
+            connect()
+            if (!connected && helper == null) {
+                fail(NavigationFailure.DISCONNECTED)
+                return false
+            }
+        }
+        if (validPlace(place.label, place.latitude, place.longitude, SystemClock.elapsedRealtime()) == null ||
+            (place.latitude == 0.0 && place.longitude == 0.0)) {
+            fail(NavigationFailure.INVALID_PLACE)
+            return false
+        }
+        if (insertion != null) return false
+        val requestPlace = selected.withRequestIdentity()
+        placeChange = null
+        reviewedProposal = null
+        insertion = null
+        requiredInsertion = null
+        desiredPickup = place
+        selectedSdkPlace = requestPlace
+        knownSdkPlaces[requestPlace.poiId] = requestPlace
+        invalidateRoute()
+        status = "마중 목적지 설정 후 경로를 확인하고 있어요"
+        failure = null
+        handler.removeCallbacks(insertionTimeout)
+        handler.postDelayed(insertionTimeout, 45000)
+        val requested = requestSdk {
+            requireNotNull(helper).requestRoute(
+                RouteInfo(
+                    latitude = place.latitude,
+                    longitude = place.longitude,
+                    poiName = place.label,
+                    poiId = requestPlace.poiId,
+                    address = requestPlace.address,
+                    poiSubId = requestPlace.poiSubId,
+                    poiProvider = requestPlace.poiProvider
+                )
+            )
+        }
+        if (requested) handler.postDelayed(validationRetry, 2000)
+        return requested
+    }
+
     fun verifiedPlaceChange(next: PickupPlace): NavigationStop? {
         val stops = currentStops() ?: return null
         val plan = placeChange?.takeIf { it.requested.sameCoordinates(next) }
