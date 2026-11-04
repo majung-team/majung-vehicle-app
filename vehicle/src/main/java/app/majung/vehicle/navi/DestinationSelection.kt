@@ -1,4 +1,15 @@
-package app.majung.vehicle
+package app.majung.vehicle.navi
+
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
 
 /** Destination returned by NaviHelper, never a typed coordinate or a location fix. */
 data class PickupPlace(val label: String, val latitude: Double, val longitude: Double)

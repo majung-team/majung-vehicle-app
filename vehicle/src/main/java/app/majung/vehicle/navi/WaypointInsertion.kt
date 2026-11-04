@@ -1,4 +1,15 @@
-package app.majung.vehicle
+package app.majung.vehicle.navi
+
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
 
 /** Only an explicit request can bind a newly added waypoint to a pickup. */
 class WaypointInsertion(val requested: PickupPlace, private val previous: NavigationStops) {

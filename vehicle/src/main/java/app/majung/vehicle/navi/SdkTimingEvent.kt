@@ -1,4 +1,15 @@
-package app.majung.vehicle
+package app.majung.vehicle.navi
+
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
 
 /** Metadata only. Equality means payload values matched, not that the SDK acquired a new GPS fix. */
 data class SdkTimingEvent(val type: SdkTimingType, val elapsedMs: Long, val changed: Boolean? = null)

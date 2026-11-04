@@ -14,7 +14,7 @@
         android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/ic_vehicle" android:usesCleartextTraffic="false" android:label="마중"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <service android:name=".PickupSharingService" android:exported="false"
+        <service android:name=".service.PickupSharingService" android:exported="false"
             android:foregroundServiceType="location" />
         <activity android:name=".MainActivity" android:exported="true">
             <meta-data android:name="distractionOptimized" android:value="true" />

@@ -1,5 +1,16 @@
 package app.majung.vehicle
 
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
+
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel

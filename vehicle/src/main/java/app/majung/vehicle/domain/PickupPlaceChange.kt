@@ -1,4 +1,15 @@
-package app.majung.vehicle
+package app.majung.vehicle.domain
+
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
 
 /** An explicit place change preserves the final destination and every other waypoint in order. */
 class PickupPlaceChange private constructor(val requested: PickupPlace, val previous: NavigationStops,

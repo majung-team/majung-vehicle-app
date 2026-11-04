@@ -1,4 +1,15 @@
-package app.majung.vehicle
+package app.majung.vehicle.ui.sections
+
+
+import app.majung.vehicle.*
+import app.majung.vehicle.ui.*
+import app.majung.vehicle.ui.sections.*
+import app.majung.vehicle.navi.*
+import app.majung.vehicle.domain.*
+import app.majung.vehicle.data.api.*
+import app.majung.vehicle.data.storage.*
+import app.majung.vehicle.util.*
+import app.majung.vehicle.service.*
 
 internal class PickupVoiceSection(private val app: VehicleApplication, views: VehicleViews) {
     init { views.addView(views.label("음성 안내", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }) }
