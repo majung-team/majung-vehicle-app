@@ -19,7 +19,7 @@
 
 - [마중 프로젝트 소개](https://github.com/majung-team/majung)
 - [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 0.2.19-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)
+- [차량 앱 APK 0.2.20-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.20-preview.20261104)
 - [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
 - [모바일 웹](https://majung.cloud/account)
 - [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
@@ -122,7 +122,7 @@ Pleos NaviHelper SDK를 활용해 다음 정보를 확인한다.
 
 현재 안내 기준 버전:
 
-**[v0.2.19-preview (2026.11.03)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.19-preview.20261103)**
+**[v0.2.20-preview (2026.11.04)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.20-preview.20261104)**
 
 APK 파일명:
 
@@ -155,7 +155,7 @@ emulator -avd Majung_Pleos_2_1
 Releases 페이지에서 브라우저로 직접 받지 않고, 터미널에서 바로 최신 서명 APK를 내려받아 설치할 수 있다.
 
 ```sh
-curl -sL https://github.com/majung-team/majung-vehicle-app/releases/download/v0.2.19-preview.20261103/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
+curl -sL https://github.com/majung-team/majung-vehicle-app/releases/download/v0.2.20-preview.20261104/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
 ```
 
 #### 3) 코드 수정 후 로컬 빌드 및 즉시 반영
