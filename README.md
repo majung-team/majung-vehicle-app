@@ -320,6 +320,27 @@ adb -s emulator-5554 shell am start \
 
 차량 앱은 화면, SDK 조회, 픽업 상태 관리, 서버 통신 및 복구 처리를 분리해 구성했다.
 
+### 패키지 및 아키텍처 구조
+
+마중 차량 앱은 계층과 책임별로 패키지가 명확히 분리된 클린 아키텍처 구조를 갖추고 있다.
+
+```text
+vehicle/src/main/java/app/majung/vehicle/
+├── MainActivity.kt        # 주 액티비티 및 화면 생명주기 관리
+├── VehicleApplication.kt  # 전역 애플리케이션 및 의존성 진입점
+├── ui/                    # 화면 렌더링, 뷰 컴포넌트 및 레이아웃
+│   └── sections/          # 기능별 UI 섹션 (픽업생성, 계정, 초대, 픽업상태 등)
+├── navi/                  # Pleos NaviHelper SDK 연동, 경로 검증 및 텔레메트리
+├── domain/                # 픽업 컨트롤러, 계정·차량 권한, 주행 제한 모델
+├── data/
+│   ├── api/               # 백엔드 HTTPS REST API 클라이언트
+│   └── storage/           # Keystore 기반 암호화 픽업 세션 및 자격증명 저장소
+├── service/               # 백그라운드 위치·ETA 공유 포그라운드 서비스
+└── util/                  # 음성 안내(TTS), QR 생성 및 공통 유틸리티
+```
+
+단위 테스트(`src/test/java/`) 및 공식 에뮬레이터 통합 테스트(`src/androidTest/java/`) 또한 기능별 도메인에 맞추어 `navi`, `domain`, `util` 등으로 구조화되어 있다.
+
 ### 주요 구성 요소
 
 | 구성 요소 | 역할 |
