@@ -130,27 +130,53 @@ APK 파일명:
 
 새 버전은 [GitHub Releases](https://github.com/majung-team/majung-vehicle-app/releases)에서 확인할 수 있다.
 
-### 설치 방법
+### 설치 및 빠른 실행 (Quick Start)
 
-1. Pleos Connect 공식 에뮬레이터 실행
-2. Releases에서 서명 APK 다운로드
-3. ADB로 에뮬레이터 연결 상태 확인
-4. APK 설치
-5. 앱 목록에서 **마중** 실행
+#### 1) 에뮬레이터 실행
+
+Android Studio의 Virtual Device Manager에서 실행하거나 터미널에서 다음 명령어로 직접 기동한다.
 
 ```sh
-adb devices
+# PATH에 Android SDK가 설정된 경우
+emulator -avd Majung_Pleos_2_1
+
+# Mac 환경 절대 경로로 실행할 경우
+~/Library/Android/sdk/emulator/emulator -avd Majung_Pleos_2_1
 ```
 
-기기가 `device` 상태로 표시되면 APK를 설치한다.
+> **PATH 환경변수 설정 팁 (~/.zshrc)**:
+> ```sh
+> export ANDROID_HOME=$HOME/Library/Android/sdk
+> export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+> ```
+
+#### 2) 최신 서명 APK 원클릭 설치 (GitHub Releases 연동)
+
+Releases 페이지에서 브라우저로 직접 받지 않고, 터미널에서 바로 최신 서명 APK를 내려받아 설치할 수 있다.
 
 ```sh
-adb -s emulator-5554 install -r ~/Downloads/Majung_Majung_release.apk
+curl -sL https://github.com/majung-team/majung-vehicle-app/releases/download/v0.2.19-preview.20261103/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
 ```
 
-`emulator-5554`는 실제 기기 이름으로 변경한다.
+#### 3) 코드 수정 후 로컬 빌드 및 즉시 반영
 
-기존 개발용 APK와 서명이 다른 경우에는 덮어쓰기가 실패할 수 있다. 앱을 삭제하기 전에 진행 중인 픽업과 차량 재등록 필요 여부를 확인한다.
+코드를 수정한 뒤 로컬에서 정식 서명 바이너리를 빌드하여 에뮬레이터에 바로 덮어쓰기 설치(-r)한다.
+
+```sh
+cd ~/Coding/majung-vehicle-app
+python3 tools/build-release.py
+adb install -r vehicle/build/outputs/apk/release/vehicle-release.apk
+```
+
+#### 4) 앱 실행 및 로그 확인
+
+```sh
+# 앱 즉시 실행
+adb shell am start -n app.majung.vehicle/.MainActivity
+
+# 로그 모니터링
+adb logcat -s Majung
+```
 
 ### 처음 사용하기
 
