@@ -30,8 +30,7 @@ class VehicleRegistrationController(private val api: PickupApiClient, private va
     var message = "차량 등록 상태 확인 중"
         private set
     var changed: (() -> Unit)? = null
-    val isRegistered: Boolean get() = development || (verified && credential != null)
-    val canCreate: Boolean get() = !busy && !storageBlocked && isRegistered
+    val canCreate: Boolean get() = !busy && !storageBlocked && (development || verified && credential != null)
     val vehicleToken: String? get() = if (verified) credential?.token else null
     val needsRegistration: Boolean get() = !busy && registrationChecked && !storageBlocked && !development && credential == null
 

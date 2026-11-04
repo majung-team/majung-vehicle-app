@@ -109,12 +109,7 @@ class MainActivity : Activity() {
         requestGroup = views.section()
         requestSection = RequestPickupSection(app, views)
         createGroup = views.section()
-        creation = PickupCreationSection(
-            app,
-            views,
-            inviteConnected = { accountSection.inviteSelectedPlace() },
-            onNavigateToSettings = { changeTab("settings") }
-        )
+        creation = PickupCreationSection(app, views) { accountSection.inviteSelectedPlace() }
         statusGroup = views.section()
         status = PickupStatusSection(app, views)
         voiceGroup = views.section()
