@@ -71,11 +71,13 @@ class DestinationReader(private val context: Context) {
     val confirmedNoGuidance: Boolean
         get() = connected && failure == null &&
             noGuidanceObservedAt?.let { SystemClock.elapsedRealtime() - it in 0 until 4000L } == true
+    val isConfirmingRoute: Boolean
+        get() = routeValidation.confirmationDelay(SystemClock.elapsedRealtime()) > 0
     val preparationMessage: String get() = when {
-        !connected -> "내비게이션에 연결하고 있어요."
-        waitingForGuidance -> "내비에서 목적지를 검색하고 경로 안내를 시작해주세요."
-        routeValidation.confirmationDelay(SystemClock.elapsedRealtime()) > 0 -> "장소를 받았어요. 경로가 같은지 한 번 더 확인하고 있어요."
-        else -> "내비에서 안내 중인 장소와 경로를 확인하고 있어요."
+        !connected -> "내비게이션 연결 중…"
+        waitingForGuidance -> "내비게이션 목적지 미설정"
+        routeValidation.confirmationDelay(SystemClock.elapsedRealtime()) > 0 -> "내비게이션 경로 확인 중…"
+        else -> "내비게이션 연동 확인 중…"
     }
     private var lastPreparationRequestAt = -1000L
     private var routeRequestStartedAt = 0L
@@ -554,7 +556,7 @@ class DestinationReader(private val context: Context) {
             }
             override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) = update {
                 timing(SdkTimingType.WAYPOINT_CHANGED)
-                recheckChangedRoute("경유지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요")
+                recheckChangedRoute("경유지 변경 · 픽업 장소 확인 중")
             }
             override fun onWayPointArrived(waypointArrivedInfo: WaypointArrivedInfo) = update {
                 val index = when (waypointArrivedInfo.index) {
@@ -601,7 +603,7 @@ class DestinationReader(private val context: Context) {
                     selection.invalidate()
                     telemetry.invalidate()
                     telemetryChanged?.invoke()
-                    status = "안내 경로를 다시 확인하고 있어요"
+                    status = "안내 경로 확인 중"
                 }
             }
             override fun onRouteStarted(routeStartInfo: RouteStartInfo) = update {
@@ -610,7 +612,7 @@ class DestinationReader(private val context: Context) {
             }
             override fun onDestinationChanged() = update {
                 timing(SdkTimingType.DESTINATION_CHANGED)
-                recheckChangedRoute("목적지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요")
+                recheckChangedRoute("목적지 변경 · 픽업 장소 확인 중")
             }
             override fun onRoutingCompleted() = update {
                 timing(SdkTimingType.ROUTING_COMPLETED)

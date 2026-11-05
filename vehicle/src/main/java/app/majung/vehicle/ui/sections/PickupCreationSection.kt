@@ -43,6 +43,7 @@ internal class PickupCreationSection(
     private val progress: ProgressBar
     private val openNaviButton: Button
     private var isRetrying = false
+    private var isWaitingAfterNaviLaunch = false
 
     init {
         val columns = VehicleColumns(views.context)
@@ -86,6 +87,10 @@ internal class PickupCreationSection(
         }.apply { id = R.id.create_pickup }
         actionHint = views.label("", 17f).also(columns.trailing::addView)
         openNaviButton = views.button("내비게이션 열기", primary = true, parent = columns.leading) {
+            isWaitingAfterNaviLaunch = true
+            openNaviButton.isEnabled = false
+            progress.visibility = View.VISIBLE
+            render()
             val pm = views.context.packageManager
             val intent = pm.getLaunchIntentForPackage("ai.umos.maps.android.navigation.app")
                 ?: android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0"))
@@ -159,35 +164,49 @@ internal class PickupCreationSection(
 
         if (ready || (failure == null && stops != null)) {
             isRetrying = false
+            isWaitingAfterNaviLaunch = false
         }
 
-        // Do not keep spinning an indeterminate progress bar when idle/waiting for user action
-        progress.visibility = if (app.pickup.busy || adding || isRetrying) View.VISIBLE else View.GONE
+        val isVerifying = !ready && failure == null && (
+            isRetrying ||
+            isWaitingAfterNaviLaunch ||
+            place != null ||
+            app.destination.previewPlaceLabel != null ||
+            app.destination.isConfirmingRoute ||
+            !app.destination.confirmedNoGuidance
+        )
+
+        // 로딩 띠 (Horizontal Progress Bar): 경로 확인 중이거나 활성 작업 중일 때 항상 표출하여 시각적 진행 상태 제공
+        progress.visibility = if (app.pickup.busy || adding || isRetrying || isVerifying) View.VISIBLE else View.GONE
         destinationText.updateText(when {
-            app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
-            adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
-            ready -> "✓ 내비게이션 목적지 확인 완료"
+            app.pickup.busy -> "초대 링크 생성 중…"
+            adding -> "경유지 추가 중…"
+            ready -> "내비게이션 목적지 확인 완료"
             failure != null -> failure.message
+            isVerifying -> "내비게이션 경로 확인 중…"
+            app.destination.confirmedNoGuidance -> "내비게이션 목적지 미설정"
             else -> app.destination.preparationMessage
         })
         placeName.updateText(
             place?.label
                 ?: app.destination.previewPlaceLabel
-                ?: if (canReselect) "만날 장소를 다시 정해주세요"
-                else if (app.destination.waitingForGuidance) "내비 목적지 없음"
-                else if (failure != null) "내비 장소를 확인해주세요"
-                else "장소 확인 중"
+                ?: if (canReselect) "만날 장소를 다시 선택해주세요"
+                else if (isVerifying) "목적지 확인 중"
+                else if (app.destination.confirmedNoGuidance) "목적지를 설정해주세요"
+                else if (failure != null) "내비게이션 장소 확인 필요"
+                else "목적지 확인 중"
         )
         val eta = stop?.durationSeconds?.takeIf { it >= 0 }?.let {
             if (it < 60) "1분 미만" else "약 ${ceil(it / 60.0).toInt()}분"
         } ?: "도착 시간 확인 중"
         routeDetails.updateText(when {
-            stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
-            ready -> "$eta 후 도착 예정 · 내비 최종 목적지\n👉 오른쪽에서 탑승자를 초대해주세요."
+            stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지: ${stops?.destination?.place?.label ?: "확인 중"}"
+            ready -> "$eta 후 도착 예정"
             canReselect -> "최종 목적지에서 만나려면 아래 버튼을 눌러주세요."
-            app.destination.waitingForGuidance -> "내비 앱에서 목적지를 검색하거나\n[내비게이션 열기]를 눌러 안내를 시작해주세요."
-            failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤\n[내비게이션 다시 연결]을 눌러주세요."
-            else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
+            isVerifying -> "내비게이션 경로를 연동하고 있습니다."
+            app.destination.confirmedNoGuidance -> "내비게이션에서 목적지를 설정하면 자동으로 연동됩니다."
+            failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비게이션에서 목적지 안내를 시작한 뒤 [내비게이션 다시 연결]을 눌러주세요."
+            else -> "내비게이션 경로를 연동하고 있습니다."
         })
         val linked = app.account.state.optString("status") == "LINKED"
         directInviteButton.visibility = if (ready || app.pickup.busy) View.VISIBLE else View.GONE
@@ -196,24 +215,24 @@ internal class PickupCreationSection(
         directInviteButton.updateText("연결된 사람 선택")
         createButton.isEnabled = ready
         actionHint.updateText(when {
-            ready -> "만날 장소가 확정되었어요.\n연결된 사람이나 QR 링크로 탑승자를 초대하세요."
-            !ready && failure != null -> "만날 장소를 확인한 뒤 탑승자를 초대할 수 있어요."
-            !ready && app.destination.waitingForGuidance -> "차량 내비게이션에 목적지가 설정되면 탑승자 초대 버튼이 열려요."
-            !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
+            ready -> "탑승자에게 초대 링크를 보내 마중을 시작하세요."
+            !ready && isVerifying -> "내비게이션 목적지가 확인되면 초대가 활성화됩니다."
+            !ready && app.destination.confirmedNoGuidance -> "내비게이션에 목적지가 설정되면 탑승자를 초대할 수 있습니다."
+            !ready && failure != null -> "내비게이션 장소 확인 후 탑승자를 초대할 수 있습니다."
+            !ready -> "내비게이션 목적지가 확인되면 초대가 활성화됩니다."
             app.account.invitationMessage != null -> app.account.invitationMessage.orEmpty()
-            !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
-            else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 만나는 분은 QR을 스캔해 링크를 보내주세요."
+            !linked -> "연결된 사람에게 바로 초대하려면 운전자 계정을 연결해주세요."
+            else -> "연결된 사람을 선택하거나 QR 코드로 초대 링크를 공유하세요."
         })
 
-        val waitingGuidance = app.destination.waitingForGuidance || (!ready && failure == null && stops == null)
-        val needsNaviLaunch = waitingGuidance || failure in setOf(
+        // 무한 루프 차단: 로딩/확인 중(isVerifying)에는 내비 열기 버튼을 노출하지 않음
+        val needsNaviLaunch = (app.destination.confirmedNoGuidance && !isVerifying) || failure in setOf(
             NavigationFailure.DISCONNECTED,
             NavigationFailure.CONNECTION_TIMEOUT,
-            NavigationFailure.CONNECTION_FAILED,
-            NavigationFailure.ROUTE_UNVERIFIED
+            NavigationFailure.CONNECTION_FAILED
         )
         openNaviButton.visibility = if (needsNaviLaunch && !ready && !adding) View.VISIBLE else View.GONE
-        openNaviButton.isEnabled = views.canInteract
+        openNaviButton.isEnabled = views.canInteract && !isWaitingAfterNaviLaunch
         retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
         if (isRetrying) {
             retryButton.isEnabled = false
