@@ -78,9 +78,7 @@ class PickupSharingService : Service() {
             notifications.createNotificationChannel(NotificationChannel(
                 CHANNEL, "픽업 위치 공유", NotificationManager.IMPORTANCE_LOW
             ))
-            notifications.createNotificationChannel(NotificationChannel(
-                ALERT_CHANNEL, "픽업 요청 알림", NotificationManager.IMPORTANCE_HIGH
-            ))
+            app.ensureAlertChannel(notifications)
             val openApp = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification = Notification.Builder(this, CHANNEL)
@@ -148,6 +146,7 @@ class PickupSharingService : Service() {
         ).show()
     }
 
+    @Suppress("DEPRECATION")
     private fun notifyPassengerEvents() {
         val notifications = getSystemService(NotificationManager::class.java) ?: return
         val proposal = app.pickup.proposalId
@@ -176,16 +175,25 @@ class PickupSharingService : Service() {
                 acceptPending
             ).build()
 
-            val alert = Notification.Builder(this, ALERT_CHANNEL)
+            val alert = Notification.Builder(this, VehicleApplication.ALERT_CHANNEL)
                 .setSmallIcon(R.drawable.ic_sharing)
                 .setContentTitle("마중 · 장소 변경 요청")
                 .setContentText("탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.")
                 .setContentIntent(openApp)
+                .setFullScreenIntent(openApp, true)
                 .addAction(acceptAction)
                 .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setPriority(Notification.PRIORITY_MAX)
+                .setDefaults(Notification.DEFAULT_ALL)
+                .setVibrate(longArrayOf(0, 300, 150, 300))
                 .setCategory(Notification.CATEGORY_MESSAGE)
                 .build()
-            runCatching { notifications.notify(ALERT_NOTIFICATION_ID, alert) }
+            runCatching {
+                notifications.cancel(ALERT_NOTIFICATION_ID)
+                notifications.notify(ALERT_NOTIFICATION_ID, alert)
+            }
             if (!app.activityResumed) {
                 android.widget.Toast.makeText(
                     this,
@@ -215,7 +223,7 @@ class PickupSharingService : Service() {
         const val ACTION_ACCEPT_PROPOSAL = "app.majung.vehicle.action.ACCEPT_PROPOSAL"
         const val EXTRA_PROPOSAL_ID = "proposalId"
         private const val CHANNEL = "pickup-sharing"
-        private const val ALERT_CHANNEL = "pickup-alerts"
+        private const val ALERT_CHANNEL = VehicleApplication.ALERT_CHANNEL
         private const val NOTIFICATION_ID = 32
         private const val ALERT_NOTIFICATION_ID = 33
 

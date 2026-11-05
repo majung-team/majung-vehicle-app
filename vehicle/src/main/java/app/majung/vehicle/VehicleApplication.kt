@@ -125,14 +125,28 @@ class VehicleApplication : Application() {
         backgroundHandler.post(backgroundPoller)
     }
 
+    fun ensureAlertChannel(notifications: NotificationManager) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = NotificationChannel(
+                ALERT_CHANNEL, "픽업 중요 알림", NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "탑승자 음성 메시지, 픽업 요청 및 장소 변경 긴급 알림"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 300, 150, 300)
+                enableLights(true)
+                lightColor = android.graphics.Color.GREEN
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
+            }
+            notifications.createNotificationChannel(channel)
+        }
+    }
+
+    @Suppress("DEPRECATION")
     private fun notifyQuickMessage(text: String) {
         val passenger = pickup.participantName ?: "탑승자"
         val notifications = getSystemService(NotificationManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= 26) {
-            notifications.createNotificationChannel(NotificationChannel(
-                ALERT_CHANNEL, "픽업 알림", NotificationManager.IMPORTANCE_HIGH
-            ))
-        }
+        ensureAlertChannel(notifications)
         val openApp = PendingIntent.getActivity(
             this, 3,
             Intent(this, MainActivity::class.java).apply {
@@ -140,6 +154,11 @@ class VehicleApplication : Application() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val openAction = Notification.Action.Builder(
+            android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_sharing),
+            "확인",
+            openApp
+        ).build()
         val alert = if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(this, ALERT_CHANNEL)
         } else {
@@ -148,10 +167,20 @@ class VehicleApplication : Application() {
             .setContentTitle("마중 · ${passenger}의 메시지")
             .setContentText("“$text”")
             .setContentIntent(openApp)
+            .setFullScreenIntent(openApp, true)
+            .addAction(openAction)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 300, 150, 300))
             .setCategory(Notification.CATEGORY_MESSAGE)
             .build()
-        runCatching { notifications.notify(ALERT_QUICK_MSG_NOTIFICATION_ID, alert) }
+        runCatching {
+            notifications.cancel(ALERT_QUICK_MSG_NOTIFICATION_ID)
+            notifications.notify(ALERT_QUICK_MSG_NOTIFICATION_ID, alert)
+        }
         android.widget.Toast.makeText(
             this,
             "$passenger: “$text”",
@@ -160,13 +189,10 @@ class VehicleApplication : Application() {
         voice.speak("${passenger}님이 ‘$text’라고 전했어요.")
     }
 
+    @Suppress("DEPRECATION")
     private fun notifyNewRide(ride: RequestedRide) {
         val notifications = getSystemService(NotificationManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= 26) {
-            notifications.createNotificationChannel(NotificationChannel(
-                ALERT_CHANNEL, "픽업 요청 알림", NotificationManager.IMPORTANCE_HIGH
-            ))
-        }
+        ensureAlertChannel(notifications)
         val openApp = PendingIntent.getActivity(
             this, 2,
             Intent(this, MainActivity::class.java).apply {
@@ -175,6 +201,11 @@ class VehicleApplication : Application() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val openAction = Notification.Action.Builder(
+            android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_sharing),
+            "요청 확인",
+            openApp
+        ).build()
         val alert = if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(this, ALERT_CHANNEL)
         } else {
@@ -183,10 +214,20 @@ class VehicleApplication : Application() {
             .setContentTitle("마중 · 새로운 픽업 요청")
             .setContentText("${ride.nickname}님이 ‘${ride.place.label}’에서 마중을 요청했어요. 눌러서 확인해주세요.")
             .setContentIntent(openApp)
+            .setFullScreenIntent(openApp, true)
+            .addAction(openAction)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 300, 150, 300))
             .setCategory(Notification.CATEGORY_MESSAGE)
             .build()
-        runCatching { notifications.notify(ALERT_REQUEST_NOTIFICATION_ID, alert) }
+        runCatching {
+            notifications.cancel(ALERT_REQUEST_NOTIFICATION_ID)
+            notifications.notify(ALERT_REQUEST_NOTIFICATION_ID, alert)
+        }
         if (!activityResumed) {
             android.widget.Toast.makeText(
                 this,
@@ -198,7 +239,7 @@ class VehicleApplication : Application() {
     }
 
     companion object {
-        const val ALERT_CHANNEL = "pickup-alerts"
+        const val ALERT_CHANNEL = "pickup-alerts-v2"
         const val ALERT_REQUEST_NOTIFICATION_ID = 34
         const val ALERT_QUICK_MSG_NOTIFICATION_ID = 35
         const val EXTRA_OPEN_REQUEST_ID = "open_request_id"
