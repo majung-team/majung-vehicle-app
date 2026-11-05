@@ -15,6 +15,7 @@ import android.app.AlertDialog
 import android.widget.Button
 
 internal class PickupCompletionSection(private val app: VehicleApplication, private val views: VehicleViews) {
+    private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
     private var nextRequested = false
     private val nextFeedback = views.label("", 18f).also(views::addView)
     private val arriveButton: Button
@@ -56,6 +57,17 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
                         if (views.canInteract) app.requestFlow.begin(queued[index].getString("requestId"))
                     }.setNegativeButton("닫기", null).show().also(views::trackDialog)
             }
+        }
+    }
+
+    // Primary actions live outside the scrolling details, still under the parked-only root.
+    fun primaryActions(): android.widget.LinearLayout = android.widget.LinearLayout(views.context).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setPadding(32.dp, 8.dp, 32.dp, 16.dp)
+        setBackgroundColor(android.graphics.Color.WHITE)
+        listOf(nextFeedback, arriveButton, completeButton, nextButton).forEach { action ->
+            (action.parent as? android.view.ViewGroup)?.removeView(action)
+            addView(action, android.widget.LinearLayout.LayoutParams(-1, -2))
         }
     }
 

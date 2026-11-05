@@ -54,6 +54,7 @@ class MainActivity : Activity() {
     private lateinit var statusGroup: LinearLayout
     private lateinit var participantGroup: LinearLayout
     private lateinit var completionGroup: LinearLayout
+    private lateinit var completionDock: LinearLayout
     private lateinit var accountGroup: LinearLayout
     private lateinit var enrollmentGroup: LinearLayout
     private lateinit var enrollmentSection: VehicleEnrollmentSection
@@ -118,6 +119,7 @@ class MainActivity : Activity() {
         participant = PickupParticipantSection(app, views)
         completionGroup = views.section()
         completion = PickupCompletionSection(app, views)
+        completionDock = completion.primaryActions()
         permissionGroup = views.section()
         resumeButton = views.button("이전 픽업 계속하기") {
             app.pickup.confirmRecoveredSharing()
@@ -166,9 +168,13 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
             addView(navigation, LinearLayout.LayoutParams(216.dp, -1))
-            addView(FrameLayout(this@MainActivity).apply {
-                clipChildren = true
-                addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(FrameLayout(this@MainActivity).apply {
+                    clipChildren = true
+                    addView(parkedScreen, FrameLayout.LayoutParams(-1, -1))
+                }, LinearLayout.LayoutParams(-1, 0, 1f))
+                addView(completionDock, LinearLayout.LayoutParams(-1, -2))
             }, LinearLayout.LayoutParams(0, -1, 1f))
         }
         views.useRoot()
@@ -446,6 +452,7 @@ class MainActivity : Activity() {
         show(statusGroup, selectedTab == "pickup" && hasPickup)
         show(participantGroup, selectedTab == "pickup" && hasPickup && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED"))
         show(completionGroup, selectedTab == "pickup" && hasPickup)
+        show(completionDock, selectedTab == "pickup" && hasPickup)
         show(permissionGroup, selectedTab == "pickup" && active)
         stageTitle.updateText(if (app.requestFlow.visible && selectedTab != "settings") "마중 경로 준비" else when (selectedTab) {
             "requests" -> "누구를 마중할까요?"
@@ -470,6 +477,12 @@ class MainActivity : Activity() {
                 else "내비 장소를 확인한 뒤 초대할 사람이나 초대 링크를 선택하세요."
         })
         tabs.forEach { (key, tab) ->
+            val waitingCount = app.account.requests.count { it.optString("status") in setOf("PENDING", "QUEUED") }
+            tab.updateText(when (key) {
+                "requests" -> if (waitingCount > 0) "받은 요청 · $waitingCount" else "받은 요청"
+                "pickup" -> "픽업"
+                else -> "설정"
+            })
             tab.isEnabled = driving.allowed
             tab.isSelected = key == selectedTab
             if (tab.tag != selectedTab) {

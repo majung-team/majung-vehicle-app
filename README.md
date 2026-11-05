@@ -485,3 +485,5 @@ vehicle/src/main/java/app/majung/vehicle/
 ## 화면과 조작 개선
 
 요청 목록에서 다음 행동을 표시하고, 이름과 메시지를 분리했다. 설정은 기본 스크롤로 통일했다. [변경 내용과 확인 범위](docs/usability-2026-11-05.md)를 참고한다.
+
+[픽업 주요 버튼·대기자 표시](docs/pickup-action-dock.md): 긴 내용 아래로 도착·완료 버튼이 밀리지 않도록 보완했다.
