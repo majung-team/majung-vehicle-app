@@ -155,7 +155,7 @@ emulator -avd Majung_Pleos_2_1
 Releases 페이지에서 브라우저로 직접 받지 않고, 터미널에서 바로 최신 서명 APK를 내려받아 설치할 수 있다.
 
 ```sh
-curl -sL https://github.com/majung-team/majung-vehicle-app/releases/download/v0.2.21-preview.20261105/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
+curl -sL https://github.com/majung-team/majung-vehicle-app/releases/latest/download/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
 ```
 
 #### 3) 코드 수정 후 로컬 빌드 및 즉시 반영
