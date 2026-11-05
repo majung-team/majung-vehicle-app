@@ -123,7 +123,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
                     }
                 }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
         }
-        views.button("픽업 상태 새로고침") { app.pickup.refresh() }
+        views.button("픽업 상태 새로고침", compact = true) { app.pickup.refresh() }
     }
 
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()

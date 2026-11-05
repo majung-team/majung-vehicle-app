@@ -19,7 +19,7 @@
 
 - [마중 프로젝트 소개](https://github.com/majung-team/majung)
 - [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 0.2.22-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.22-preview.20261105)
+- [차량 앱 APK 0.2.23-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.23-preview.20261105)
 - [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
 - [모바일 웹](https://majung.cloud/account)
 - [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
@@ -481,3 +481,7 @@ vehicle/src/main/java/app/majung/vehicle/
 현재 주요 기능 구현 및 에뮬레이터 검증 결과를 제공하지만, 실제 차량에서의 동작과 상용 배포 가능 여부는 별도 확인이 필요하다.
 
 기능별 구현 이력과 검증 범위는 GitHub PR 및 개발 문서에서 확인할 수 있다.
+
+## 화면과 조작 개선
+
+요청 목록에서 다음 행동을 표시하고, 이름과 메시지를 분리했다. 설정은 기본 스크롤로 통일했다. [변경 내용과 확인 범위](docs/usability-2026-11-05.md)를 참고한다.
