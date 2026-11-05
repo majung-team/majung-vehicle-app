@@ -48,6 +48,10 @@ class MainActivity : Activity() {
     private lateinit var participant: PickupParticipantSection
     private lateinit var completion: PickupCompletionSection
     private lateinit var sharingButton: Button
+    private lateinit var sharingExplanation: android.widget.TextView
+    private var permissionRequestInFlight = false
+    private val permissionPreferences by lazy { getSharedPreferences("location-permission", MODE_PRIVATE) }
+    private var permissionAttempted = false
     private lateinit var resumeButton: Button
     private var selectedTab = "pickup"
     private lateinit var createGroup: LinearLayout
@@ -80,6 +84,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        permissionAttempted = permissionPreferences.getBoolean("requested", false)
         val layout = object : LinearLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
                 val maximum = (1360 * resources.displayMetrics.density).toInt()
@@ -121,12 +126,17 @@ class MainActivity : Activity() {
         completion = PickupCompletionSection(app, views)
         completionDock = completion.primaryActions()
         permissionGroup = views.section()
+        sharingExplanation = views.label("", 22f).apply {
+            id = R.id.sharing_permission_explanation
+            setTextColor(Color.rgb(51, 61, 75))
+        }
+        views.addView(sharingExplanation)
         resumeButton = views.button("이전 픽업 계속하기") {
             app.pickup.confirmRecoveredSharing()
             requestSharingPermission()
         }
         resumeButton.id = R.id.resume_pickup
-        sharingButton = views.button("화면 밖에서도 공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
+        sharingButton = views.button("위치 권한 허용하고 공유 시작") { requestSharingPermission() }.apply { id = R.id.start_sharing }
         layout.removeView(permissionGroup)
         layout.addView(permissionGroup, layout.indexOfChild(statusGroup))
         parkedScreen = createSmoothScrollView().apply {
@@ -365,20 +375,35 @@ class MainActivity : Activity() {
     }
 
     private fun requestSharingPermission() {
-        if (!driving.allowed || !app.sharingNotice.accepted) return
+        if (!resumed || !driving.allowed || !app.sharingNotice.accepted || permissionRequestInFlight) return
         if (!PickupSharingService.hasLocationPermission(this)) {
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 32)
+            if (permissionAttempted && !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) &&
+                !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:$packageName")))
+                return
+            }
+            launchLocationPermission()
         } else {
             startRequested = false
             render()
         }
     }
 
+    private fun launchLocationPermission() {
+        if (!resumed || !driving.allowed || permissionRequestInFlight) return
+        permissionAttempted = true
+        permissionPreferences.edit().putBoolean("requested", true).apply()
+        permissionRequestInFlight = true
+        requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 32)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 32) {
+            permissionRequestInFlight = false
             app.sharingMessage = if (PickupSharingService.hasLocationPermission(this)) "공유 시작 준비 중"
-                else "위치 권한이 없어 위치·ETA를 보내지 않아요. 공유 시작을 눌러 다시 허용해주세요"
+                else "위치 권한이 꺼져 있어 차량 위치와 도착 시간을 공유하지 않아요"
             if (Build.VERSION.SDK_INT >= 33 && PickupSharingService.hasLocationPermission(this) &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
@@ -419,8 +444,33 @@ class MainActivity : Activity() {
         val sharing = app.pickup.status in setOf("ACTIVE", "ARRIVED")
         resumeButton.visibility = if (app.pickup.needsSharingConfirmation) android.view.View.VISIBLE else android.view.View.GONE
         resumeButton.isEnabled = app.pickup.online && !app.pickup.busy
-        sharingButton.visibility = if (sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning) android.view.View.VISIBLE else android.view.View.GONE
-        if (resumed && driving.allowed && sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning && !startRequested && PickupSharingService.hasLocationPermission(this)) {
+        val hasLocation = PickupSharingService.hasLocationPermission(this)
+        val waitingToShare = sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning
+        sharingButton.visibility = if (waitingToShare) View.VISIBLE else View.GONE
+        sharingButton.updateText(if (!hasLocation) "위치 권한 허용하고 공유 시작" else "위치·도착 시간 공유 다시 시작")
+        sharingExplanation.updateText(when {
+            app.pickup.needsSharingConfirmation -> "이전 픽업을 계속할까요? 확인하면 위치와 도착 시간 공유를 다시 시작해요."
+            waitingToShare && !hasLocation -> "위치 권한이 필요해요. 허용하면 탑승자에게 차량 위치와 도착 시간을 공유해요. 다른 앱을 보고 있어도 픽업이 끝날 때까지 이어져요."
+            waitingToShare -> app.sharingMessage
+            else -> ""
+        })
+        sharingExplanation.visibility = if (sharingExplanation.text.isBlank()) View.GONE else View.VISIBLE
+        when (SharingStartup.action(resumed, driving.allowed, sharing, app.pickup.needsSharingConfirmation,
+            app.sharingRunning, startRequested || permissionRequestInFlight, hasLocation, permissionAttempted)) {
+            SharingStartup.Action.REQUEST_PERMISSION -> {
+                // Let the explanation draw first. Never repeat a denied prompt on each render.
+                permissionRequestInFlight = true
+                handler.post {
+                    permissionRequestInFlight = false
+                    if (resumed && driving.allowed && app.sharingNotice.accepted &&
+                        app.pickup.status in setOf("ACTIVE", "ARRIVED") && !app.pickup.needsSharingConfirmation &&
+                        !PickupSharingService.hasLocationPermission(this) && !permissionAttempted) launchLocationPermission()
+                }
+            }
+            else -> Unit
+        }
+        if (SharingStartup.action(resumed, driving.allowed, sharing, app.pickup.needsSharingConfirmation,
+                app.sharingRunning, startRequested || permissionRequestInFlight, hasLocation, permissionAttempted) == SharingStartup.Action.START) {
             startRequested = true
             try {
                 startForegroundService(Intent(this, PickupSharingService::class.java))
