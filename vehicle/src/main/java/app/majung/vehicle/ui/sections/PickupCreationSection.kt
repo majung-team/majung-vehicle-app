@@ -42,6 +42,7 @@ internal class PickupCreationSection(
     private val actionHint: TextView
     private val progress: ProgressBar
     private val openNaviButton: Button
+    private var isRetrying = false
 
     init {
         val columns = VehicleColumns(views.context)
@@ -93,8 +94,16 @@ internal class PickupCreationSection(
                 views.context.startActivity(intent)
             } catch (_: Exception) { }
         }
-        retryButton = views.button("내비 장소 다시 확인", parent = columns.leading) { app.destination.retryPickupPreparation() }
-        existingWaypointButton = views.button("경유지에서 만나기", parent = columns.leading) {
+        retryButton = views.button("내비게이션 다시 연결", parent = columns.leading) {
+            if (isRetrying) return@button
+            isRetrying = true
+            retryButton.isEnabled = false
+            retryButton.updateText("내비게이션 확인 중…")
+            progress.visibility = View.VISIBLE
+            app.destination.retryPickupPreparation()
+            render()
+        }
+        existingWaypointButton = views.button("경유지로 변경하기", parent = columns.leading) {
             val route = app.destination.currentStops() ?: return@button
             AlertDialog.Builder(views.context).setTitle("어느 경유지에서 만날까요?")
                 .setItems(route.waypoints.mapIndexed { index, stop ->
@@ -110,7 +119,7 @@ internal class PickupCreationSection(
                     } else reselectWaypoints(route, index)
                 }.setNegativeButton("닫기", null).show().also(views::trackDialog)
         }
-        addWaypointButton = views.button("다른 장소에서 만나기", parent = columns.leading) {
+        addWaypointButton = views.button("다른 경유지 추가하기", parent = columns.leading) {
             if (!views.canInteract || !app.pickup.canCreate) return@button
             app.destination.loadRecentPlaces { places ->
                 if (!views.canInteract || !app.pickup.canCreate) return@loadRecentPlaces
@@ -148,12 +157,16 @@ internal class PickupCreationSection(
         val ready = place != null && stop != null && app.pickup.canCreate && !adding
         val canReselect = !adding && failure?.requiresPickupReselection == true
 
+        if (ready || (failure == null && stops != null)) {
+            isRetrying = false
+        }
+
         // Do not keep spinning an indeterminate progress bar when idle/waiting for user action
-        progress.visibility = if (app.pickup.busy || adding) View.VISIBLE else View.GONE
+        progress.visibility = if (app.pickup.busy || adding || isRetrying) View.VISIBLE else View.GONE
         destinationText.updateText(when {
             app.pickup.busy -> "초대 링크를 만들고 있어요. 잠시만 기다려주세요."
             adding -> "경유지를 추가하고 있어요. 확인이 끝나면 초대할 수 있어요."
-            ready -> "내비에서 확인한 장소예요."
+            ready -> "✓ 내비게이션 목적지 확인 완료"
             failure != null -> failure.message
             else -> app.destination.preparationMessage
         })
@@ -170,10 +183,10 @@ internal class PickupCreationSection(
         } ?: "도착 시간 확인 중"
         routeDetails.updateText(when {
             stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
-            ready -> "$eta 후 도착 예정\n내비 최종 목적지"
+            ready -> "$eta 후 도착 예정 · 내비 최종 목적지\n👉 오른쪽에서 탑승자를 초대해주세요."
             canReselect -> "최종 목적지에서 만나려면 아래 버튼을 눌러주세요."
             app.destination.waitingForGuidance -> "내비 앱에서 목적지를 검색하거나\n[내비게이션 열기]를 눌러 안내를 시작해주세요."
-            failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤 돌아와주세요."
+            failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤\n[내비게이션 다시 연결]을 눌러주세요."
             else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
         })
         val linked = app.account.state.optString("status") == "LINKED"
@@ -183,6 +196,7 @@ internal class PickupCreationSection(
         directInviteButton.updateText("연결된 사람 선택")
         createButton.isEnabled = ready
         actionHint.updateText(when {
+            ready -> "만날 장소가 확정되었어요.\n연결된 사람이나 QR 링크로 탑승자를 초대하세요."
             !ready && failure != null -> "만날 장소를 확인한 뒤 탑승자를 초대할 수 있어요."
             !ready && app.destination.waitingForGuidance -> "차량 내비게이션에 목적지가 설정되면 탑승자 초대 버튼이 열려요."
             !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
@@ -192,16 +206,28 @@ internal class PickupCreationSection(
         })
 
         val waitingGuidance = app.destination.waitingForGuidance || (!ready && failure == null && stops == null)
-        openNaviButton.visibility = if (waitingGuidance && !ready && !adding) View.VISIBLE else View.GONE
+        val needsNaviLaunch = waitingGuidance || failure in setOf(
+            NavigationFailure.DISCONNECTED,
+            NavigationFailure.CONNECTION_TIMEOUT,
+            NavigationFailure.CONNECTION_FAILED,
+            NavigationFailure.ROUTE_UNVERIFIED
+        )
+        openNaviButton.visibility = if (needsNaviLaunch && !ready && !adding) View.VISIBLE else View.GONE
         openNaviButton.isEnabled = views.canInteract
         retryButton.visibility = if (failure != null && !adding) View.VISIBLE else View.GONE
-        retryButton.isEnabled = app.pickup.canCreate
+        if (isRetrying) {
+            retryButton.isEnabled = false
+            retryButton.updateText("내비게이션 확인 중…")
+        } else {
+            retryButton.isEnabled = app.pickup.canCreate
+            retryButton.updateText("내비게이션 다시 연결")
+        }
         existingWaypointButton.visibility = if (ready && stops?.waypoints?.isNotEmpty() == true) View.VISIBLE else View.GONE
         existingWaypointButton.isEnabled = ready
         addWaypointButton.visibility = if (ready) View.VISIBLE else View.GONE
         addWaypointButton.isEnabled = ready && stops?.all?.all { it.usable } == true
         addWaypointButton.updateText(if (ready && stops?.waypoints?.any { !it.usable } == true)
-            "기존 경유지 위치를 먼저 확인해주세요" else "다른 장소에서 만나기")
+            "기존 경유지 위치를 먼저 확인해주세요" else "다른 경유지 추가하기")
         val showFinalDestination = canReselect || (ready && stop?.kind == NavigationStopKind.WAYPOINT)
         finalDestinationButton.visibility = if (showFinalDestination) View.VISIBLE else View.GONE
         finalDestinationButton.isEnabled = views.canInteract && app.pickup.canCreate && showFinalDestination
