@@ -30,6 +30,14 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         setTextColor(Color.rgb(38,105,221))
     }
     private val passenger = views.label("",20f).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }
+    private val passengerMessage = views.label("", 22f).apply {
+        setPadding(16.dp, 12.dp, 16.dp, 12.dp)
+        background = GradientDrawable().apply {
+            setColor(Color.rgb(237, 244, 255))
+            cornerRadius = 12.dp.toFloat()
+        }
+        accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
+    }
     private val readiness = views.label("", 32f).apply { setTypeface(typeface, Typeface.BOLD); minLines = 1; maxLines = 2 }
     private val eta = views.label("", 46f).apply {
         setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(38,105,221)); gravity = Gravity.END
@@ -56,6 +64,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         }
         card.addView(pickupText)
         card.addView(passenger)
+        card.addView(passengerMessage)
         val summary = LinearLayout(views.context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         summary.addView(readiness,LinearLayout.LayoutParams(0,-2,1f))
         summary.addView(eta,LinearLayout.LayoutParams(0,-2,1f))
@@ -80,8 +89,9 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         pickupText.updateText(pickup.place?.label ?: "이번 픽업")
         connectionText.visibility = if (connectionText.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
         passenger.visibility = if (ended) android.view.View.GONE else android.view.View.VISIBLE
-        val msgSuffix = pickup.quickMessage?.let { " · “$it”" } ?: ""
-        passenger.updateText((pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기") + msgSuffix)
+        passenger.updateText(pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기")
+        passengerMessage.updateText(pickup.quickMessage?.let { "탑승자가 보낸 메시지\n“$it”" }.orEmpty())
+        passengerMessage.visibility = if (!ended && passengerMessage.text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
         readiness.updateText(if (!pickup.online && pickup.status in setOf("ACTIVE", "ARRIVED")) "마지막 준비 상태\n연결 확인 중" else when(pickup.status) {
             "INVITING", "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
             "ARRIVED" -> "도착했어요"

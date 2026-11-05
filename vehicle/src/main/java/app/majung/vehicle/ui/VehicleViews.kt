@@ -150,23 +150,6 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         listView.clipToPadding = false
         listView.overScrollMode = View.OVER_SCROLL_NEVER
         listView.selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
-        var accumulatedListScroll = 0f
-        listView.setOnGenericMotionListener { _, event ->
-            if (event.action == android.view.MotionEvent.ACTION_SCROLL &&
-                event.isFromSource(android.view.InputDevice.SOURCE_CLASS_POINTER)) {
-                val vscroll = event.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
-                if (vscroll != 0f) {
-                    accumulatedListScroll += -vscroll * 96.dp
-                    val delta = accumulatedListScroll.toInt()
-                    if (delta != 0) {
-                        accumulatedListScroll -= delta
-                        listView.scrollListBy(delta)
-                    }
-                    return@setOnGenericMotionListener true
-                }
-            }
-            false
-        }
         listView.adapter = object : android.widget.BaseAdapter() {
             override fun getCount(): Int = baseAdapter.count
             override fun getItem(position: Int): Any? = baseAdapter.getItem(position)
@@ -295,18 +278,18 @@ internal class VehicleViews(val context: Context, private val container: LinearL
         button.setPadding(16.dp, 12.dp, 16.dp, 12.dp)
     }
 
-    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, refreshAfterAction: Boolean = true, action: () -> Unit): Button = Button(context).apply {
+    fun button(title: String, primary: Boolean = false, parent: LinearLayout? = null, refreshAfterAction: Boolean = true, compact: Boolean = false, action: () -> Unit): Button = Button(context).apply {
         text = title
         isAllCaps = false
         flattenButtonSurface()
-        textSize = 28f
+        textSize = if (compact) 24f else 28f
         maxLines = 2
-        minimumHeight = 80.dp
+        minimumHeight = if (compact) 64.dp else 80.dp
         gravity = android.view.Gravity.CENTER
         styleButton(this, primary)
         setOnClickListener { if (canInteract) action(); if (refreshAfterAction) onAction() }
         buttons.add(this)
-        (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16.dp })
+        (parent ?: target).addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = if (compact) 12.dp else 16.dp })
     }
 
     private val Int.dp: Int get() = (this * context.resources.displayMetrics.density).toInt()

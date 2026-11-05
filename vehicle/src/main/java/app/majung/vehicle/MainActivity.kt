@@ -348,38 +348,9 @@ class MainActivity : Activity() {
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
-    private fun createSmoothScrollView(): ScrollView = object : ScrollView(this) {
-        private var accumulatedScroll = 0f
-
-        init {
-            isSmoothScrollingEnabled = true
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        override fun computeScrollDeltaToGetChildRectOnScreen(rect: android.graphics.Rect?): Int = 0
-        override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
-            if (event.action == android.view.MotionEvent.ACTION_SCROLL &&
-                event.isFromSource(android.view.InputDevice.SOURCE_CLASS_POINTER)) {
-                val vscroll = event.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL)
-                if (vscroll != 0f) {
-                    val child = getChildAt(0)
-                    val range = if (child != null) maxOf(0, child.height - (height - paddingTop - paddingBottom)) else 0
-                    accumulatedScroll += vscroll * 96.dp
-                    val delta = accumulatedScroll.toInt()
-                    if (delta != 0) {
-                        accumulatedScroll -= delta
-                        val newScroll = (scrollY - delta).coerceIn(0, range)
-                        val actualDelta = newScroll - scrollY
-                        if (actualDelta != 0) {
-                            smoothScrollBy(0, actualDelta)
-                        } else {
-                            accumulatedScroll = 0f
-                        }
-                    }
-                    return true
-                }
-            }
-            return super.dispatchGenericMotionEvent(event)
-        }
+    private fun createSmoothScrollView(): ScrollView = ScrollView(this).apply {
+        isSmoothScrollingEnabled = true
+        overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
     }
 
     private fun preparePickup(refresh: Boolean = false) {

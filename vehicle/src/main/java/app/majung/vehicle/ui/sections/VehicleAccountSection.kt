@@ -143,8 +143,8 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }.also(views::addView)
     private val emptyRequests=views.label("아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요.",19f).also(views::addView)
     private var renderedRequests = ""
-    private val manageConnections=views.button("사람 찾기 · 연결 관리") { people.open() }
-    private val refresh=views.button("요청 목록 새로고침", refreshAfterAction = false) { if (!app.account.busy) app.account.refresh(showProgress = true) }
+    private val manageConnections=views.button("사람 찾기 · 연결 관리", compact = true) { people.open() }
+    private val refresh=views.button("요청 목록 새로고침", refreshAfterAction = false, compact = true) { if (!app.account.busy) app.account.refresh(showProgress = true) }
     internal fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
         val id=item.getString("requestId")
@@ -194,7 +194,13 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                 val statusKey = item.optString("status")
                 val row = android.widget.Button(views.context).apply {
                     flattenButtonSurface()
-                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}"
+                    val actionLabel = when (statusKey) {
+                        "PENDING" -> "눌러서 수락 또는 거절  ›"
+                        "QUEUED" -> if (app.account.requests.any { it.optString("status") == "ACTIVE" }) "현재 픽업이 끝나면 출발해요  ›" else "눌러서 마중 준비  ›"
+                        "ACTIVE" -> "진행 중인 픽업 확인  ›"
+                        else -> "탑승자 응답 확인  ›"
+                    }
+                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
                     isAllCaps = false; textSize = 28f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                     setTextColor(android.graphics.Color.rgb(32,40,46))
                     setPadding(dp(24), dp(16), dp(24), dp(16))
@@ -247,5 +253,5 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
     }
     private fun dp(value: Int) = (value * views.context.resources.displayMetrics.density).toInt()
-    private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"응답 대기"; "QUEUED"->"픽업 대기"; "ACTIVE"->"픽업 진행 중"; else->state }
+    private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"수락 대기"; "QUEUED"->"다음 픽업"; "ACTIVE"->"픽업 진행 중"; else->state }
 }

@@ -37,7 +37,7 @@ internal class PickupCompletionSection(private val app: VehicleApplication, priv
         }.apply {
             id = R.id.complete_pickup
         }
-        cancelButton = views.button("픽업 취소 · 공유 종료") {
+        cancelButton = views.button("픽업 취소 · 공유 종료", compact = true) {
             AlertDialog.Builder(views.context).setMessage("픽업을 취소하고 위치 공유를 종료할까요?")
                 .setPositiveButton("픽업 취소") { _, _ -> if (views.canInteract) app.pickup.cancel() }
                 .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
