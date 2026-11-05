@@ -1,7 +1,7 @@
 
 # 마중 차량 앱 (Majung Vehicle App)
 
-#- [기존 경유지 좌표 복구·장소 다시 선택](docs/waypoint-coordinates.md#2026-10-31-기존-경유지-보완)
+- [기존 경유지 좌표 복구·장소 다시 선택](docs/waypoint-coordinates.md#2026-10-31-기존-경유지-보완)
 
 ## 차량 내비게이션과 탑승자를 연결하는 픽업 지원 애플리케이션
 
@@ -19,7 +19,7 @@
 
 - [마중 프로젝트 소개](https://github.com/majung-team/majung)
 - [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 0.2.23-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.23-preview.20261105)
+- [차량 앱 APK 0.2.25-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.25-preview.20261106)
 - [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
 - [모바일 웹](https://majung.cloud/account)
 - [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
