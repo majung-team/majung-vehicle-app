@@ -43,6 +43,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(38,105,221)); gravity = Gravity.END
         minLines = 1; maxLines = 2
     }
+    private val queueSummary = views.label("", 24f)
     private val sharing = views.label("", 16f).apply { minLines = 2; maxLines = 3 }
     private val problem = views.label("", 17f).apply {
         setTextColor(Color.rgb(146, 64, 14))
@@ -55,6 +56,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
     }
     init {
         views.addView(connectionText)
+        views.addView(queueSummary)
         val card = LinearLayout(views.context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(8.dp,8.dp,8.dp,8.dp)
@@ -72,6 +74,10 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         views.addView(card)
     }
     fun render() {
+        val queued = app.account.requests.filter { it.optString("status") == "QUEUED" }
+        val next = queued.firstOrNull()
+        queueSummary.updateText(if (next == null) "" else "다음 대기 · ${next.optString("nickname")} · ${next.optJSONObject("place")?.optString("label").orEmpty()}  (총 ${queued.size}명)")
+        queueSummary.visibility = if (queued.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
         val pickup = app.pickup
         val ended = pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")
         connectionText.updateText(when {
