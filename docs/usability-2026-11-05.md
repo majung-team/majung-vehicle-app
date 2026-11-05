@@ -10,3 +10,13 @@
 ## 확인 범위
 
 단위 시험, Android Lint, debug 앱·시험 APK 빌드를 통과했다. 서명한 release APK를 별도로 게시한다. 트랙패드 관성의 실제 체감과 실차 조작은 자동 검사만으로 통과했다고 기록하지 않는다. 내비 SDK·요청 수락·주행 중 조작 제한은 기존 처리를 유지한다.
+
+## 추가 화면 확인
+
+공식 Pleos 에뮬레이터에서 시험용 완료·설정·검색 화면을 캡처했다. 표시 상태는 시험 데이터이며 서버 픽업이나 초대를 만들지 않았다.
+
+`VehicleReadabilityTest`는 화면 캡처까지 진행했지만, `ActivityScenario.close`가 `DESTROYED`를 기다리는 동안 `PAUSED`에 남아 전체 시험은 실패했다. release/debug target과 현재 사용자 10 조합에서도 재현됐다. 대화상자를 먼저 닫아도 같아, 그 변경은 반영하지 않았다. 따라서 기기 자동 시험 통과로 기록하지 않는다. 후속 확인은 [#116](https://github.com/majung-team/majung-vehicle-app/issues/116)에 남겼다. 단위 시험·Lint·빌드·서명 및 업데이트 설치 결과와 구분한다.
+
+![설정 화면](media/usability-20261105/settings.png)
+
+![사람 검색](media/usability-20261105/search.png)
