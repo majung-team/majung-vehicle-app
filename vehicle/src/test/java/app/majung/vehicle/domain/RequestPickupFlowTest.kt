@@ -28,11 +28,13 @@ class RequestPickupFlowTest {
         override var pickupBusy = false
         override var sharingRunning = false
         override var routeFailure: String? = null
+        override var confirmedNoGuidance = false
         override var pickupMessage = ""
         var target: RequestedRide? = RequestedRide("request-one", "시험 탑승자", station, "QUEUED")
         var current: NavigationStops? = route()
         var otherActive = false
         var insertions = 0
+        var destinationChanges = 0
         var starts = 0
         var refreshes = 0
         var clock = 0L
@@ -43,17 +45,29 @@ class RequestPickupFlowTest {
         override fun prepareRoute(retry: Boolean) { }
         override fun stops() = current
         override fun select(place: PickupPlace) = current?.resolve(place) != null
-        override fun insert(place: PickupPlace): Boolean { insertions++; current = null; return true }
+        override fun addWaypoint(place: PickupPlace): Boolean {
+            insertions++
+            current = null
+            return true
+        }
+        override fun setDestination(place: PickupPlace): Boolean {
+            destinationChanges++
+            current = null
+            return true
+        }
         override fun clearEnded() { hasPickup = false; pickupStatus = "" }
         override fun start(ride: RequestedRide) { starts++; pickupBusy = true }
         fun flow() = RequestPickupFlow(this) { clock }
     }
     @Test fun addsOnceWaitsForProofAndStartsOnlyAfterConfirmation() {
         val host = Host(); val flow = host.flow()
+        val existingWaypoint = PickupPlace("기존 경유지", 37.4, 127.4)
+        host.current = route(existingWaypoint)
         flow.begin("request-one"); flow.tick()
         repeat(10) { flow.tick(); flow.confirm(true) }
         assertEquals(1, host.insertions); assertEquals(0, host.starts)
-        host.current = route(station); flow.tick()
+        assertEquals(0, host.destinationChanges)
+        host.current = route(station, existingWaypoint); flow.tick()
         assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
         flow.confirm(false); assertEquals(0, host.starts)
         flow.confirm(true); repeat(10) { flow.tick(); flow.confirm(true) }
@@ -136,15 +150,54 @@ class RequestPickupFlowTest {
     @Test fun startsRouteDirectlyWhenNoNavigationDestinationExists() {
         val host = Host()
         host.current = null
+        host.confirmedNoGuidance = true
         val flow = host.flow()
         flow.begin("request-one")
         flow.tick()
-        assertEquals(1, host.insertions)
+        assertEquals(1, host.destinationChanges)
         assertEquals("요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요.", flow.message)
+        repeat(10) { flow.tick(); flow.confirm(true) }
+        assertEquals(1, host.destinationChanges)
+        assertEquals(0, host.insertions)
+        assertEquals(0, host.starts)
         host.current = NavigationStops(NavigationStop(station, 600, NavigationStopKind.DESTINATION), emptyList())
         flow.tick()
         assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
         flow.confirm(true)
         assertEquals(1, host.starts)
+    }
+
+    @Test fun waitsForRouteEvidenceBeforeChangingNavigation() {
+        val host = Host()
+        host.current = null
+        val flow = host.flow()
+        flow.begin("request-one")
+        repeat(10) { flow.tick(); flow.confirm(true) }
+        assertEquals(RequestPickupFlow.Stage.PREPARING, flow.stage)
+        assertEquals(0, host.destinationChanges)
+        assertEquals(0, host.insertions)
+        assertEquals(0, host.starts)
+
+        host.current = route()
+        flow.tick()
+        assertEquals(1, host.insertions)
+        assertEquals(0, host.destinationChanges)
+    }
+
+    @Test fun lossOfGuidanceAfterRouteConfirmationDoesNotSetNewDestination() {
+        val host = Host()
+        host.current = route(station)
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
+        assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
+
+        host.current = null
+        host.confirmedNoGuidance = true
+        flow.confirm(true)
+        assertEquals(RequestPickupFlow.Stage.PREPARING, flow.stage)
+        assertEquals(0, host.destinationChanges)
+        assertEquals(0, host.insertions)
+        assertEquals(0, host.starts)
     }
 }

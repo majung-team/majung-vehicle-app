@@ -67,6 +67,10 @@ class DestinationReader(private val context: Context) {
         private set
     var waitingForGuidance = false
         private set
+    private var noGuidanceObservedAt: Long? = null
+    val confirmedNoGuidance: Boolean
+        get() = connected && failure == null &&
+            noGuidanceObservedAt?.let { SystemClock.elapsedRealtime() - it in 0 until 4000L } == true
     val preparationMessage: String get() = when {
         !connected -> "내비게이션에 연결하고 있어요."
         waitingForGuidance -> "내비에서 목적지를 검색하고 경로 안내를 시작해주세요."
@@ -263,13 +267,7 @@ class DestinationReader(private val context: Context) {
 
     fun navigateToPickup(selected: SdkPickupPlace): Boolean {
         val place = selected.place
-        if (!connected) {
-            connect()
-            if (!connected && helper == null) {
-                fail(NavigationFailure.DISCONNECTED)
-                return false
-            }
-        }
+        if (!confirmedNoGuidance) return false
         if (validPlace(place.label, place.latitude, place.longitude, SystemClock.elapsedRealtime()) == null ||
             (place.latitude == 0.0 && place.longitude == 0.0)) {
             fail(NavigationFailure.INVALID_PLACE)
@@ -391,6 +389,7 @@ class DestinationReader(private val context: Context) {
         handler.removeCallbacks(validationRetry)
         routeValidation.invalidate()
         awaitingDestination = null
+        noGuidanceObservedAt = null
         route = null
         previewPlaceLabel = null
         selection.invalidate()
@@ -555,10 +554,7 @@ class DestinationReader(private val context: Context) {
             }
             override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) = update {
                 timing(SdkTimingType.WAYPOINT_CHANGED)
-                recentRecovery.clear()
-                invalidateRoute()
-                handler.postDelayed(validationRetry, 5000)
-                status = "경유지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요"
+                recheckChangedRoute("경유지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요")
             }
             override fun onWayPointArrived(waypointArrivedInfo: WaypointArrivedInfo) = update {
                 val index = when (waypointArrivedInfo.index) {
@@ -577,10 +573,15 @@ class DestinationReader(private val context: Context) {
             }
             override fun onRouteStateInfo(routeStateInfo: RouteStateInfo) = update {
                 timing(SdkTimingType.ROUTE_STATE)
+                val now = SystemClock.elapsedRealtime()
                 // 3.0.5 emulator returns isRouting=false during guidance. Treat true as
                 // unverified; the published field description and observed value differ.
                 val guiding = routeStateInfo.termsAgreement && !routeStateInfo.isRouting &&
                     routeStateInfo.naviMode in setOf(NaviMode.ROUTE_GUIDING, NaviMode.SIMULATION_GUIDING)
+                val idle = routeStateInfo.termsAgreement && !routeStateInfo.isRouting &&
+                    routeStateInfo.naviMode == NaviMode.SAFE_GUIDING
+                if (!idle) noGuidanceObservedAt = null
+                else if (routeValidation.awaitingState(now)) noGuidanceObservedAt = now
                 val wasWaitingForGuidance = waitingForGuidance
                 waitingForGuidance = !guiding
                 timing(if (guiding) SdkTimingType.GUIDANCE_VALID else SdkTimingType.GUIDANCE_INVALID)
@@ -589,7 +590,7 @@ class DestinationReader(private val context: Context) {
                     previewPlaceLabel = null
                 }
                 val wasReady = routeValidation.ready
-                if (routeValidation.receiveState(guiding, SystemClock.elapsedRealtime())) {
+                if (routeValidation.receiveState(guiding, now)) {
                     timing(SdkTimingType.DESTINATION_REQUEST)
                     requestSdk { helper?.getDestinationInfo() }
                 } else if (guiding && wasWaitingForGuidance && !wasReady) {
@@ -605,17 +606,11 @@ class DestinationReader(private val context: Context) {
             }
             override fun onRouteStarted(routeStartInfo: RouteStartInfo) = update {
                 timing(SdkTimingType.ROUTE_STARTED)
-                recentRecovery.clear()
-                invalidateRoute()
-                handler.postDelayed(validationRetry, 5000)
-                status = "경로 탐색 중 · 완료 후 목적지를 다시 확인해주세요"
+                recheckChangedRoute("경로 탐색 중 · 완료 후 목적지를 다시 확인해주세요")
             }
             override fun onDestinationChanged() = update {
                 timing(SdkTimingType.DESTINATION_CHANGED)
-                recentRecovery.clear()
-                invalidateRoute()
-                handler.postDelayed(validationRetry, 5000)
-                status = "목적지가 바뀌었어요 · 다시 확인해주세요"
+                recheckChangedRoute("목적지가 바뀌었어요 · 픽업 장소를 다시 확인하고 있어요")
             }
             override fun onRoutingCompleted() = update {
                 timing(SdkTimingType.ROUTING_COMPLETED)
@@ -629,10 +624,7 @@ class DestinationReader(private val context: Context) {
             }
             override fun onRouteCancelled() = update {
                 timing(SdkTimingType.ROUTE_CANCELLED)
-                recentRecovery.clear()
-                invalidateRoute()
-                handler.postDelayed(validationRetry, 5000)
-                status = "경로가 취소됐어요"
+                recheckChangedRoute("경로가 취소됐어요")
             }
             override fun onError(errorCode: NaviErrorCode) = update {
                 timing(SdkTimingType.ERROR)
@@ -669,6 +661,14 @@ class DestinationReader(private val context: Context) {
     private fun cancelResponseTimeout() {
         handler.removeCallbacks(responseTimeout)
         responsePending = false
+    }
+
+    private fun recheckChangedRoute(message: String) {
+        recentRecovery.clear()
+        if (failure?.requiresPickupReselection == true) failure = null
+        invalidateRoute()
+        handler.postDelayed(validationRetry, 5000)
+        status = message
     }
 
     private fun requestSdk(action: () -> Unit): Boolean =

@@ -83,6 +83,7 @@ class PreviewTimingTest {
                     override val pickupBusy = false
                     override val sharingRunning = false
                     override val routeFailure get() = reader.failure?.message
+                    override val confirmedNoGuidance get() = reader.confirmedNoGuidance
                     override val pickupMessage = ""
                     override fun request(id: String) = RequestedRide(id, "SDK 시험 탑승자", target, "QUEUED")
                     override fun canStart(id: String) = starts == 0
@@ -91,7 +92,8 @@ class PreviewTimingTest {
                     override fun prepareRoute(retry: Boolean) { if (retry) reader.prepareRequestedRoute() else reader.prepareForPickup() }
                     override fun stops() = reader.currentStops()
                     override fun select(place: PickupPlace) = reader.selectVerifiedStop(place)
-                    override fun insert(place: PickupPlace) = reader.addPickupWaypoint(place)
+                    override fun addWaypoint(place: PickupPlace) = reader.addPickupWaypoint(place)
+                    override fun setDestination(place: PickupPlace) = reader.navigateToPickup(place)
                     override fun clearEnded() { }
                     override fun start(ride: RequestedRide) { starts++ }
                 }, SystemClock::elapsedRealtime)

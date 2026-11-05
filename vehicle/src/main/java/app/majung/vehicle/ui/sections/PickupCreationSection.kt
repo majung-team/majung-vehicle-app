@@ -132,7 +132,11 @@ internal class PickupCreationSection(
                 }
             }
         }.apply { id = R.id.add_pickup_waypoint }
-        finalDestinationButton = views.button("최종 목적지에서 만나기", parent = columns.leading) { app.destination.useFinalDestination(); render() }
+        finalDestinationButton = views.button("최종 목적지에서 만나기", parent = columns.leading) {
+            if (!views.canInteract || !app.pickup.canCreate || app.destination.addingWaypoint) return@button
+            app.destination.useFinalDestination()
+            render()
+        }
     }
 
     fun render() {
@@ -142,6 +146,7 @@ internal class PickupCreationSection(
         val failure = app.destination.failure
         val adding = app.destination.addingWaypoint
         val ready = place != null && stop != null && app.pickup.canCreate && !adding
+        val canReselect = !adding && failure?.requiresPickupReselection == true
 
         // Do not keep spinning an indeterminate progress bar when idle/waiting for user action
         progress.visibility = if (app.pickup.busy || adding) View.VISIBLE else View.GONE
@@ -155,7 +160,8 @@ internal class PickupCreationSection(
         placeName.updateText(
             place?.label
                 ?: app.destination.previewPlaceLabel
-                ?: if (app.destination.waitingForGuidance) "내비 목적지 없음"
+                ?: if (canReselect) "만날 장소를 다시 정해주세요"
+                else if (app.destination.waitingForGuidance) "내비 목적지 없음"
                 else if (failure != null) "내비 장소를 확인해주세요"
                 else "장소 확인 중"
         )
@@ -165,6 +171,7 @@ internal class PickupCreationSection(
         routeDetails.updateText(when {
             stop?.kind == NavigationStopKind.WAYPOINT -> "$eta 후 도착 예정 · 경유지\n이후 목적지 · ${stops?.destination?.place?.label ?: "확인 중"}"
             ready -> "$eta 후 도착 예정\n내비 최종 목적지"
+            canReselect -> "최종 목적지에서 만나려면 아래 버튼을 눌러주세요."
             app.destination.waitingForGuidance -> "내비 앱에서 목적지를 검색하거나\n[내비게이션 열기]를 눌러 안내를 시작해주세요."
             failure == NavigationFailure.ROUTE_UNVERIFIED -> "내비에서 목적지를 검색하고 경로 안내를 시작한 뒤 돌아와주세요."
             else -> "장소와 경로가 일치하는지 확인한 뒤 초대 버튼이 열려요."
@@ -175,9 +182,11 @@ internal class PickupCreationSection(
         directInviteButton.isEnabled = ready && linked && !app.account.busy
         directInviteButton.updateText("연결된 사람 선택")
         createButton.isEnabled = ready
-        actionHint.updateText(app.account.invitationMessage ?: when {
+        actionHint.updateText(when {
+            !ready && failure != null -> "만날 장소를 확인한 뒤 탑승자를 초대할 수 있어요."
             !ready && app.destination.waitingForGuidance -> "차량 내비게이션에 목적지가 설정되면 탑승자 초대 버튼이 열려요."
             !ready -> "장소 확인이 끝나면 초대할 수 있어요. 잠시 기다려주세요."
+            app.account.invitationMessage != null -> app.account.invitationMessage.orEmpty()
             !linked -> "연결된 사람에게 바로 보내려면 설정에서 운전자 계정을 연결해주세요. 초대 링크는 바로 만들 수 있어요."
             else -> "연결된 사람은 목록에서 골라 보내세요.\n처음 만나는 분은 QR을 스캔해 링크를 보내주세요."
         })
@@ -193,8 +202,9 @@ internal class PickupCreationSection(
         addWaypointButton.isEnabled = ready && stops?.all?.all { it.usable } == true
         addWaypointButton.updateText(if (ready && stops?.waypoints?.any { !it.usable } == true)
             "기존 경유지 위치를 먼저 확인해주세요" else "다른 장소에서 만나기")
-        finalDestinationButton.visibility = if (ready && stop?.kind == NavigationStopKind.WAYPOINT) View.VISIBLE else View.GONE
-        finalDestinationButton.isEnabled = ready
+        val showFinalDestination = canReselect || (ready && stop?.kind == NavigationStopKind.WAYPOINT)
+        finalDestinationButton.visibility = if (showFinalDestination) View.VISIBLE else View.GONE
+        finalDestinationButton.isEnabled = views.canInteract && app.pickup.canCreate && showFinalDestination
     }
 
     private fun reselectWaypoints(expected: NavigationStops, selectedIndex: Int) {

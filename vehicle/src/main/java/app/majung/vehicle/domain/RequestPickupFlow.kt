@@ -23,6 +23,7 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
         val pickupBusy: Boolean
         val sharingRunning: Boolean
         val routeFailure: String?
+        val confirmedNoGuidance: Boolean
         val pickupMessage: String
         fun request(id: String): RequestedRide?
         fun canStart(id: String): Boolean
@@ -31,7 +32,8 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
         fun prepareRoute(retry: Boolean)
         fun stops(): NavigationStops?
         fun select(place: PickupPlace): Boolean
-        fun insert(place: PickupPlace): Boolean
+        fun addWaypoint(place: PickupPlace): Boolean
+        fun setDestination(place: PickupPlace): Boolean
         fun clearEnded()
         fun start(ride: RequestedRide)
     }
@@ -44,7 +46,7 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
         private set
     private var owner: Any? = null
     private var deadline = 0L
-    private var inserted = false
+    private var routeChangeRequested = false
     private var baseline: NavigationStops? = null
     private var updating = false
     val visible: Boolean get() = stage !in setOf(Stage.IDLE, Stage.DONE)
@@ -56,7 +58,7 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
         if ((host.hasPickup && host.pickupStatus !in ended) || host.hasOtherActiveRequest(id)) return
         owner = host.authority
         ride = item
-        inserted = false
+        routeChangeRequested = false
         baseline = null
         deadline = now() + 60000
         stage = Stage.PREPARING
@@ -108,13 +110,22 @@ internal class RequestPickupFlow(private val host: Host, private val now: () -> 
                 if (host.select(target.place)) { stage = Stage.READY; message = "경로를 확인했어요. 마중을 시작하면 위치를 공유해요." }
                 return
             }
-            if (!inserted) {
-                baseline = route
-                inserted = true // Never repeat a navigation mutation from polling or a lost callback.
-                stage = Stage.PREPARING
-                message = "요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요."
-                if (!host.insert(target.place)) fail(host.routeFailure ?: "내비 목적지를 설정하지 못했어요. 내비 앱을 확인해주세요.")
-            } else { stage = Stage.PREPARING; message = "내비 경로와 만날 장소를 확인하고 있어요." }
+            stage = Stage.PREPARING
+            message = "내비 경로와 만날 장소를 확인하고 있어요."
+            if (routeChangeRequested) return
+            when {
+                route != null -> {
+                    baseline = route
+                    routeChangeRequested = true
+                    message = "기존 경로에 만날 장소를 경유지로 추가하고 있어요."
+                    if (!host.addWaypoint(target.place)) fail(host.routeFailure ?: "경유지를 추가하지 못했어요. 내비 앱을 확인해주세요.")
+                }
+                before == null && host.confirmedNoGuidance -> {
+                    routeChangeRequested = true
+                    message = "요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요."
+                    if (!host.setDestination(target.place)) fail(host.routeFailure ?: "내비 목적지를 설정하지 못했어요. 내비 앱을 확인해주세요.")
+                }
+            }
         } finally { updating = false }
     }
 

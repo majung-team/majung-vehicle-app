@@ -79,6 +79,7 @@ class VehicleApplication : Application() {
             override val pickupBusy get() = pickup.busy
             override val sharingRunning get() = this@VehicleApplication.sharingRunning
             override val routeFailure get() = destination.failure?.message
+            override val confirmedNoGuidance get() = destination.confirmedNoGuidance
             override val pickupMessage get() = pickup.message
             override fun request(id: String): RequestedRide? = account.requests.firstOrNull { it.optString("requestId") == id }?.let { item ->
                 item.optJSONObject("place")?.let { point ->
@@ -97,7 +98,8 @@ class VehicleApplication : Application() {
             }
             override fun stops() = destination.currentStops()
             override fun select(place: PickupPlace) = destination.selectVerifiedStop(place)
-            override fun insert(place: PickupPlace) = destination.navigateToPickup(place)
+            override fun addWaypoint(place: PickupPlace) = destination.addPickupWaypoint(place)
+            override fun setDestination(place: PickupPlace) = destination.navigateToPickup(place)
             override fun clearEnded() { pickup.prepareNextPickup() }
             override fun start(ride: RequestedRide) { pickup.startRequested(ride.id, ride.place, destination.referenceFor(ride.place)) }
         }, android.os.SystemClock::elapsedRealtime)

@@ -33,4 +33,8 @@ enum class NavigationFailure(val message: String) {
     ROUTE_TOO_LONG("이동 거리가 내비게이션의 탐색 범위를 넘었어요. 더 가까운 장소를 선택해주세요."),
     ROUTE_TOO_SHORT("현재 위치와 장소가 너무 가까워 경로를 만들지 못했어요. 다른 장소를 선택해주세요."),
     ROUTE_SEARCH_FAILED("내비게이션에서 경로를 찾지 못했어요. 네트워크와 장소를 확인한 뒤 다시 시도해주세요.");
+
+    val requiresPickupReselection: Boolean
+        get() = this == PICKUP_NOT_FOUND || this == ROUTE_CHANGED ||
+            this == WAYPOINT_COORDINATES_UNAVAILABLE || this == WAYPOINT_CONFIRMATION_TIMEOUT
 }

@@ -51,12 +51,14 @@ class RouteValidation {
     }
 
     fun receiveState(guiding: Boolean, now: Long): Boolean {
-        if (!expected(Awaiting.STATE, now)) return false
+        if (!awaitingState(now)) return false
         if (!guiding) { invalidate(); return false }
         awaiting = Awaiting.DESTINATION
         requestedAt = now
         return true
     }
+
+    fun awaitingState(now: Long): Boolean = expected(Awaiting.STATE, now)
 
     fun beginWaypointResponse(now: Long): Boolean {
         if (!expected(Awaiting.DESTINATION, now)) return false
