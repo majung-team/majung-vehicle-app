@@ -224,6 +224,7 @@ class MainActivity : Activity() {
             setPadding(40.dp, 32.dp, 40.dp, 40.dp)
             setBackgroundColor(Color.WHITE)
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+            addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f))
             addView(views.label(SharingNotice.TEXT, 20f))
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
@@ -237,6 +238,9 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     if (driving.allowed && app.sharingNotice.accept()) {
+                        if (!permissionAttempted && !PickupSharingService.hasLocationPermission(this@MainActivity)) {
+                            launchLocationPermission()
+                        }
                         preparePickup(refresh = true)
                         render()
                     }
