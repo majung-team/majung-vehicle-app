@@ -274,8 +274,11 @@ class MainActivity : Activity() {
         driving.start()
         app.pickup.changed = ::render
         app.account.changed = {
-            // Account reads only update their section; do not redraw the navigation and pickup surface.
-            if (driving.allowed) accountSection.render(selectedTab == "settings") else render()
+            // Refresh only the controls that depend on the driver account.
+            if (driving.allowed) {
+                accountSection.render(selectedTab == "settings")
+                if (selectedTab == "pickup") creation.render()
+            } else render()
         }
         app.account.refresh()
         // A waypoint request may open the navigation app. Revalidate on return;

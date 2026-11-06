@@ -212,17 +212,19 @@ internal class PickupCreationSection(
         directInviteButton.visibility = if (ready || app.pickup.busy) View.VISIBLE else View.GONE
         createButton.visibility = directInviteButton.visibility
         directInviteButton.isEnabled = ready && linked && !app.account.busy
-        directInviteButton.updateText("연결된 사람 선택")
+        val hasPeople = linked && app.account.hasConnectedPeople == true
+        val emptyContacts = linked && app.account.hasConnectedPeople == false
+        directInviteButton.updateText(if (emptyContacts) "연결한 사람 다시 확인" else "연결된 사람에게 초대")
         createButton.isEnabled = ready
+        views.styleButton(directInviteButton, primary = hasPeople)
+        views.styleButton(createButton, primary = !hasPeople)
         actionHint.updateText(when {
-            ready -> "탑승자에게 초대 링크를 보내 마중을 시작하세요."
-            !ready && isVerifying -> "내비게이션 목적지가 확인되면 초대가 활성화됩니다."
-            !ready && app.destination.confirmedNoGuidance -> "내비게이션에 목적지가 설정되면 탑승자를 초대할 수 있습니다."
-            !ready && failure != null -> "내비게이션 장소 확인 후 탑승자를 초대할 수 있습니다."
-            !ready -> "내비게이션 목적지가 확인되면 초대가 활성화됩니다."
-            app.account.invitationMessage != null -> app.account.invitationMessage.orEmpty()
-            !linked -> "연결된 사람에게 바로 초대하려면 운전자 계정을 연결해주세요."
-            else -> "연결된 사람을 선택하거나 QR 코드로 초대 링크를 공유하세요."
+            app.account.invitationMessage != null && ready -> app.account.invitationMessage.orEmpty()
+            ready && emptyContacts -> "처음 만나는 탑승자에게는 QR로 초대 링크를 보내세요."
+            ready && hasPeople -> "연결된 사람을 고르거나 QR로 초대 링크를 보낼 수 있어요."
+            ready && !linked -> "QR로 초대 링크를 보낼 수 있어요. 연결된 사람에게 바로 보내려면 운전자 계정을 연결해주세요."
+            ready -> "QR로 초대 링크를 보내거나 연결된 사람을 찾아보세요."
+            else -> "내비게이션에서 만날 장소를 확인하면 초대할 수 있어요."
         })
 
         // 무한 루프 차단: 로딩/확인 중(isVerifying)에는 내비 열기 버튼을 노출하지 않음
