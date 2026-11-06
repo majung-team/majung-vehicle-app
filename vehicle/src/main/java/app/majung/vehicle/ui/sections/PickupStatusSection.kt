@@ -94,12 +94,14 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
         })
         pickupText.updateText(pickup.place?.label ?: "이번 픽업")
         connectionText.visibility = if (connectionText.text.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
-        passenger.visibility = if (ended) android.view.View.GONE else android.view.View.VISIBLE
+        passenger.visibility = if (ended || pickup.needsNewInvitation) android.view.View.GONE else android.view.View.VISIBLE
         passenger.updateText(pickup.participantName?.let { "$it 님과 만나요" } ?: "탑승자 연결 대기")
         passengerMessage.updateText(pickup.quickMessage?.let { "탑승자가 보낸 메시지\n“$it”" }.orEmpty())
         passengerMessage.visibility = if (!ended && passengerMessage.text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
         readiness.updateText(if (!pickup.online && pickup.status in setOf("ACTIVE", "ARRIVED")) "마지막 준비 상태\n연결 확인 중" else when(pickup.status) {
-            "INVITING", "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
+            "INVITE_EXPIRED" -> "초대가 만료됐어요"
+            "INVITING" -> if (pickup.needsNewInvitation) "새 초대가 필요해요" else "탑승자를\n기다리고 있어요"
+            "WAITING_APPROVAL" -> "탑승자를\n기다리고 있어요"
             "ARRIVED" -> "도착했어요"
             "COMPLETED" -> "탑승 완료"
             "CANCELLED", "EXPIRED" -> "공유 종료"
@@ -134,6 +136,7 @@ internal class PickupStatusSection(private val app: VehicleApplication, private 
             pickup.status == "ARRIVED" -> "탑승할 때까지 위치 공유를 유지해요. 탑승했다면 완료해주세요."
             pickup.status == "ACTIVE" && app.sharingRunning -> pickup.vehicleMessage
             pickup.status == "ACTIVE" -> "위치 공유를 시작하면 탑승자가 도착 시간을 확인할 수 있어요."
+            pickup.needsNewInvitation -> "같은 장소로 새 초대를 보낼 수 있어요."
             pickup.status == "INVITING" -> "초대 링크로 탑승자가 참여하면 바로 연결돼요."
             else -> "픽업이 끝나면 위치 공유도 끝나요."
         })

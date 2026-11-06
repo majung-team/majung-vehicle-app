@@ -452,7 +452,7 @@ class MainActivity : Activity() {
         resumeButton.visibility = if (app.pickup.needsSharingConfirmation) android.view.View.VISIBLE else android.view.View.GONE
         resumeButton.isEnabled = app.pickup.online && !app.pickup.busy
         val hasLocation = PickupSharingService.hasLocationPermission(this)
-        val awaitingPassenger = app.pickup.status in setOf("INVITING", "WAITING_APPROVAL")
+        val awaitingPassenger = app.pickup.status in setOf("INVITING", "WAITING_APPROVAL", "INVITE_EXPIRED")
         val waitingToShare = sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning
         sharingButton.visibility = if (waitingToShare) View.VISIBLE else View.GONE
         sharingButton.updateText(if (!hasLocation) "위치 권한 허용하고 공유 시작" else "위치·도착 시간 공유 다시 시작")
@@ -518,6 +518,7 @@ class MainActivity : Activity() {
             "requests" -> "누구를 마중할까요?"
             "settings" -> "차량과 계정"
             else -> when (app.pickup.status) {
+                "INVITE_EXPIRED" -> "새 초대를 보내주세요"
                 "INVITING", "WAITING_APPROVAL" -> "탑승자를 초대해주세요"
                 "ACTIVE" -> "마중 가고 있어요"
                 "ARRIVED" -> "도착했어요"

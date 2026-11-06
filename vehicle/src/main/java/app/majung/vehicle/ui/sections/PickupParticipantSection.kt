@@ -19,6 +19,7 @@ import android.widget.Button
 
 internal class PickupParticipantSection(private val app: VehicleApplication, private val views: VehicleViews) {
     private val inviteButton: Button
+    private val renewButton: Button
     private val qrButton: Button
     private val inlineQr: android.widget.ImageView
     private val invitationPanel: VehicleColumns
@@ -46,6 +47,7 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val disconnectButton: Button
 
     init {
+        renewButton = views.button("새 초대 QR 만들기", primary = true) { if (views.canInteract) app.pickup.renewInvitation() }
         inviteButton = views.button("탑승자 초대 링크 복사") {
             app.pickup.invitationForHostBrowser()?.let { link ->
                 val clipboard = views.context.getSystemService(ClipboardManager::class.java)
@@ -129,7 +131,9 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
 
     fun render() {
-        val inviting = app.pickup.status == "INVITING"
+        val inviting = app.pickup.status == "INVITING" && !app.pickup.needsNewInvitation
+        renewButton.visibility = if (app.pickup.needsNewInvitation) View.VISIBLE else View.GONE
+        renewButton.isEnabled = app.pickup.canRenewInvitation
         inviteButton.visibility = if (inviting) View.VISIBLE else View.GONE
         qrButton.visibility = if (inviting) View.VISIBLE else View.GONE
         disconnectButton.visibility = if (app.pickup.canDisconnect) View.VISIBLE else View.GONE
