@@ -433,7 +433,7 @@ class MainActivity : Activity() {
             permissionRequestInFlight = false
             app.sharingMessage = if (PickupSharingService.hasLocationPermission(this)) "공유 시작 준비 중"
                 else "위치 권한이 꺼져 있어 차량 위치와 도착 시간을 공유하지 않아요"
-            if (Build.VERSION.SDK_INT >= 33 && PickupSharingService.hasLocationPermission(this) &&
+            if (driving.allowed && Build.VERSION.SDK_INT >= 33 && PickupSharingService.hasLocationPermission(this) &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
             } else {
@@ -441,6 +441,7 @@ class MainActivity : Activity() {
             }
             startRequested = false
         } else if (requestCode == 33) {
+            if (firstUsePermissionPending) permissionRequestInFlight = false
             firstUsePermissionPending = false
         }
         render()
