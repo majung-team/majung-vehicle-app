@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private lateinit var sharingButton: Button
     private lateinit var sharingExplanation: android.widget.TextView
     private var permissionRequestInFlight = false
+    private var firstUsePermissionPending = false
     private val permissionPreferences by lazy { getSharedPreferences("location-permission", MODE_PRIVATE) }
     private var permissionAttempted = false
     private lateinit var resumeButton: Button
@@ -84,6 +85,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        firstUsePermissionPending = savedInstanceState?.getBoolean("firstUsePermissionPending") == true
+        permissionRequestInFlight = firstUsePermissionPending
         permissionAttempted = permissionPreferences.getBoolean("requested", false)
         val layout = object : LinearLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -224,8 +227,10 @@ class MainActivity : Activity() {
             setPadding(40.dp, 32.dp, 40.dp, 40.dp)
             setBackgroundColor(Color.WHITE)
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-            addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f))
-            addView(views.label(SharingNotice.TEXT, 20f))
+            addView(views.label("픽업 중 탑승자에게 차량 위치와 도착 시간을 알려줘요. 픽업이 끝나면 공유도 끝나요.", 24f))
+            addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f).apply {
+                setPadding(0, 12.dp, 0, 0)
+            })
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
                 textSize = 28f
@@ -238,7 +243,8 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     if (driving.allowed && app.sharingNotice.accept()) {
-                        if (!permissionAttempted && !PickupSharingService.hasLocationPermission(this@MainActivity)) {
+                        if (resumed && !permissionAttempted && !PickupSharingService.hasLocationPermission(this@MainActivity)) {
+                            firstUsePermissionPending = true
                             launchLocationPermission()
                         }
                         preparePickup(refresh = true)
@@ -246,6 +252,17 @@ class MainActivity : Activity() {
                     }
                 }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
+            addView(Button(this@MainActivity).apply {
+                text = "위치 공유 자세히 보기"
+                flattenButtonSurface()
+                setOnClickListener {
+                    if (driving.allowed) android.app.AlertDialog.Builder(this@MainActivity)
+                        .setTitle("위치 공유 안내")
+                        .setMessage(SharingNotice.TEXT)
+                        .setPositiveButton("확인", null)
+                        .show().also(views::trackDialog)
+                }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
             addView(Button(this@MainActivity).apply {
                 text = "지금은 사용하지 않기"
                 flattenButtonSurface()
@@ -291,6 +308,11 @@ class MainActivity : Activity() {
         preparePickup(refresh = true)
         render()
         handler.postDelayed(tick, 1000)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("firstUsePermissionPending", firstUsePermissionPending)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
@@ -414,14 +436,18 @@ class MainActivity : Activity() {
             if (Build.VERSION.SDK_INT >= 33 && PickupSharingService.hasLocationPermission(this) &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
+            } else {
+                firstUsePermissionPending = false
             }
             startRequested = false
+        } else if (requestCode == 33) {
+            firstUsePermissionPending = false
         }
         render()
     }
 
     private fun render() {
-        if (!app.sharingNotice.accepted) {
+        if (!app.sharingNotice.accepted || firstUsePermissionPending) {
             val parked = driving.allowed
             if (::noticeScreen.isInitialized) noticeScreen.visibility = if (parked) View.VISIBLE else View.GONE
             parkedRoot.visibility = View.GONE
@@ -530,7 +556,8 @@ class MainActivity : Activity() {
             "requests" -> "받은 요청을 확인하고 순서대로 픽업할 수 있어요."
             "settings" -> if (app.account.state.optString("status") == "LINKED") "운전자 계정과 연결된 사람, 음성 안내를 관리해요."
                 else "처음 한 번 운전자 휴대전화로 연결해주세요."
-            else -> if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
+            else -> if (needsConnection && !hasPickup) "운전자 휴대전화로 연결 QR을 스캔해주세요."
+                else if (active) "${app.pickup.place?.label ?: "약속 장소"} · 탑승자의 준비 상태를 확인해주세요."
                 else if (app.pickup.status == "COMPLETED") "탑승을 확인했어요. 다음 픽업을 준비할 수 있어요."
                 else if (app.pickup.status in setOf("CANCELLED", "EXPIRED")) "위치 공유가 끝났어요. 새 픽업을 준비할 수 있어요."
                 else if (hasPickup) "픽업을 마치면 위치 공유도 끝나요."
