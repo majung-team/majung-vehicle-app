@@ -38,6 +38,8 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         private set
     var message = "운전자 계정을 연결하면 마중 요청을 받을 수 있어요"
         private set
+    var hasConnectedPeople: Boolean? = null
+        private set
     var contacts = emptyList<JSONObject>()
         private set
     var contactsPage = 0
@@ -53,6 +55,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         generation++
         requestsCheckedAt = 0
         hasLoadedRequests = false
+        hasConnectedPeople = null
         invitationMessage = null
         if (registration.vehicleToken == null) { qr=null; state=JSONObject(); requests=emptyList(); contacts=emptyList(); pendingInvitation=null }
         changed?.invoke()
@@ -61,7 +64,14 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         execute(loaded = loaded, refreshingAccount = showProgress, background = background) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
             val list=if (account.optString("status")=="LINKED") api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests") else org.json.JSONArray()
-            JSONObject().put("account",account).put("requests",list)
+            JSONObject().put("account",account).put("requests",list).apply {
+                if (!background && account.optString("status") == "LINKED") {
+                    val hasPeople = runCatching {
+                        api.requestApi("GET", "/vehicles/connections?page=0", it).getJSONArray("items").length() > 0
+                    }.getOrNull()
+                    if (hasPeople != null) put("hasConnectedPeople", hasPeople)
+                }
+            }
         }
     }
     fun loadContacts(page: Int = 0, failed: (() -> Unit)? = null, loaded: () -> Unit) {
@@ -144,7 +154,13 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                 if (background) polling = false else { busy=false; refreshing=false }
                 if (epoch!=generation || token!=registration.vehicleToken) { failed?.invoke(); changed?.invoke(); return@post }
                 result.fold(onSuccess={ data ->
-                    data.optJSONObject("account")?.let { state=it; if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null } }
+                    data.optJSONObject("account")?.let {
+                        if (it.optString("majungId") != state.optString("majungId") || it.optString("status") != "LINKED")
+                            hasConnectedPeople = null
+                        state = it
+                        if (it.optString("status") != "LINKED") { contacts=emptyList(); pendingInvitation=null }
+                    }
+                    if (data.has("hasConnectedPeople")) hasConnectedPeople = data.getBoolean("hasConnectedPeople")
                     data.optJSONArray("requests")?.let { array ->
                         val newRequests = (0 until array.length()).map { array.getJSONObject(it) }
                         val previousPendingIds = requests.filter { it.optString("status") == "PENDING" }.map { it.optString("requestId") }.toSet()
@@ -170,6 +186,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                     data.optJSONArray("contacts")?.let { array ->
                         contacts = (0 until array.length()).map { array.getJSONObject(it) }
                         contactsPage = data.getInt("contactsPage")
+                        if (contactsPage == 0) hasConnectedPeople = contacts.isNotEmpty()
                     }
                     data.optJSONObject("challenge")?.let {
                         qr="${BuildConfig.PICKUP_WEB_ORIGIN}/account#vehicle/${it.getString("challengeId")}/${it.getString("code")}"
@@ -196,7 +213,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                         else -> "요청을 처리하지 못했어요. 목록을 다시 확인해주세요"
                     } else "처리 결과를 확인하지 못했어요. 상태를 다시 확인해주세요"
                     if (invitationFeedback) invitationMessage = message
-                    if (failure is ApiRejected && failure.status in setOf(401,403,410)) { qr=null; requests=emptyList(); state=JSONObject() }
+                    if (failure is ApiRejected && failure.status in setOf(401,403,410)) { hasConnectedPeople=null; qr=null; requests=emptyList(); state=JSONObject() }
                     failed?.invoke()
                 })
                 changed?.invoke()

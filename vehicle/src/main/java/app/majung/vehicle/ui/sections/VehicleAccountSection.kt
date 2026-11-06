@@ -101,7 +101,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             if (!invitationPlaceStillCurrent(place)) return@setItems
             val person = items[index]
             AlertDialog.Builder(views.context).setTitle("${person.optString("nickname")} 님께 초대할까요?")
-                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘픽업’에서 수락하면 픽업 대기에 들어가요.")
+                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘내 요청·초대’에서 수락하면 픽업 대기에 들어가요.")
                 .setPositiveButton("초대 보내기") { _, _ ->
                     if (invitationPlaceStillCurrent(place))
                         app.account.invite(person.getString("connectionId"), place)
@@ -176,10 +176,15 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     }
     fun render(settings: Boolean = false) {
         val state=app.account.state.optString("status")
-        val count=app.account.requests.size
-        heading.updateText(if (settings) "운전자와 사람 연결" else "받은 요청 · ${count}건")
-        status.updateText(if (settings) app.account.message else "${app.account.message}\n" +
-            if (count > 0) "받은 요청·진행 중인 픽업 ${count}건" else "받은 마중 요청과 보낸 초대가 여기에 표시돼요")
+        val counts = app.account.requests.groupingBy { it.optString("status") }.eachCount()
+        val pending = counts["PENDING"] ?: 0
+        val summary = listOfNotNull(
+            counts["QUEUED"]?.let { "픽업 대기 ${it}명" },
+            counts["ACTIVE"]?.let { "진행 중 ${it}건" },
+            counts["INVITED"]?.let { "보낸 초대 ${it}건" }
+        ).joinToString(" · ")
+        heading.updateText(if (settings) "운전자와 사람 연결" else "확인할 요청 · ${pending}건")
+        status.updateText(if (settings || summary.isEmpty()) app.account.message else "${app.account.message}\n$summary")
 
         issue.visibility = if (settings && state != "LINKED") View.VISIBLE else View.GONE
         qr.visibility = if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE else View.GONE
