@@ -225,9 +225,15 @@ class MainActivity : Activity() {
         }.apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40.dp, 32.dp, 40.dp, 40.dp)
-            setBackgroundColor(Color.WHITE)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = 24.dp.toFloat()
+                setStroke(1.dp, Color.rgb(229, 234, 241))
+            }
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-            addView(views.label("픽업 중 탑승자에게 차량 위치와 도착 시간을 알려줘요. 픽업이 끝나면 공유도 끝나요.", 24f))
+            addView(views.label("픽업 중 탑승자에게 차량 위치와 도착 시간을 알려줘요. 픽업이 끝나면 공유도 끝나요.", 24f).apply {
+                setPadding(0, 16.dp, 0, 0)
+            })
             addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f).apply {
                 setPadding(0, 12.dp, 0, 0)
             })
@@ -252,9 +258,16 @@ class MainActivity : Activity() {
                     }
                 }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
-            addView(Button(this@MainActivity).apply {
-                text = "위치 공유 자세히 보기"
-                flattenButtonSurface()
+            addView(views.label("위치 공유 자세히 보기", 22f).apply {
+                setTextColor(Color.rgb(20, 79, 171))
+                paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                minHeight = 56.dp
+                gravity = android.view.Gravity.CENTER
+                isFocusable = true
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(Color.rgb(231, 240, 254)),
+                    null, android.graphics.drawable.ColorDrawable(Color.WHITE)
+                )
                 setOnClickListener {
                     if (driving.allowed) android.app.AlertDialog.Builder(this@MainActivity)
                         .setTitle("위치 공유 안내")
@@ -263,22 +276,15 @@ class MainActivity : Activity() {
                         .show().also(views::trackDialog)
                 }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
-            addView(Button(this@MainActivity).apply {
-                text = "지금은 사용하지 않기"
-                flattenButtonSurface()
-                backgroundTintList = null
-                setTextColor(Color.rgb(51, 61, 75))
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.rgb(242, 244, 247)); cornerRadius = 16.dp.toFloat()
-                }
-                textSize = 28f
-                minimumHeight = 72.dp
-                setOnClickListener { finish() }
-            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
+
         }
         noticeScreen = createSmoothScrollView().apply {
             setBackgroundColor(Color.rgb(247, 248, 250))
-            addView(noticeContent, FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL))
+            isFillViewport = true
+            addView(FrameLayout(this@MainActivity).apply {
+                setPadding(24.dp, 24.dp, 24.dp, 24.dp)
+                addView(noticeContent, FrameLayout.LayoutParams(-1, -2, android.view.Gravity.CENTER))
+            }, FrameLayout.LayoutParams(-1, -2))
             visibility = View.GONE
         }
         drivingSection = DrivingPickupSection(this, app)
