@@ -251,6 +251,26 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         runRequest({ api.request("GET", "/$id", token) }, ::receiveSnapshot, readOnly = true)
     }
 
+    val needsNewInvitation: Boolean get() =
+        status == "INVITE_EXPIRED" || (status == "INVITING" && inviteToken == null)
+
+    val canRenewInvitation: Boolean get() = !busy && online && needsNewInvitation && driverToken != null
+
+    fun renewInvitation() {
+        val id = pickupId ?: return
+        val token = driverToken ?: return
+        if (!canRenewInvitation) return
+        runRequest({ api.request("POST", "/$id/invitations", token) }, { result ->
+            inviteToken = result.getString("inviteToken")
+            status = "INVITING"
+            participantId = null
+            participantName = null
+            readiness = ""
+            message = "새 초대를 만들었어요."
+            persistSession()
+        })
+    }
+
     fun approve() {
         if (!canApprove) return
         val path = "/$pickupId/participants/$participantId/approval"
@@ -361,7 +381,7 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val id = pickupId ?: return null
         val token = inviteToken ?: return null
         val origin = BuildConfig.PICKUP_WEB_ORIGIN
-        return if (origin.isNotBlank() && status == "INVITING") "$origin/#join/$id/$token" else null
+        return if (origin.isNotBlank() && online && status == "INVITING") "$origin/#join/$id/$token" else null
     }
 
     fun invitationForSharingBrowser(): String? = invitationForHostBrowser()?.replace("/#join/", "/#share/")
