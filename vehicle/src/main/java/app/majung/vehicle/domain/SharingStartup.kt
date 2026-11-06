@@ -6,8 +6,8 @@ internal object SharingStartup {
 
     fun action(resumed: Boolean, parked: Boolean, active: Boolean, needsConfirmation: Boolean,
                running: Boolean, pending: Boolean, hasLocation: Boolean, alreadyAsked: Boolean): Action {
-        if (!resumed || !parked || !active || needsConfirmation || running || pending) return Action.NONE
+        if (!resumed || !active || needsConfirmation || running || pending) return Action.NONE
         if (hasLocation) return Action.START
-        return if (alreadyAsked) Action.NONE else Action.REQUEST_PERMISSION
+        return if (!parked || alreadyAsked) Action.NONE else Action.REQUEST_PERMISSION
     }
 }

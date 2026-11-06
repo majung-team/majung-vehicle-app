@@ -224,6 +224,7 @@ class MainActivity : Activity() {
             setPadding(40.dp, 32.dp, 40.dp, 40.dp)
             setBackgroundColor(Color.WHITE)
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
+            addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f))
             addView(views.label(SharingNotice.TEXT, 20f))
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
@@ -237,6 +238,9 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     if (driving.allowed && app.sharingNotice.accept()) {
+                        if (!permissionAttempted && !PickupSharingService.hasLocationPermission(this@MainActivity)) {
+                            launchLocationPermission()
+                        }
                         preparePickup(refresh = true)
                         render()
                     }
@@ -448,10 +452,13 @@ class MainActivity : Activity() {
         resumeButton.visibility = if (app.pickup.needsSharingConfirmation) android.view.View.VISIBLE else android.view.View.GONE
         resumeButton.isEnabled = app.pickup.online && !app.pickup.busy
         val hasLocation = PickupSharingService.hasLocationPermission(this)
+        val awaitingPassenger = app.pickup.status in setOf("INVITING", "WAITING_APPROVAL")
         val waitingToShare = sharing && !app.pickup.needsSharingConfirmation && !app.sharingRunning
         sharingButton.visibility = if (waitingToShare) View.VISIBLE else View.GONE
         sharingButton.updateText(if (!hasLocation) "위치 권한 허용하고 공유 시작" else "위치·도착 시간 공유 다시 시작")
         sharingExplanation.updateText(when {
+            awaitingPassenger -> "픽업이 시작되면 차량 위치와 도착 시간 공유가 자동으로 시작돼요. 위치 권한이 없으면 Android에서 허용을 요청해요."
+            sharing && app.sharingRunning -> "차량 위치와 도착 시간을 공유 중이에요. 다른 앱을 열어도 픽업이 끝날 때까지 이어져요."
             app.pickup.needsSharingConfirmation -> "이전 픽업을 계속할까요? 확인하면 위치와 도착 시간 공유를 다시 시작해요."
             waitingToShare && !hasLocation -> "위치 권한이 필요해요. 허용하면 탑승자에게 차량 위치와 도착 시간을 공유해요. 다른 앱을 보고 있어도 픽업이 끝날 때까지 이어져요."
             waitingToShare -> app.sharingMessage
@@ -506,7 +513,7 @@ class MainActivity : Activity() {
         show(participantGroup, selectedTab == "pickup" && hasPickup && app.pickup.status !in setOf("COMPLETED", "CANCELLED", "EXPIRED"))
         show(completionGroup, selectedTab == "pickup" && hasPickup)
         show(completionDock, selectedTab == "pickup" && hasPickup)
-        show(permissionGroup, selectedTab == "pickup" && active)
+        show(permissionGroup, selectedTab == "pickup" && (active || awaitingPassenger))
         stageTitle.updateText(if (app.requestFlow.visible && selectedTab != "settings") "마중 경로 준비" else when (selectedTab) {
             "requests" -> "누구를 마중할까요?"
             "settings" -> "차량과 계정"

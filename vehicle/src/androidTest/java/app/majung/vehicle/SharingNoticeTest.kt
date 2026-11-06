@@ -64,7 +64,11 @@ class SharingNoticeTest {
                 assertTrue("Notice must appear while parked", visible)
                 assertFalse(app.sharingNotice.accepted)
                 scenario.onActivity { activity ->
-                    val buttons = descendants(activity.window.decorView).filterIsInstance<Button>()
+                    val views = descendants(activity.window.decorView)
+                    assertTrue(views.filterIsInstance<TextView>().any {
+                        it.isShown && it.text.contains("허용하지 않아도 차량 연결과 픽업은 할 수 있어요.")
+                    })
+                    val buttons = views.filterIsInstance<Button>()
                     assertTrue(buttons.any { it.text == "지금은 사용하지 않기" })
                     buttons.first { it.text == "위치 공유 안내에 동의하고 시작" }.performClick()
                 }
