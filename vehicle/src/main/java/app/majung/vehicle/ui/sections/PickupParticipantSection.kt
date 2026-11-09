@@ -113,10 +113,17 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             val old = app.pickup.place ?: return@button
             val next = app.pickup.placeProposal ?: return@button
             val proposal = app.pickup.proposalId
+            if (proposal != null && attemptedProposalId == proposal && app.destination.failure != null) {
+                attemptedProposalId = null
+                app.pickup.autoConfirmProposalId = proposal
+                app.destination.reviewProposedPlace(next, proposal)
+                return@button
+            }
             AlertDialog.Builder(views.context).setTitle("${next.label}로 바꿀까요?")
                 .setMessage("최종 목적지와 다른 경유지는 유지하고 추천 경로를 다시 찾아요. 내비 경로와 도착 시간이 확인되면 약속 장소도 함께 바뀌어요.")
                 .setPositiveButton("내비 경로 확인") { _, _ ->
                     if (views.canInteract && app.pickup.status == "ACTIVE" && app.pickup.proposalId == proposal && proposal != null) {
+                        attemptedProposalId = proposal
                         app.pickup.autoConfirmProposalId = proposal
                         if (!app.destination.changePickupPlace(old, next, proposal)) {
                             app.destination.reviewProposedPlace(next, proposal)
@@ -127,6 +134,8 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
         }
         views.button("픽업 상태 새로고침", compact = true) { app.pickup.refresh() }
     }
+
+    private var attemptedProposalId: String? = null
 
     private val Int.dp: Int get() = (this * views.context.resources.displayMetrics.density).toInt()
 
@@ -164,6 +173,8 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             app.destination.verifiedPlaceChange(it) != null &&
                 app.destination.telemetry.current(it, android.os.SystemClock.elapsedRealtime()) != null
         } == true
+        val failedCheck = attemptedProposalId != null && attemptedProposalId == app.pickup.proposalId &&
+            app.destination.failure != null
         val checkingRoute = hasProposal && !verified && app.destination.checkingPlaceProposal
         if (verified && canChange && app.pickup.autoConfirmProposalId != null && app.pickup.autoConfirmProposalId == app.pickup.proposalId) {
             app.pickup.autoConfirmProposalId = null
@@ -177,13 +188,14 @@ internal class PickupParticipantSection(private val app: VehicleApplication, pri
             app.pickup.needsSharingConfirmation -> "이전 픽업을 계속한 뒤 장소 변경을 확인해주세요."
             app.pickup.busy -> "새 약속 장소를 반영하고 있어요. 잠시만 기다려주세요."
             checkingRoute -> "내비게이션에 제안 장소 경유 경로를 반영하고 도착 시간을 확인하고 있어요…"
+            failedCheck -> "변경한 경로를 확인하지 못했어요. 기존 약속 장소는 그대로예요."
             verified -> "내비 경로를 확인했어요. 아래에서 확정하면 탑승자의 약속 장소도 바뀌어요."
             else -> "아직 약속 장소는 그대로예요. 먼저 제안 장소로 경로를 확인해주세요."
         })
         views.styleButton(changePlaceButton, primary = !verified)
         changePlaceButton.updateText(when {
             checkingRoute -> "내비 경로 확인 중…"
-            verified -> "내비 경로 다시 확인"
+            failedCheck || verified -> "내비 경로 다시 확인"
             else -> "제안 장소로 경로 확인"
         })
         changePlaceButton.isEnabled = canChange && !checkingRoute

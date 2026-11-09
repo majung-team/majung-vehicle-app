@@ -184,11 +184,15 @@ class QueuedPickupSdkTest {
     private fun returnFromNavigation(app: VehicleApplication, scenario: ActivityScenario<MainActivity>) {
         // Allow the navigation window to open; actual readiness still comes from SDK responses.
         SystemClock.sleep(3000)
-        main.runOnMainSync {
-            app.startActivity(android.content.Intent(app, MainActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-        }
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        // Start the launcher entry through the test shell to move its AAOS task to the front.
+        val component = "${app.packageName}/.MainActivity"
+        val result = main.uiAutomation.executeShellCommand(
+            "am start -W --user current -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n $component"
+        )
+        val output = android.os.ParcelFileDescriptor.AutoCloseInputStream(result).bufferedReader().use { it.readText() }
+        assertTrue("Vehicle app did not return to the foreground: $output", output.contains("Status: ok"))
+        await("vehicle app foreground") { app.activityResumed }
+        assertEquals(androidx.lifecycle.Lifecycle.State.RESUMED, scenario.state)
         main.runOnMainSync { app.destination.connect(); app.destination.query() }
     }
 

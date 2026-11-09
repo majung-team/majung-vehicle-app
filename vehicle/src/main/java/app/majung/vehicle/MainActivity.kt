@@ -13,6 +13,7 @@ import app.majung.vehicle.service.*
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -71,6 +72,9 @@ class MainActivity : Activity() {
     private var resumed = false
     private var startRequested = false
     private var ticks = 0
+    private val disconnectIdleNavigation = Runnable {
+        if (!app.sharingRunning && !startRequested) app.destination.disconnect()
+    }
     private val tick = object : Runnable {
         override fun run() {
             render()
@@ -224,8 +228,8 @@ class MainActivity : Activity() {
             setPadding(40.dp, 32.dp, 40.dp, 40.dp)
             setBackgroundColor(Color.WHITE)
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-            addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f))
-            addView(views.label(SharingNotice.TEXT, 20f))
+            addView(views.label("픽업 중에는 탑승자가 차량 위치와 도착 시간을 볼 수 있어요. 픽업이 끝나면 공유도 끝나요.", 22f))
+            addView(views.label("다음 화면에서 위치를 허용해주세요. 허용하지 않아도 차량을 연결할 수 있어요.", 20f))
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
                 textSize = 28f
@@ -258,6 +262,19 @@ class MainActivity : Activity() {
                 minimumHeight = 72.dp
                 setOnClickListener { finish() }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
+            addView(Button(this@MainActivity).apply {
+                text = "위치 공유 자세히 보기"
+                textSize = 20f
+                minimumHeight = 56.dp
+                flattenButtonSurface()
+                setOnClickListener {
+                    if (driving.allowed) AlertDialog.Builder(this@MainActivity)
+                        .setTitle("위치 공유 안내")
+                        .setMessage(SharingNotice.TEXT)
+                        .setPositiveButton("닫기", null)
+                        .show().also(views::trackDialog)
+                }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
         }
         noticeScreen = createSmoothScrollView().apply {
             setBackgroundColor(Color.rgb(247, 248, 250))
@@ -275,6 +292,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        handler.removeCallbacks(disconnectIdleNavigation)
         driving.start()
         app.pickup.changed = ::render
         app.account.changed = {
@@ -299,6 +317,14 @@ class MainActivity : Activity() {
         app.activityResumed = true
         startRequested = false
         checkPendingRequestIntent(intent)
+        if (app.sharingNotice.accepted && app.pickup.status == "ACTIVE") {
+            val proposalId = app.pickup.proposalId
+            val proposed = app.pickup.placeProposal
+            if (proposalId != null && proposalId == app.pickup.autoConfirmProposalId && proposed != null &&
+                !app.destination.checkingPlaceProposal && app.destination.verifiedPlaceChange(proposed) == null) {
+                app.destination.reviewProposedPlace(proposed, proposalId)
+            } else if (app.sharingRunning) app.destination.pollTelemetry()
+        } else preparePickup(refresh = true)
         render()
     }
 
@@ -330,7 +356,13 @@ class MainActivity : Activity() {
         handler.removeCallbacks(tick)
         app.pickup.changed = null
         app.account.changed = null
-        if (!app.sharingRunning && !startRequested) app.destination.disconnect()
+        if (!app.sharingRunning && !startRequested) {
+            // Pleos can bring navigation forward while a route request is in flight.
+            if (app.destination.addingWaypoint || app.destination.checkingPlaceProposal ||
+                app.requestFlow.stage == RequestPickupFlow.Stage.PREPARING) {
+                handler.postDelayed(disconnectIdleNavigation, 50000)
+            } else app.destination.disconnect()
+        }
         super.onStop()
     }
 
@@ -421,7 +453,7 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
-        if (!app.sharingNotice.accepted) {
+        if (!app.sharingNotice.accepted || permissionRequestInFlight) {
             val parked = driving.allowed
             if (::noticeScreen.isInitialized) noticeScreen.visibility = if (parked) View.VISIBLE else View.GONE
             parkedRoot.visibility = View.GONE
