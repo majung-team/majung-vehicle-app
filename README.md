@@ -122,7 +122,7 @@ Pleos NaviHelper SDK를 활용해 다음 정보를 확인한다.
 
 현재 안내 기준 버전:
 
-**[v0.2.21-preview (2026.11.05)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.21-preview.20261105)**
+**[v0.2.29-preview (2026.11.09, versionCode 31)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.29-preview.20261109)**
 
 APK 파일명:
 
@@ -377,29 +377,30 @@ vehicle/src/main/java/app/majung/vehicle/
 
 ## 6. 현재 구현 및 검증 범위
 
-**기준일: 2026년 10월 30일**
+**기준일: 2026년 11월 9일**
 
 ### 구현된 주요 기능
 
 - 차량 최초 QR 등록 및 운전자 계정 연결
-- 연결된 사람 직접 초대
+- 연결된 사람 직접 초대 및 연결된 사람 부재 시 QR 초대 강조·만료 QR 재발급
 - QR 기반 초대 링크 전달
-- 탑승자의 픽업 요청 수락
+- 탑승자의 픽업 요청 수락 및 요청·대기 인원 구분 표시
 - 여러 요청의 순차 처리
-- SDK 경로·위치·ETA 확인
-- 장소 변경 제안 및 경로 검증
-- 준비 상태 수신
+- SDK 경로·위치·ETA 확인 및 첫 픽업 위치 권한 안내·허용 시 공유 자동 시작
+- 장소 변경 제안·헤즈업 원터치 수락 및 내비 복귀 후 제안 확인 이어가기
+- 준비 상태 및 퀵·직접 메시지 수신(TTS 음성 낭독)
+- 반경 100m 근접 자동 도착 감지 및 하단 도착·완료 액션 고정
 - 주행 제한에 따른 화면 전환
-- 선택적 음성 안내
-- 백그라운드 공유
-- 픽업 완료·취소 및 복구 처리
+- 기본 켜짐 음성 안내 (`Default ON`, 설정 전환)
+- 백그라운드 공유 및 내비 주행 중 헤즈업 알림
+- 픽업 완료·취소 및 강제 종료 후 공유 재개 복구 처리
 
 ### 수행한 검증
 
-- 공식 Pleos 에뮬레이터 기반 주요 기능 확인
+- 공식 Pleos 에뮬레이터(`0.2.29-preview`) 기반 주요 기능·장소 변경·대기 픽업 경유지·강제 종료 후 공유 재개 확인
 - SDK 경로·ETA 및 연결 시험
-- 로컬 API 기반 픽업 흐름 시험
-- 차량 상태 및 화면 관련 자동화 테스트
+- 로컬 API 및 운영 HTTPS(`majung.cloud`) 기반 픽업 흐름 시험
+- 차량 상태·위치 권한·하단 액션 도크 관련 단위·Lint·기기 시험
 - 백그라운드 공유와 재실행 복구 관련 시험
 
 ### 추가 검증이 필요한 항목
@@ -414,17 +415,9 @@ vehicle/src/main/java/app/majung/vehicle/
 
 ### 알려진 이슈
 
-**내비게이션 취소 후 상태 유지**
-
-과거 공식 에뮬레이터 시험에서 `cancelRoute` 호출 후 `ROUTE_GUIDING` 상태가 유지된 기록이 있다. 10/31 복제 AVD의 저장 정보를 지운 환경에서는 SDK 직접 취소 2회와 전체 경로 복구 시험이 모두 통과했다.
-
-[GitHub Issue #56](https://github.com/majung-team/majung-vehicle-app/issues/56)
-
-이 문제는 SDK 경로 취소 동작의 시험 결과다.
-
-마중의 픽업 완료·취소는 서버 위치 공유를 종료하며, 이 과정에서 내비게이션 안내를 취소하는 명령을 호출하지 않는다.
-
-과거 실패 원인은 확정하지 않았으며 재발 시 실행 환경과 함께 다시 확인한다. 현재 버전 재시험 통과 근거는 [시험 기록](evidence/2026-10-31-sdk-cancel/README.md)에 있다.
+- **가독성 기기 시험 종료 시 `ActivityScenario` PAUSED 대기**: [GitHub Issue #116](https://github.com/majung-team/majung-vehicle-app/issues/116)
+- **SDK 경유지 원본 좌표 `0` 응답 추적**: [GitHub Issue #13](https://github.com/majung-team/majung-vehicle-app/issues/13) (식별자·최근 장소 좌표 복구 우회 적용)
+- **내비게이션 취소 후 상태 유지 (종료됨)**: 과거 공식 에뮬레이터 시험에서 `cancelRoute` 호출 후 `ROUTE_GUIDING` 상태가 유지된 기록이 있었으나, 10/31 복제 AVD 재시험에서 SDK 직접 취소 2회와 전체 경로 복구 시험을 통과해 이슈를 종료했다([GitHub Issue #56](https://github.com/majung-team/majung-vehicle-app/issues/56) · [시험 기록](evidence/2026-10-31-sdk-cancel/README.md)). 마중의 픽업 완료·취소는 서버 위치 공유를 종료하며, 이 과정에서 내비게이션 안내를 취소하는 명령을 호출하지 않는다.
 
 ---
 
