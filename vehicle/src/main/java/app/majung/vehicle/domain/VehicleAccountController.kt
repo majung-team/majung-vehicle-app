@@ -63,7 +63,15 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     fun refresh(showProgress: Boolean = false, background: Boolean = false, loaded: (() -> Unit)? = null) {
         execute(loaded = loaded, refreshingAccount = showProgress, background = background) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
-            val list=api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests")
+            val list=runCatching {
+                api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests")
+            }.getOrElse { error ->
+                if (account.optString("status") != "LINKED" && error is ApiRejected && error.status in setOf(404, 409)) {
+                    org.json.JSONArray()
+                } else {
+                    throw error
+                }
+            }
             JSONObject().put("account",account).put("requests",list).apply {
                 if (!background && account.optString("status") == "LINKED") {
                     val hasPeople = runCatching {

@@ -54,8 +54,17 @@ class VehicleRegistrationController(private val api: PickupApiClient, private va
                 val saved = try { store.load() } catch (_: Exception) { throw CredentialStorageFailure() }
                 val configuration = api.requestApi("GET", "/config")
                 val me = if (saved != null) {
-                    api.requestApi("GET", "/vehicles/me", saved.token).also {
-                        check(it.getString("vehicleId") == saved.vehicleId)
+                    runCatching {
+                        api.requestApi("GET", "/vehicles/me", saved.token).also {
+                            check(it.getString("vehicleId") == saved.vehicleId)
+                        }
+                    }.getOrElse { error ->
+                        if (error is ApiRejected && error.status == 404) {
+                            api.requestApi("GET", "/vehicles/account-link", saved.token)
+                            JSONObject()
+                        } else {
+                            throw error
+                        }
                     }
                 } else JSONObject()
                 Triple(saved, BuildConfig.DEBUG && configuration.optBoolean("developmentToolsEnabled", false), me)
