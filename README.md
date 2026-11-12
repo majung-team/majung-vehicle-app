@@ -81,8 +81,6 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 | **에뮬레이터 · 단위 검증** | 단위 테스트·Android Lint, Pleos 공식 에뮬레이터(`0.2.29-preview` 시연 · `0.2.33-preview` 설치 및 QR 자동 확인 팝업 반영) 기반 경로·ETA·TTS·장소 변경·강제 종료 후 재개 및 대기 픽업 경유지 검증 |
 | **실환경 별도 확인** | 실제 차량 주행 및 스피커 출력(통화 우선순위 포함), 실차 주행 제한, 시동 OFF/ON 복구, 실기기 간 E2E 흐름, 앱마켓 심사 |
 
-- **알려진 제한 사항**: 에뮬레이터에서 SDK 경유지 원본 좌표 `0` 응답 우회 적용([이슈 #13](https://github.com/majung-team/majung-vehicle-app/issues/13)), 가독성 기기 시험 종료 시 `ActivityScenario` PAUSED 대기([이슈 #116](https://github.com/majung-team/majung-vehicle-app/issues/116))
-
 ---
 
 ## 4. 상세 문서 및 관련 저장소
