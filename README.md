@@ -3,7 +3,7 @@
   <h1>마중 차량 앱 (Majung Vehicle App)</h1>
   <p>Pleos Connect와 Android Automotive OS(AAOS) 환경에서 운전자가 픽업 장소를 확인하고, 초대·요청 수락과 실시간 위치·ETA 공유를 관리하는 차량용 앱입니다.</p>
   <p>
-    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.30-preview.20261112">APK 다운로드 (0.2.30-preview)</a> ·
+    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112">APK 다운로드 (0.2.33-preview)</a> ·
     <a href="https://majung.cloud/account">모바일 웹</a> ·
     <a href="https://github.com/majung-team/majung">마중 프로젝트</a> ·
     <a href="https://github.com/majung-team/majung/wiki">Wiki</a> ·
@@ -11,7 +11,7 @@
   </p>
 </div>
 
-> 공식 Pleos Connect 에뮬레이터(`0.2.30-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
+> 공식 Pleos Connect 에뮬레이터(`0.2.33-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
 
 ---
 
@@ -77,7 +77,7 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 
 | 구분 | 범위 |
 | --- | --- |
-| **에뮬레이터 · 단위 검증** | 단위 테스트·Android Lint, Pleos 공식 에뮬레이터(`0.2.29-preview` 시연 · `0.2.30-preview` 설치 및 QR 자동 확인 팝업 반영) 기반 경로·ETA·TTS·장소 변경·강제 종료 후 재개 및 대기 픽업 경유지 검증 |
+| **에뮬레이터 · 단위 검증** | 단위 테스트·Android Lint, Pleos 공식 에뮬레이터(`0.2.29-preview` 시연 · `0.2.33-preview` 설치 및 QR 자동 확인 팝업 반영) 기반 경로·ETA·TTS·장소 변경·강제 종료 후 재개 및 대기 픽업 경유지 검증 |
 | **실환경 별도 확인** | 실제 차량 주행 및 스피커 출력(통화 우선순위 포함), 실차 주행 제한, 시동 OFF/ON 복구, 실기기 간 E2E 흐름, 앱마켓 심사 |
 
 - **알려진 제한 사항**: 에뮬레이터에서 SDK 경유지 원본 좌표 `0` 응답 우회 적용([이슈 #13](https://github.com/majung-team/majung-vehicle-app/issues/13)), 가독성 기기 시험 종료 시 `ActivityScenario` PAUSED 대기([이슈 #116](https://github.com/majung-team/majung-vehicle-app/issues/116))

@@ -14,16 +14,17 @@
 | 항목 | 내용 |
 | --- | --- |
 | 기준일 | 2026년 11월 12일 |
-| 버전 | `0.2.30-preview` |
-| versionCode | `32` |
+| 버전 | `0.2.33-preview` |
+| versionCode | `35` |
 | 배포 형식 | 서명된 Release APK |
 | 운영 API | `https://majung.cloud` |
-| 릴리스 | [0.2.30-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.30-preview.20261112) |
-| 소스 커밋 | `a584d969c51b2d7a6ae305e436685e93851833b7` |
-| APK SHA-256 | `9e1ca49238f4c9ebb57bf092c90c530bf6db84d452c2d834510423f3a449ffcc` |
+| 릴리스 | [0.2.33-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112) |
+| 소스 커밋 | `692eae5e3e5a2ebac1617ef089803b232d46eaab` |
+| APK SHA-256 | `97738e46ffef16a8ac42533b9411d5e24501c478e01eb0b75765604671c983fc` |
 
-0.2.30은 휴대전화에서 QR 연결 요청 시 차량 QR 창을 자동으로 닫고 계정 확인·연결 팝업을 띄우도록 보완했으며, 계정 연결 QR 3초 polling을 추가한 버전이다. Pleos 에뮬레이터(`emulator-5554`)에서 기존 인증서로 서명된 APK 덮어쓰기 업데이트 설치·실행을 확인했다.
+0.2.33은 실험적 차량 호출 코드·직접 요청 기능을 철회하고 안정화된 `0.2.30-preview`(QR 스캔 직후 자동 계정 확인 팝업 및 3초 polling) 기준 기능으로 복원한 배포 버전이다. Pleos 에뮬레이터(`emulator-5554`)에서 기존 인증서로 서명된 APK 덮어쓰기 업데이트 설치(`versionCode=35`)·실행을 확인했다.
 
+- 직전 안정 기준 버전([0.2.30-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.30-preview.20261112), `versionCode 32`, 소스 `a584d969c51b2d7a6ae305e436685e93851833b7`, SHA-256 `9e1ca49238f4c9ebb57bf092c90c530bf6db84d452c2d834510423f3a449ffcc`): 휴대전화 QR 스캔 직후 자동 계정 확인 팝업 및 3초 백그라운드 폴링.
 - 직전 1차 시연 기준 버전([0.2.29-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.29-preview.20261109), `versionCode 31`, 소스 `6d599f16339965da81a4238b55a4fe0d9e5a69cb`, SHA-256 `15a88d9a4954313f1440f29ada880b89d22368d5441c841824e7033557e1510f`): 내비 복귀 후 제안 장소 확인 및 강제 종료 후 공유 재개 검증. 실제 차량의 시동 종료·재시동 시험은 남아 있다.
 
 이 문서의 빌드 절차는 직접 APK를 만드는 개발자를 대상으로 한다.
