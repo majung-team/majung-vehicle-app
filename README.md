@@ -73,7 +73,28 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 
 ---
 
-## 3. 검증 범위 및 제한 사항
+## 3. 실행 방법 · 테스트 환경 · 검증 범위
+
+### APK 위치 및 실행 방법
+- **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.33-preview`, `versionCode 35`, 정식 서명)
+- **GitHub Releases**: [v0.2.33-preview.20261112](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112)
+
+```sh
+# 1) Pleos Connect v2.1.0 에뮬레이터에 Release APK 설치 및 실행
+adb install -r apk/마중_마중_release.apk
+
+# 2) 소스 빌드 및 단위 테스트 / 린트 실행
+./gradlew :vehicle:testDebugUnitTest :vehicle:lintDebug :vehicle:assembleDebug --no-daemon
+```
+
+1. 에뮬레이터에서 마중 앱을 실행하면 차량 연결 QR 코드가 표시됩니다.
+2. 휴대전화 브라우저로 QR을 스캔하거나 [`https://majung.cloud/account`](https://majung.cloud/account)에 카카오 로그인해 차량을 연결합니다.
+3. 다른 카카오 계정(탑승자)으로 픽업을 요청하거나 차량에서 초대 링크를 생성해 전체 픽업 흐름을 확인할 수 있습니다.
+
+### 테스트 환경 및 필요한 설정
+- **빌드 · 실행 요구사항**: `minSdk 28` / `targetSdk 34`, Gradle, Java 17(JDK 25)
+- **백엔드 연결**: 별도 서버 키 설정 없이 공개 운영 서버(`https://majung.cloud`)로 기본 연결되며, 저장소에 비밀값이나 keystore를 포함하지 않습니다.
+- **필요 준비물**: Pleos Connect 공식 에뮬레이터(`NaviHelper 3.0.5`, `TextToSpeech 3.3.1` 탑재), 카카오 계정 2개(운전자·탑승자), 위치 권한 허용
 
 | 구분 | 범위 |
 | --- | --- |
