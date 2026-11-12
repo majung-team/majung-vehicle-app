@@ -24,14 +24,22 @@ internal class VehicleEnrollmentSection(private val app: VehicleApplication, pri
     }
     private val message = views.label("", 18f).also(views::addView)
     private var dialog: AlertDialog? = null
+    private var confirmDialog: AlertDialog? = null
     private var shownQr: String? = null
+    private var promptedConfirmKey: String? = null
     private val confirm = views.button("요청한 계정 확인하고 연결", primary = true) {
+        openConfirmDialog()
+    }
+    private fun openConfirmDialog() {
         val id = app.enrollment.state.optString("enrollmentId")
         val majungId = app.enrollment.state.optString("majungId")
-        AlertDialog.Builder(views.context).setTitle("이 계정으로 마중을 시작할까요?")
-            .setMessage("${app.enrollment.state.optString("nickname")} · $majungId\n운전자 본인의 계정인지 확인해주세요. 차량 소유권 인증은 아니에요.")
+        val nickname = app.enrollment.state.optString("nickname")
+        if (id.isBlank() || majungId.isBlank()) return
+        confirmDialog?.dismiss()
+        confirmDialog = AlertDialog.Builder(views.context).setTitle("이 계정으로 차량을 연결할까요?")
+            .setMessage("$nickname ($majungId)\n휴대전화에서 연결 요청이 도착했어요. 운전자 본인의 계정인지 확인해주세요.")
             .setPositiveButton("이 계정으로 연결") { _, _ -> if (views.canInteract) app.enrollment.confirm(id, majungId) }
-            .setNegativeButton("돌아가기", null).show().also(views::trackDialog)
+            .setNegativeButton("나중에", null).show().also(views::trackDialog)
     }
     private val showQr = views.button("연결 QR 보기", primary = true) {
         val link = app.enrollment.qrLink ?: return@button
@@ -68,6 +76,7 @@ internal class VehicleEnrollmentSection(private val app: VehicleApplication, pri
             message.background = null
         }
         confirm.visibility = if (awaitingConfirm) View.VISIBLE else View.GONE
+        confirm.text = if (awaitingConfirm) "${app.enrollment.state.optString("nickname")} (${app.enrollment.state.optString("majungId")}) 계정 연결할까요?" else "요청한 계정 확인하고 연결"
         confirm.isEnabled = !app.enrollment.busy || app.enrollment.refreshing
         views.styleButton(confirm, primary = true)
         showQr.visibility = if (app.enrollment.qrLink != null) View.VISIBLE else View.GONE
@@ -79,7 +88,18 @@ internal class VehicleEnrollmentSection(private val app: VehicleApplication, pri
         start.isEnabled = app.registration.needsRegistration && (!app.enrollment.busy || app.enrollment.refreshing)
         start.text = if (app.enrollment.hasPending) "이전 요청 취소하고 새 QR 만들기" else "차량 연결 QR 만들기"
         views.styleButton(start, primary = !app.enrollment.hasPending)
-        if (views.canInteract && app.enrollment.qrLink != null && shownQr != app.enrollment.qrLink) showQr.performClick()
         if (shownQr != null && shownQr != app.enrollment.qrLink) { dialog?.dismiss(); dialog = null; shownQr = null }
+        if (views.canInteract && app.enrollment.qrLink != null && shownQr != app.enrollment.qrLink) showQr.performClick()
+        if (awaitingConfirm) {
+            val key = "${app.enrollment.state.optString("enrollmentId")}:${app.enrollment.state.optString("majungId")}"
+            if (views.canInteract && promptedConfirmKey != key && key != ":") {
+                promptedConfirmKey = key
+                openConfirmDialog()
+            }
+        } else {
+            promptedConfirmKey = null
+            confirmDialog?.dismiss()
+            confirmDialog = null
+        }
     }
 }

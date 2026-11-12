@@ -21,7 +21,9 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     private val heading = views.label("", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }.also(views::addView)
     private val status=views.label("",16f).also(views::addView)
     private var qrDialog: AlertDialog?=null
+    private var confirmDialog: AlertDialog?=null
     private var shownQr: String?=null
+    private var promptedConfirmKey: String?=null
     private val issue=views.button("운전자 계정 연결 QR 만들기") { app.account.issueQr() }
     private val qr=views.button("운전자 휴대전화로 QR 스캔") {
         val link=app.account.qrLink ?: return@button
@@ -32,12 +34,19 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             .setView(image).setPositiveButton("닫기",null).show().also(views::trackDialog)
     }
     private val confirm=views.button("요청한 운전자 계정 확인") {
+        openConfirmDialog()
+    }
+    private fun openConfirmDialog() {
         val state=app.account.state
         val challengeId=state.optString("challengeId")
         val majungId=state.optString("majungId")
-        AlertDialog.Builder(views.context).setTitle("이 계정을 차량에 연결할까요?")
-            .setMessage("${state.optString("nickname")} · ${state.optString("majungId")}\n운전자 본인의 계정인지 확인해주세요.")
-            .setPositiveButton("연결 승인") { _,_ -> if (views.canInteract) app.account.confirm(challengeId, majungId) }.setNegativeButton("돌아가기",null).show().also(views::trackDialog)
+        val nickname=state.optString("nickname")
+        if (challengeId.isBlank() || majungId.isBlank()) return
+        confirmDialog?.dismiss()
+        confirmDialog=AlertDialog.Builder(views.context).setTitle("이 계정을 차량에 연결할까요?")
+            .setMessage("$nickname ($majungId)\n휴대전화에서 연결 요청이 도착했어요. 운전자 본인의 계정인지 확인해주세요.")
+            .setPositiveButton("이 계정으로 연결") { _,_ -> if (views.canInteract) app.account.confirm(challengeId, majungId) }
+            .setNegativeButton("나중에",null).show().also(views::trackDialog)
     }
     fun inviteSelectedPlace() {
         val selected = selectedPlace() ?: return
@@ -242,9 +251,11 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
         views.styleButton(issue, primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"))
         views.styleButton(qr, primary = state == "AWAITING_ACCOUNT")
-        confirm.visibility=if (settings && state=="AWAITING_VEHICLE_CONFIRMATION") View.VISIBLE else View.GONE
+        val awaitingConfirm = state == "AWAITING_VEHICLE_CONFIRMATION"
+        confirm.visibility=if (awaitingConfirm) View.VISIBLE else View.GONE
+        confirm.text = if (awaitingConfirm) "${app.account.state.optString("nickname")} (${app.account.state.optString("majungId")}) 계정으로 연결할까요?" else "요청한 운전자 계정 확인"
         confirm.isEnabled=!app.account.busy
-        views.styleButton(confirm, primary = state == "AWAITING_VEHICLE_CONFIRMATION")
+        views.styleButton(confirm, primary = awaitingConfirm)
         inbox.isEnabled=state=="LINKED" && !app.account.busy
         refresh.updateText(when {
             app.account.refreshing -> "새로운 정보 확인 중…"
@@ -256,6 +267,17 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         refresh.contentDescription = if (app.account.refreshing) "새로운 정보를 확인하고 있어요" else refresh.text
         refresh.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
+        if (awaitingConfirm) {
+            val key = "${app.account.state.optString("challengeId")}:${app.account.state.optString("majungId")}"
+            if (views.canInteract && promptedConfirmKey != key && key != ":") {
+                promptedConfirmKey = key
+                openConfirmDialog()
+            }
+        } else {
+            promptedConfirmKey = null
+            confirmDialog?.dismiss()
+            confirmDialog = null
+        }
     }
     private fun dp(value: Int) = (value * views.context.resources.displayMetrics.density).toInt()
     private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"수락 대기"; "QUEUED"->"다음 픽업"; "ACTIVE"->"픽업 진행 중"; else->state }
