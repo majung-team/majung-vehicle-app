@@ -63,7 +63,7 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
     fun refresh(showProgress: Boolean = false, background: Boolean = false, loaded: (() -> Unit)? = null) {
         execute(loaded = loaded, refreshingAccount = showProgress, background = background) {
             val account=api.requestApi("GET", "/vehicles/account-link", it)
-            val list=if (account.optString("status")=="LINKED") api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests") else org.json.JSONArray()
+            val list=api.requestApi("GET", "/vehicles/ride-requests", it).getJSONArray("requests")
             JSONObject().put("account",account).put("requests",list).apply {
                 if (!background && account.optString("status") == "LINKED") {
                     val hasPeople = runCatching {
@@ -119,10 +119,11 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
         val id=expectedChallengeId
         execute { token -> JSONObject().put("account",api.requestApi("POST","/vehicles/account-link/confirm",token,JSONObject().put("challengeId",id))) }
     }
-    fun changeRequest(id: String, action: String, loaded: (() -> Unit)? = null) {
+    fun changeRequest(id: String, action: String, block: Boolean = false, loaded: (() -> Unit)? = null) {
         if (action !in setOf("accept","reject")) return
+        val body = if (action == "reject" && block) JSONObject().put("block", true) else null
         execute(loaded = loaded) { token ->
-            api.requestApi("POST","/vehicles/ride-requests/$id/$action",token)
+            api.requestApi("POST","/vehicles/ride-requests/$id/$action", token, body)
             JSONObject().put("requests",api.requestApi("GET","/vehicles/ride-requests",token).getJSONArray("requests"))
         }
     }
@@ -197,7 +198,9 @@ class VehicleAccountController(private val api: PickupApiClient, private val reg
                         "LINKED" -> "${state.optString("nickname")} · ${state.optString("majungId")} · 운전자 계정 연결됨"
                         "AWAITING_VEHICLE_CONFIRMATION" -> "휴대전화 연결 요청을 확인해주세요"
                         "AWAITING_ACCOUNT" -> "휴대전화로 계정 연결 QR을 스캔해주세요"
-                        else -> "운전자 본인 계정을 처음 한 번 연결해주세요"
+                        else -> if (registration.vehicleCode.isNotBlank() && registration.directRequestEnabled)
+                            "휴대전화 미연결 · 차량 코드 ${registration.vehicleCode}로 직접 요청 수신 중"
+                        else "차량 코드로 요청을 받거나 운전자 계정을 연결할 수 있어요"
                     }
                     if (data.optBoolean("invited")) { pendingInvitation=null; message="초대를 보냈어요. 탑승자가 수락하면 픽업 대기에 들어가요" }
                     if (data.optBoolean("invited")) invitationMessage = message
