@@ -77,6 +77,7 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 
 | 구분 | 범위 |
 | --- | --- |
+| **Pleos 에뮬레이터 규격** | `Pleos Connect v2.1.0` (`release_connect_v2.1.0` · Android 14 / API 34 · `android-automotive arm64-v8a`) · 디바이스 프로파일 `Pleos_Connect_v2_0` · 화면 **`2560 × 1440 px` (`160 dpi`)** · SDK `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
 | **에뮬레이터 · 단위 검증** | 단위 테스트·Android Lint, Pleos 공식 에뮬레이터(`0.2.29-preview` 시연 · `0.2.33-preview` 설치 및 QR 자동 확인 팝업 반영) 기반 경로·ETA·TTS·장소 변경·강제 종료 후 재개 및 대기 픽업 경유지 검증 |
 | **실환경 별도 확인** | 실제 차량 주행 및 스피커 출력(통화 우선순위 포함), 실차 주행 제한, 시동 OFF/ON 복구, 실기기 간 E2E 흐름, 앱마켓 심사 |
 
