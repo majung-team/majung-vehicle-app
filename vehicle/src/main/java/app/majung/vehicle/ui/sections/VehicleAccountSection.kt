@@ -157,43 +157,17 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
     internal fun details(item: JSONObject) {
         val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
         val id=item.getString("requestId")
-        val trustStatus = item.optString("trustStatus")
-        val firstTime = trustStatus == "FIRST_TIME"
-        val trustNote = when (trustStatus) {
-            "FIRST_TIME" -> "\n처음 요청한 탑승자예요 · 지인이 맞는지 이름과 장소를 확인해주세요."
-            "TRUSTED" -> "\n신뢰된 탑승자 · 자주 타는 차량"
-            "CONNECTED" -> "\n연결된 지인"
-            else -> ""
-        }
-        val senderMeta = item.optString("majungId").takeIf { it.isNotBlank() }?.plus("\n") ?: ""
         val dialog=AlertDialog.Builder(views.context).setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")
-            .setMessage("${senderMeta}만날 장소 · ${place.label}$trustNote\n" + if (item.optString("status")=="INVITED") "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요." else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요.")
+            .setMessage("${item.optString("majungId")}\n만날 장소 · ${place.label}\n" + if (item.optString("status")=="INVITED") "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요." else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요.")
             .setNegativeButton("돌아가기",null)
         when (item.optString("status")) {
             "INVITED" -> dialog.setPositiveButton("초대 취소") { _, _ -> if (views.canInteract) app.account.cancelInvitation(id) }
-            "PENDING" -> {
-                val idleOrEnded = (app.pickup.pickupId == null || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) && app.account.requests.none { it.optString("status") == "ACTIVE" }
-                val acceptLabel = if (firstTime) (if (idleOrEnded) "지인 확인 · 수락" else "지인 확인 · 대기 추가") else (if (idleOrEnded) "수락하고 마중 준비" else "수락하고 대기에 추가")
-                dialog.setPositiveButton(acceptLabel) { _, _ ->
-                    if (views.canInteract) app.account.changeRequest(id, "accept") {
-                        if (views.canInteract) app.requestFlow.begin(id)
-                    }
-                }
-                if (firstTime) {
-                    dialog.setNeutralButton("거절 · 차단") { _, _ ->
-                        if (!views.canInteract) return@setNeutralButton
-                        AlertDialog.Builder(views.context)
-                            .setTitle("${item.optString("nickname")} 님의 요청을 어떻게 할까요?")
-                            .setMessage("잘못 온 요청이거나 모르는 사람이라면 차단해 이후 직접 요청을 막을 수 있어요.")
-                            .setPositiveButton("이번만 거절") { _, _ -> if (views.canInteract) app.account.changeRequest(id, "reject", block = false) }
-                            .setNegativeButton("거절하고 차단") { _, _ -> if (views.canInteract) app.account.changeRequest(id, "reject", block = true) }
-                            .show()
-                            .also(views::trackDialog)
-                    }
-                } else {
-                    dialog.setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
+            "PENDING" -> dialog.setPositiveButton(if ((app.pickup.pickupId == null || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) && app.account.requests.none { it.optString("status") == "ACTIVE" }) "수락하고 마중 준비" else "수락하고 대기에 추가") { _, _ ->
+                if (views.canInteract) app.account.changeRequest(id, "accept") {
+                    if (views.canInteract) app.requestFlow.begin(id)
                 }
             }
+                .setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
             "QUEUED" -> dialog.setPositiveButton("마중 가기") { _, _ ->
                 if (views.canInteract) app.requestFlow.begin(id)
             }
@@ -223,12 +197,6 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
 
         issue.visibility = if (settings && state != "LINKED") View.VISIBLE else View.GONE
         qr.visibility = if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE else View.GONE
-        emptyRequests.updateText(
-            if (state == "LINKED") "아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요."
-            else if (app.registration.vehicleCode.isNotBlank() && app.registration.directRequestEnabled)
-                "아직 받은 요청이 없어요.\n탑승자에게 차량 코드(${app.registration.vehicleCode})를 알려주면 휴대전화 연결 없이도 바로 요청을 받을 수 있어요."
-            else "아직 받은 요청이 없어요.\n설정에서 운전자 계정을 연결하거나 상시 요청 수신을 켜주세요."
-        )
         emptyRequests.visibility = if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
         inbox.visibility = if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
         requestRows.visibility = if (settings) View.GONE else View.VISIBLE
@@ -238,21 +206,15 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             requestRows.removeAllViews()
             app.account.requests.sortedBy { when(it.optString("status")) { "ACTIVE" -> 0; "PENDING" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
                 val statusKey = item.optString("status")
-                val trustTag = when (item.optString("trustStatus")) {
-                    "FIRST_TIME" -> " · 처음 요청(본인 확인)"
-                    "TRUSTED" -> " · 신뢰된 탑승자"
-                    "CONNECTED" -> " · 연결된 지인"
-                    else -> ""
-                }
                 val row = android.widget.Button(views.context).apply {
                     flattenButtonSurface()
                     val actionLabel = when (statusKey) {
-                        "PENDING" -> if (item.optString("trustStatus") == "FIRST_TIME") "눌러서 지인 확인 · 수락 또는 차단  ›" else "눌러서 수락 또는 거절  ›"
+                        "PENDING" -> "눌러서 수락 또는 거절  ›"
                         "QUEUED" -> if (app.account.requests.any { it.optString("status") == "ACTIVE" }) "현재 픽업이 끝나면 출발해요  ›" else "눌러서 마중 준비  ›"
                         "ACTIVE" -> "진행 중인 픽업 확인  ›"
                         else -> "탑승자 응답 확인  ›"
                     }
-                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}$trustTag\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
+                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
                     isAllCaps = false; textSize = 28f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                     setTextColor(android.graphics.Color.rgb(32,40,46))
                     setPadding(dp(24), dp(16), dp(24), dp(16))
@@ -294,7 +256,7 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
         confirm.text = if (awaitingConfirm) "${app.account.state.optString("nickname")} (${app.account.state.optString("majungId")}) 계정으로 연결할까요?" else "요청한 운전자 계정 확인"
         confirm.isEnabled=!app.account.busy
         views.styleButton(confirm, primary = awaitingConfirm)
-        inbox.isEnabled=(state=="LINKED" || app.account.requests.isNotEmpty()) && !app.account.busy
+        inbox.isEnabled=state=="LINKED" && !app.account.busy
         refresh.updateText(when {
             app.account.refreshing -> "새로운 정보 확인 중…"
             settings -> "운전자 연결 상태 새로고침"
