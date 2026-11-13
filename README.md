@@ -66,9 +66,9 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 
 | 구분 | 구성 |
 | --- | --- |
-| **플랫폼** | Kotlin · Android Automotive OS (`minSdk 28` · `targetSdk 34`) · Java 17 (JDK 25) |
-| **SDK** | Pleos `NaviHelper 3.0.5` · Pleos `TextToSpeech 3.3.1` · `android.car` (`CarUxRestrictions`) |
-| **QR·보안** | ZXing Core 3.5.3 · Android Keystore 암호화 저장소 |
+| **플랫폼** | Kotlin · Android Automotive OS<br>`minSdk 28` · `targetSdk 34` · Java 17 (JDK 25) |
+| **SDK** | Pleos `NaviHelper 3.0.5` · `TextToSpeech 3.3.1`<br>`android.car` (`CarUxRestrictions`) |
+| **QR·보안** | ZXing Core 3.5.3 · Android Keystore 암호화 |
 | **배포** | GitHub Releases 서명 APK · JUnit · Android Lint |
 
 ---
@@ -98,9 +98,9 @@ adb install -r apk/마중_마중_release.apk
 
 | 구분 | 범위 |
 | --- | --- |
-| **에뮬레이터** | `Pleos Connect v2.1.0` (`release_connect_v2.1.0` · Android 14 / API 34 · `arm64-v8a`)<br>디바이스 프로파일 `Pleos_Connect_v2_0` · **`2560 × 1440 px` (`160 dpi`)** · `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
-| **확인 완료** | 단위 테스트·Android Lint 통과 및 공식 에뮬레이터(`0.2.29-preview` 시연 · `0.2.33-preview` 설치)<br>QR 자동 확인 팝업, 경로·ETA·TTS·장소 변경, 강제 종료 후 재개, 대기 픽업 경유지 검증 |
-| **실차 확인** | 실제 차량 주행 및 스피커 출력(통화 우선순위 포함), 실차 주행 제한<br>시동 OFF/ON 복구, 실기기 간 E2E 흐름, 앱마켓 심사 |
+| **에뮬레이터** | `Pleos Connect v2.1.0` (`Android 14`, `arm64-v8a`)<br>`Pleos_Connect_v2_0` · `2560 × 1440 px` (`160 dpi`)<br>SDK `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
+| **확인&nbsp;완료** | 단위 테스트·Lint · 에뮬레이터(`0.2.29` 시연 · `0.2.33` 설치)<br>QR 팝업 · 경로·ETA·TTS · 장소 변경 · 재개 복구 |
+| **실차&nbsp;확인** | 실차 주행 · 스피커/통화 우선순위 · 주행 제한<br>시동 OFF/ON 복구 · 실기기 E2E · 앱마켓 심사 |
 
 ---
 
@@ -108,9 +108,9 @@ adb install -r apk/마중_마중_release.apk
 
 | 분류 | 문서 |
 | --- | --- |
-| **화면 · 기능** | [화면과 사용 순서](docs/service-screens.md) · [QR 최초 연결](docs/vehicle-enrollment.md) · [요청 및 다음 픽업](docs/request-pickup-flow.md) · [계정 및 요청](docs/vehicle-account-requests.md) · [음성 안내](docs/pickup-voice.md) |
-| **내부 · SDK** | [차량 화면 구조](docs/vehicle-screen.md) · [저장 및 복구](docs/pickup-recovery.md) · [백그라운드 공유](docs/background-sharing.md) · [주행 중 요약 화면](docs/driving-summary.md) · [Release 서명](docs/release-signing.md) |
-| **프로젝트 공통** | [전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [개발 현황](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시연 영상](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md) · [팀 테스트 안내](https://github.com/majung-team/majung/blob/main/docs/team-testing.md) · [Wiki 기술 회고](https://github.com/majung-team/majung/wiki#%EA%B8%B0%EC%88%A0-%ED%9A%8C%EA%B3%A0) · [기여 가이드](CONTRIBUTING.md) |
+| **화면&nbsp;·&nbsp;기능** | [화면과 사용 순서](docs/service-screens.md) · [QR 최초 연결](docs/vehicle-enrollment.md)<br>[요청 및 다음 픽업](docs/request-pickup-flow.md) · [계정 및 요청](docs/vehicle-account-requests.md) · [음성 안내](docs/pickup-voice.md) |
+| **내부&nbsp;·&nbsp;SDK** | [차량 화면 구조](docs/vehicle-screen.md) · [저장 및 복구](docs/pickup-recovery.md)<br>[백그라운드 공유](docs/background-sharing.md) · [주행 중 요약 화면](docs/driving-summary.md) · [Release 서명](docs/release-signing.md) |
+| **프로젝트&nbsp;공통** | [전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [개발 현황](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시연 영상](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md)<br>[팀 테스트 안내](https://github.com/majung-team/majung/blob/main/docs/team-testing.md) · [Wiki 기술 회고](https://github.com/majung-team/majung/wiki#%EA%B8%B0%EC%88%A0-%ED%9A%8C%EA%B3%A0) · [기여 가이드](CONTRIBUTING.md) |
 
 | 저장소 | 역할 |
 | --- | --- |
