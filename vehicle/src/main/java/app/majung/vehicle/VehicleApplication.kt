@@ -143,92 +143,113 @@ class VehicleApplication : Application() {
     }
 
     @Suppress("DEPRECATION")
+    internal fun buildAlertNotification(
+        title: String,
+        text: String,
+        contentIntent: PendingIntent,
+        action: Notification.Action? = null,
+        fullScreenIntent: PendingIntent? = null,
+    ): Notification {
+        val builder = if (Build.VERSION.SDK_INT >= 26) {
+            Notification.Builder(this, ALERT_CHANNEL)
+        } else {
+            @Suppress("DEPRECATION") Notification.Builder(this)
+        }.setSmallIcon(R.drawable.ic_sharing)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 300, 150, 300))
+            .setCategory(Notification.CATEGORY_MESSAGE)
+        if (fullScreenIntent != null) {
+            builder.setFullScreenIntent(fullScreenIntent, true)
+        }
+        if (action != null) {
+            builder.addAction(action)
+        }
+        return builder.build()
+    }
+
+    private fun openMainActivityPendingIntent(requestCode: Int, requestId: String? = null): PendingIntent =
+        PendingIntent.getActivity(
+            this,
+            requestCode,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (requestId != null) {
+                    putExtra(EXTRA_OPEN_REQUEST_ID, requestId)
+                }
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
     private fun notifyQuickMessage(text: String) {
         val passenger = pickup.participantName ?: "탑승자"
         val notifications = getSystemService(NotificationManager::class.java) ?: return
         ensureAlertChannel(notifications)
-        val openApp = PendingIntent.getActivity(
-            this, 3,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val openAction = Notification.Action.Builder(
+        val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.QUICK_MESSAGE)
+        val tapIntent = when (behavior.tapBehavior) {
+            AlertTapBehavior.DISMISS_ONLY ->
+                NotificationDismissReceiver.pendingIntent(this, ALERT_QUICK_MSG_NOTIFICATION_ID)
+            AlertTapBehavior.OPEN_APP_SCREEN -> openMainActivityPendingIntent(3)
+        }
+        val confirmAction = Notification.Action.Builder(
             android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_sharing),
             "확인",
-            openApp
+            tapIntent,
         ).build()
-        val alert = if (Build.VERSION.SDK_INT >= 26) {
-            Notification.Builder(this, ALERT_CHANNEL)
-        } else {
-            @Suppress("DEPRECATION") Notification.Builder(this)
-        }.setSmallIcon(R.drawable.ic_sharing)
-            .setContentTitle("마중 · ${passenger}의 메시지")
-            .setContentText("“$text”")
-            .setContentIntent(openApp)
-            .setFullScreenIntent(openApp, true)
-            .addAction(openAction)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(false)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setPriority(Notification.PRIORITY_MAX)
-            .setDefaults(Notification.DEFAULT_ALL)
-            .setVibrate(longArrayOf(0, 300, 150, 300))
-            .setCategory(Notification.CATEGORY_MESSAGE)
-            .build()
+        val alert = buildAlertNotification(
+            title = "마중 · ${passenger}의 메시지",
+            text = "“$text”",
+            contentIntent = tapIntent,
+            action = confirmAction,
+            fullScreenIntent = if (behavior.useFullScreenIntent) openMainActivityPendingIntent(3) else null,
+        )
         runCatching {
             notifications.cancel(ALERT_QUICK_MSG_NOTIFICATION_ID)
             notifications.notify(ALERT_QUICK_MSG_NOTIFICATION_ID, alert)
         }
-        android.widget.Toast.makeText(
-            this,
-            "$passenger: “$text”",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        if (behavior.showOverlayToast && !activityResumed) {
+            android.widget.Toast.makeText(
+                this,
+                "$passenger: “$text”",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
         voice.speak("${passenger}님이 ‘$text’라고 전했어요.")
     }
 
-    @Suppress("DEPRECATION")
     private fun notifyNewRide(ride: RequestedRide) {
         val notifications = getSystemService(NotificationManager::class.java) ?: return
         ensureAlertChannel(notifications)
-        val openApp = PendingIntent.getActivity(
-            this, 2,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra(EXTRA_OPEN_REQUEST_ID, ride.id)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.NEW_RIDE_REQUEST)
+        val openApp = openMainActivityPendingIntent(2, requestId = ride.id)
+        val tapIntent = when (behavior.tapBehavior) {
+            AlertTapBehavior.DISMISS_ONLY ->
+                NotificationDismissReceiver.pendingIntent(this, ALERT_REQUEST_NOTIFICATION_ID)
+            AlertTapBehavior.OPEN_APP_SCREEN -> openApp
+        }
         val openAction = Notification.Action.Builder(
             android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_sharing),
             "요청 확인",
-            openApp
+            tapIntent,
         ).build()
-        val alert = if (Build.VERSION.SDK_INT >= 26) {
-            Notification.Builder(this, ALERT_CHANNEL)
-        } else {
-            @Suppress("DEPRECATION") Notification.Builder(this)
-        }.setSmallIcon(R.drawable.ic_sharing)
-            .setContentTitle("마중 · 새로운 픽업 요청")
-            .setContentText("${ride.nickname}님이 ‘${ride.place.label}’에서 마중을 요청했어요. 눌러서 확인해주세요.")
-            .setContentIntent(openApp)
-            .setFullScreenIntent(openApp, true)
-            .addAction(openAction)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(false)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setPriority(Notification.PRIORITY_MAX)
-            .setDefaults(Notification.DEFAULT_ALL)
-            .setVibrate(longArrayOf(0, 300, 150, 300))
-            .setCategory(Notification.CATEGORY_MESSAGE)
-            .build()
+        val alert = buildAlertNotification(
+            title = "마중 · 새로운 픽업 요청",
+            text = "${ride.nickname}님이 ‘${ride.place.label}’에서 마중을 요청했어요. 눌러서 확인해주세요.",
+            contentIntent = tapIntent,
+            action = openAction,
+            fullScreenIntent = if (behavior.useFullScreenIntent) openApp else null,
+        )
         runCatching {
             notifications.cancel(ALERT_REQUEST_NOTIFICATION_ID)
             notifications.notify(ALERT_REQUEST_NOTIFICATION_ID, alert)
         }
-        if (!activityResumed) {
+        if (behavior.showOverlayToast && !activityResumed) {
             android.widget.Toast.makeText(
                 this,
                 "마중: ${ride.nickname}님이 ‘${ride.place.label}’에서 마중을 요청했어요.",

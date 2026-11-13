@@ -156,11 +156,17 @@ class PickupSharingService : Service() {
             notifications.cancel(ALERT_NOTIFICATION_ID)
         } else if (proposal != lastNotifiedProposalId) {
             lastNotifiedProposalId = proposal
+            val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.PLACE_PROPOSAL)
             val openApp = PendingIntent.getActivity(
                 this, 1,
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val tapIntent = when (behavior.tapBehavior) {
+                AlertTapBehavior.DISMISS_ONLY ->
+                    NotificationDismissReceiver.pendingIntent(this, ALERT_NOTIFICATION_ID)
+                AlertTapBehavior.OPEN_APP_SCREEN -> openApp
+            }
             val acceptIntent = Intent(this, PickupSharingService::class.java).apply {
                 action = ACTION_ACCEPT_PROPOSAL
                 putExtra(EXTRA_PROPOSAL_ID, proposal)
@@ -175,26 +181,18 @@ class PickupSharingService : Service() {
                 acceptPending
             ).build()
 
-            val alert = Notification.Builder(this, VehicleApplication.ALERT_CHANNEL)
-                .setSmallIcon(R.drawable.ic_sharing)
-                .setContentTitle("마중 · 장소 변경 요청")
-                .setContentText("탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.")
-                .setContentIntent(openApp)
-                .setFullScreenIntent(openApp, true)
-                .addAction(acceptAction)
-                .setAutoCancel(true)
-                .setOnlyAlertOnce(false)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setPriority(Notification.PRIORITY_MAX)
-                .setDefaults(Notification.DEFAULT_ALL)
-                .setVibrate(longArrayOf(0, 300, 150, 300))
-                .setCategory(Notification.CATEGORY_MESSAGE)
-                .build()
+            val alert = app.buildAlertNotification(
+                title = "마중 · 장소 변경 요청",
+                text = "탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.",
+                contentIntent = tapIntent,
+                action = acceptAction,
+                fullScreenIntent = if (behavior.useFullScreenIntent) openApp else null,
+            )
             runCatching {
                 notifications.cancel(ALERT_NOTIFICATION_ID)
                 notifications.notify(ALERT_NOTIFICATION_ID, alert)
             }
-            if (!app.activityResumed) {
+            if (behavior.showOverlayToast && !app.activityResumed) {
                 android.widget.Toast.makeText(
                     this,
                     "마중: 탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.",
