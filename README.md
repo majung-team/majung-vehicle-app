@@ -27,7 +27,7 @@
 
 ### 주행 안전 · 음성 안내 (TTS)
 - **주행 중 요약 화면**: `CarUxRestrictions`에 따라 주행 중에는 상세 조작을 제한하고 핵심 정보와 도착·완료 버튼만 노출합니다.
-- **헤드업 알림 · TTS 음성 낭독**: 내비 화면만 보는 중에도 신규 요청과 탑승자 메시지(빠른 칩·직접 입력)를 상단 알림과 기본 켜짐 TTS 음성(정차 중 설정 가능)으로 안내합니다.
+- **헤드업 알림 · TTS 음성 낭독**: 내비 화면만 보는 중에도 신규 요청·장소 제안·탑승자 메시지(빠른 칩·직접 입력)를 상단 헤드업 알림과 기본 켜짐 TTS 음성(정차 중 설정 가능)으로 안내하며, 빠른 메시지 확인 시에는 내비 화면에서 벗어나지 않고 알림만 닫힙니다.
 - **자동 도착 감지 · 종료**: 약속 장소 반경 100m·잔여 30초 이내로 접근하면 자동 도착을 알리며, 픽업 완료·취소 시 위치 공유를 즉시 종료합니다.
 
 ### 연결 복구 · 데이터 보호
@@ -80,7 +80,7 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 
 ### APK 위치 및 실행 방법
 - **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.33-preview`, `versionCode 35`, 정식 서명)
-- **GitHub Releases**: [v0.2.33-preview.20261112](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112)
+- **GitHub Releases**: [v0.2.33-preview.20261112](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112) *(이후 `main` 소스에는 빠른 메시지 알림 시 내비 화면 유지 보완 포함)*
 
 ```sh
 # 1) Pleos Connect v2.1.0 에뮬레이터에 Release APK 설치 및 실행
