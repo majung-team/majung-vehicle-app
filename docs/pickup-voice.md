@@ -239,6 +239,11 @@ SDK 콜백 확인과 실제 차량에서 소리가 정상적으로 들리는지�
 - [주행 중 요약 화면](driving-summary.md)
 - [전체 시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md)
 - [개발 현황과 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
+- [Wiki: 내비 화면 헤드업 알림·TTS 회고](https://github.com/majung-team/majung/wiki/%EB%82%B4%EB%B9%84-%ED%99%94%EB%A9%B4%EB%A7%8C-%EB%B3%B4%EA%B3%A0-%EC%9E%88%EC%96%B4%EB%8F%84-%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%A9%94%EC%8B%9C%EC%A7%80%EB%A5%BC-%EC%95%8C%EB%A6%B4-%EC%88%98-%EC%9E%88%EC%9D%84%EA%B9%8C)
+
+### 이후 보완 기록
+
+- `c0cbcdd`: 내비게이션 화면 등 앱 밖에서 주행할 때도 신규 요청·장소 제안·탑승자 메시지를 헤드업 알림으로 띄우고 `TextToSpeech` 음성 안내로 연결했다. (2026-11-10 `0.2.29-preview` 시연 영상에도 메시지 음성 발화 장면 포함; 실차 스피커·통화 우선순위는 별도 검증 필요)
 
 ### Pleos 공식 문서
 

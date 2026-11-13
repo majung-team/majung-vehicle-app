@@ -423,6 +423,11 @@ Manifest의 DO 관련 선언은 주행 제한 상황에서 요약 화면을 제�
 - [픽업 저장 및 복구](pickup-recovery.md)
 - [차량 등록](vehicle-registration.md)
 - [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
+- [Wiki: 내비 화면·주행 제한·헤드업 알림 회고](https://github.com/majung-team/majung/wiki/%EB%82%B4%EB%B9%84-%ED%99%94%EB%A9%B4%EB%A7%8C-%EB%B3%B4%EA%B3%A0-%EC%9E%88%EC%96%B4%EB%8F%84-%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%A9%94%EC%8B%9C%EC%A7%80%EB%A5%BC-%EC%95%8C%EB%A6%B4-%EC%88%98-%EC%9E%88%EC%9D%84%EA%B9%8C)
+
+### 이후 보완 기록
+
+- `c0cbcdd` · `fcd03dc` (`#115`): 주행 제한(`CarUxRestrictions`) 환경에서도 내비 화면 위 헤드업 알림과 TTS 음성 안내로 요청·메시지를 전달하고, 본문 스크롤·메시지 가독성을 보완했다. (`58b80f5` `#117`에서 일부 기기 시험 종료 실패 기록도 분리 정리)
 
 ### Pleos 공식 문서
 
