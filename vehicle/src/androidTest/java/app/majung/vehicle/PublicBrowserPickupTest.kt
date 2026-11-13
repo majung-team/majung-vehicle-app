@@ -38,8 +38,15 @@ class PublicBrowserPickupTest {
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val finish = java.io.File(app.filesDir, "public-browser-finish")
         finish.delete()
+        var createdPickup: String? = null
         try {
             ActivityScenario.launch(MainActivity::class.java).use {
+                await(15000) { !app.pickup.busy && app.pickup.status != "RESTORING" }
+                var available = false
+                main.runOnMainSync {
+                    available = app.pickup.pickupId == null || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")
+                }
+                assumeTrue("An existing pickup must be left unchanged", available)
                 await(15000) { app.registration.canCreate && !app.pickup.busy }
                 main.runOnMainSync { app.pickup.prepareNextPickup(); app.destination.connect(); app.destination.query() }
                 await(30000) { app.pickup.canCreate && app.destination.selection.current(SystemClock.elapsedRealtime()) != null }
@@ -48,6 +55,7 @@ class PublicBrowserPickupTest {
                     app.pickup.create(place, app.destination.referenceFor(place))
                 }
                 await(15000) { app.pickup.pickupId != null && !app.pickup.busy }
+                main.runOnMainSync { createdPickup = app.pickup.pickupId }
                 lateinit var invitation: JSONObject
                 main.runOnMainSync { invitation = JSONObject().put("joinUrl", app.pickup.invitationForHostBrowser())
                     .put("shareUrl", app.pickup.invitationForSharingBrowser()) }
@@ -57,7 +65,8 @@ class PublicBrowserPickupTest {
                 await(240000) { app.pickup.readiness == "READY" && !app.pickup.busy }
                 main.runOnMainSync { app.pickup.arrive() }
                 await(15000) { app.pickup.status == "ARRIVED" && !app.pickup.busy }
-                await(240000) { finish.exists() }
+                val finishMessage = InstrumentationRegistry.getArguments().getString("browserFinishMessage")
+                await(240000) { finish.exists() || (finishMessage != null && app.pickup.quickMessage == finishMessage) }
                 main.runOnMainSync { app.pickup.complete() }
                 await(15000) { app.pickup.status == "COMPLETED" && !app.pickup.busy }
                 assertTrue(app.pickup.place == null)
@@ -69,7 +78,30 @@ class PublicBrowserPickupTest {
         } finally {
             finish.delete()
             java.io.File(app.filesDir, "public-browser-invite.json").delete()
-            main.runOnMainSync { if (app.pickup.canCancel) app.pickup.cancel() }
+            main.runOnMainSync { if (createdPickup != null && app.pickup.pickupId == createdPickup && app.pickup.canCancel) app.pickup.cancel() }
         }
     }
+
+    /** Resume a specifically identified browser rehearsal after the app process was stopped. */
+    @Test fun completeBrowserPickupAfterRestart() {
+        val expected = InstrumentationRegistry.getArguments().getString("browserFinishPickupId")
+        assumeTrue(expected != null && runCatching { java.util.UUID.fromString(expected) }.isSuccess)
+        val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
+        ActivityScenario.launch(MainActivity::class.java).use {
+            await(15000) { !app.pickup.busy && app.pickup.status != "RESTORING" }
+            main.runOnMainSync {
+                assertTrue("Only the explicitly selected rehearsal may be completed", app.pickup.pickupId == expected)
+                assertTrue("Browser arrival must already be verified", app.pickup.status == "ARRIVED" && app.pickup.online)
+                app.pickup.complete()
+            }
+            await(15000) { app.pickup.status == "COMPLETED" && !app.pickup.busy }
+            main.runOnMainSync {
+                assertTrue(app.pickup.place == null && !app.sharingRunning)
+            }
+            assertTrue(EncryptedPickupSessionStore(app).load() == null)
+            java.io.File(app.filesDir, "public-browser-invite.json").delete()
+            java.io.File(app.filesDir, "public-browser-finish").delete()
+        }
+    }
+
 }

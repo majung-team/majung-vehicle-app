@@ -171,6 +171,8 @@ class VehicleAccountTest {
             val pickupField=VehicleApplication::class.java.getDeclaredField("pickup").apply { isAccessible=true }
             val destinationField=VehicleApplication::class.java.getDeclaredField("destination").apply { isAccessible=true }
             val peopleField=VehicleApplication::class.java.getDeclaredField("people").apply { isAccessible=true }
+            val noticeAccepted=app.sharingNotice.accepted
+            app.sharingNotice.accept()
             val oldPeople=app.people
             val oldDestination=app.destination
             val oldRegistration=app.registration; val oldAccount=app.account; val oldPickup=app.pickup
@@ -211,14 +213,21 @@ class VehicleAccountTest {
                         validation.requestState(now-6000); validation.receiveState(true,now-6000); validation.receiveDestination(place,now-6000)
                         validation.requestState(now); validation.receiveState(true,now); validation.receiveDestination(place,now)
                         MainActivity::class.java.getDeclaredMethod("render").apply { isAccessible=true }.invoke(activity)
+                        // Inspect the visible inbox, then return to pickup for invitation checks.
+                        val selectedTab=MainActivity::class.java.getDeclaredField("selectedTab").apply { isAccessible=true }
+                        selectedTab.set(activity,"requests")
+                        MainActivity::class.java.getDeclaredMethod("render").apply { isAccessible=true }.invoke(activity)
                         val texts=mutableListOf<String>()
                         fun collect(view:android.view.View) {
-                            if(view is android.widget.TextView) texts.add(view.text.toString())
+                            if(view is android.widget.TextView && view.isShown) texts.add(view.text.toString())
                             if(view is android.view.ViewGroup) for(index in 0 until view.childCount) collect(view.getChildAt(index))
                         }
                         collect(activity.window.decorView)
-                        assertTrue(texts.any { it.contains("가상운전자") && it.contains("2건") })
-                        assertTrue(texts.any { it.contains("받은 마중 요청과 픽업 대기 목록") })
+                        assertTrue(texts.any { it.contains("가상운전자") && it.contains("진행 중 1건") })
+                        assertTrue(texts.any { it.contains("확인할 요청 · 1건") })
+                        assertTrue(texts.any { it.contains("가상탑승자A · 픽업 진행 중") })
+                        assertTrue(texts.any { it.contains("가상탑승자B · 수락 대기") })
+                        assertTrue(texts.any { it == "받은 요청 · 1" })
                         fun findButton(view: android.view.View, label: String): android.widget.Button? {
                             if (view is android.widget.Button && view.text.toString()==label) return view
                             if (view is android.view.ViewGroup) for (index in 0 until view.childCount) {
@@ -228,6 +237,8 @@ class VehicleAccountTest {
                             return null
                         }
                         assertEquals(android.view.View.GONE,findButton(activity.window.decorView,"운전자 계정 연결 QR 만들기")!!.visibility)
+                        selectedTab.set(activity,"pickup")
+                        MainActivity::class.java.getDeclaredMethod("render").apply { isAccessible=true }.invoke(activity)
                     }
                     await {
                         var enabled=false
@@ -546,7 +557,12 @@ class VehicleAccountTest {
                     }
                 }
             } finally {
-                instrumentation.runOnMainSync { peopleField.set(app,oldPeople); registrationField.set(app,oldRegistration); accountField.set(app,oldAccount); pickupField.set(app,oldPickup); destinationField.set(app,oldDestination) }
+                instrumentation.runOnMainSync {
+                    peopleField.set(app,oldPeople)
+                    registrationField.set(app,oldRegistration); accountField.set(app,oldAccount)
+                    pickupField.set(app,oldPickup); destinationField.set(app,oldDestination)
+                    if (noticeAccepted) app.sharingNotice.accept() else app.sharingNotice.withdraw()
+                }
             }
         }
     }

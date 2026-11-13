@@ -467,7 +467,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         placeProposal = proposal?.optJSONObject("place")?.let {
             PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
         }
-        status = data.getString("status")
+        val nextStatus = data.getString("status")
+        if (status != nextStatus) message = ""
+        status = nextStatus
         if (restoringSession && status in setOf("ACTIVE", "ARRIVED")) {
             needsSharingConfirmation = true
             message = "이전 픽업을 찾았어요. 계속하기를 눌러 위치 공유를 다시 시작해주세요."

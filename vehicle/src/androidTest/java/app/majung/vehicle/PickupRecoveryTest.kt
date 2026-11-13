@@ -132,6 +132,24 @@ class PickupRecoveryTest {
         } finally { store().clear() }
     }
 
+    @Test fun creationFeedbackIsClearedWhenPassengerJoins() {
+        val id = UUID.randomUUID().toString()
+        val creation = """{"pickupId":"$id","driverToken":"${"A".repeat(43)}","inviteToken":"${"B".repeat(43)}"}"""
+        ReplyServer(200, creation).use { server ->
+            lateinit var pickup: PickupController
+            main.runOnMainSync {
+                pickup = PickupController(PickupApiClient(server.origin), MemoryPickupSessionStore())
+                pickup.create(PickupPlace("예시 장소", 37.0, 127.0))
+            }
+            await { pickup.status == "INVITING" && !pickup.busy }
+            assertTrue(pickup.message.contains("초대 링크"))
+            server.reply.set(200 to """{"status":"ACTIVE","place":{"label":"예시 장소","latitude":37,"longitude":127}}""")
+            main.runOnMainSync { pickup.refresh() }
+            await { pickup.status == "ACTIVE" && pickup.online }
+            assertTrue("Invitation feedback must not remain after joining", pickup.message.isEmpty())
+        }
+    }
+
     private fun controller(server: ReplyServer): PickupController {
         lateinit var result: PickupController
         main.runOnMainSync { result = PickupController(PickupApiClient(server.origin), store()) }
