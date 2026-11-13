@@ -3,7 +3,7 @@
   <h1>마중 차량 앱 (Majung Vehicle App)</h1>
   <p>Pleos Connect와 Android Automotive OS(AAOS) 환경에서 운전자가 픽업 장소를 확인하고, 초대·요청 수락과 실시간 위치·ETA 공유를 관리하는 차량용 앱입니다.</p>
   <p>
-    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112">APK 다운로드 (0.2.33-preview)</a> ·
+    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.34-preview.20261113">APK 다운로드 (0.2.34-preview)</a> ·
     <a href="https://majung.cloud/account">모바일 웹</a> ·
     <a href="https://github.com/majung-team/majung">마중 프로젝트</a> ·
     <a href="https://github.com/majung-team/majung/wiki">Wiki</a> ·
@@ -11,7 +11,7 @@
   </p>
 </div>
 
-> 공식 Pleos Connect 에뮬레이터(`0.2.33-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
+> 공식 Pleos Connect 에뮬레이터(`0.2.34-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
 
 ---
 
@@ -79,8 +79,8 @@ probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일
 > **기본 내비 실행 제한 · 2026년 11월 12일 관찰**: Pleos Connect 2.1.0의 Navi42 `3.3.2-rc5-hotfix.3`이 지도 인증 응답의 `profile` 항목을 처리하지 못해 지도 초기화에 실패하는 현상을 확인했다. 마중을 실행하지 않은 콜드부팅에서도 재현됐다. 마중 APK 재설치나 NaviHelper 버전 변경으로 해결됐다고 확인한 상태는 아니며, 수정된 내비 APK·에뮬레이터 이미지와 적용 방법을 운영사무국에 문의했다. 11월 10일 정상 시연 기록과 이후 관찰한 환경 오류를 구분한다. [증상과 확인 범위](https://github.com/majung-team/majung-vehicle-app/blob/main/docs/navigation-environment.md).
 
 ### APK 위치 및 실행 방법
-- **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.33-preview`, `versionCode 35`, 정식 서명)
-- **GitHub Releases**: [v0.2.33-preview.20261112](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112) *(이후 `main` 소스에는 빠른 메시지 알림 시 내비 화면 유지 보완 포함)*
+- **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.34-preview`, `versionCode 36`, 정식 서명)
+- **GitHub Releases**: [v0.2.34-preview.20261113](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.34-preview.20261113)
 
 ```sh
 # 1) Pleos Connect v2.1.0 에뮬레이터에 Release APK 설치 및 실행
@@ -102,7 +102,7 @@ adb install -r apk/마중_마중_release.apk
 | 구분 | 범위 |
 | --- | --- |
 | **에뮬레이터** | `Pleos Connect v2.1.0` (`Android 14`, `arm64-v8a`)<br>`Pleos_Connect_v2_0` · `2560 × 1440 px` (`160 dpi`)<br>SDK `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
-| **확인&nbsp;완료** | 단위 테스트·Lint · 에뮬레이터(`0.2.29` 시연 · `0.2.33` 설치)<br>QR 팝업 · 경로·ETA·TTS · 장소 변경 · 재개 복구 |
+| **확인&nbsp;완료** | 단위 테스트(72)·Lint · 에뮬레이터(`0.2.29` 시연·`0.2.34` 설치)<br>QR 팝업 · 내비 알림 유지 · 경로·ETA·TTS · 재개 복구 |
 | **실차&nbsp;확인** | 실차 주행 · 스피커/통화 우선순위 · 주행 제한<br>시동 OFF/ON 복구 · 실기기 E2E · 앱마켓 심사 |
 
 ---

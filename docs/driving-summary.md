@@ -428,7 +428,7 @@ Manifest의 DO 관련 선언은 주행 제한 상황에서 요약 화면을 제�
 ### 이후 보완 기록
 
 - `c0cbcdd` · `fcd03dc` (`#115`): 주행 제한(`CarUxRestrictions`) 환경에서도 내비 화면 위 헤드업 알림과 TTS 음성 안내로 요청·메시지를 전달하고, 본문 스크롤·메시지 가독성을 보완했다. (`58b80f5` `#117`에서 일부 기기 시험 종료 실패 기록도 분리 정리)
-- `9983272` (`0.2.33-preview` APK 이후 `main` 반영): `USE_FULL_SCREEN_INTENT`·`setFullScreenIntent`를 제거하고 `PickupNotificationPolicy`·`NotificationDismissReceiver`를 도입해 빠른 메시지 알림 탭 시 마중 앱 전환 없이 내비 화면을 유지한 채 알림만 닫고 중복 `Toast`를 억제했다.
+- `9983272` · `0.2.34-preview` (`127c146`, `versionCode 36`): `USE_FULL_SCREEN_INTENT`·`setFullScreenIntent`를 제거하고 `PickupNotificationPolicy`·`NotificationDismissReceiver`를 도입해 빠른 메시지 알림 탭 시 마중 앱 전환 없이 내비 화면을 유지한 채 알림만 닫고 중복 `Toast`를 억제해 Release APK(`0.2.34-preview`)에 반영했다.
 
 ### Pleos 공식 문서
 

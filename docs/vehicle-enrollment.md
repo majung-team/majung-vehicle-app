@@ -223,10 +223,10 @@ QR코드는 생성 후 **5분간 유효**하다.
 - [Wiki: 휴대전화 QR 연결·실시간 상태 회고](https://github.com/majung-team/majung/wiki/%ED%9C%B4%EB%8C%80%EC%A0%84%ED%99%94-QR-%EC%97%B0%EA%B2%B0%EA%B3%BC-%EC%9B%B9-iOS-%EC%8B%A4%EC%8B%9C%EA%B0%84-%EC%83%81%ED%83%9C%EB%8A%94-%EC%99%9C-%EC%96%B4%EA%B8%8B%EB%82%AC%EC%9D%84%EA%B9%8C)
 - [기능별 개발 및 검증 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
 
-### 2026-11-12 최신 반영 (`0.2.33-preview`)
+### 2026-11-12 ~ 11-13 최신 반영 (`0.2.33-preview` · `0.2.34-preview`)
 
 - `ad3ffd6`: 휴대전화에서 QR 승인 직후 차량 설정을 다시 누르지 않아도 연결 상태 재확인이 3초 간격(`3-tick` 포함)으로 이어지며, 확인 필요 시 운전자 계정 확인 팝업이 자동으로 열리도록 개선했다.
-- 서명 APK `0.2.33-preview` (`692eae5`, 버전 코드 35)를 Pleos 에뮬레이터(`Majung_Pleos_2_1`, `Pleos Connect v2.1.0`)에 덮어쓰기 설치해 확인했다.
+- 서명 APK `0.2.33-preview` (`692eae5`, 버전 코드 35)와 후속 알림 내비 유지 보완을 포함한 `0.2.34-preview` (`127c146`, 버전 코드 36)를 Pleos 에뮬레이터(`Majung_Pleos_2_1`, `Pleos Connect v2.1.0`)에 덮어쓰기 설치해 확인했다.
 
 ---
 
