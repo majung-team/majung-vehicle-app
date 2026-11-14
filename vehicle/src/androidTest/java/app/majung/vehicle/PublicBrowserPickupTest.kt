@@ -34,7 +34,10 @@ class PublicBrowserPickupTest {
         throw AssertionError("Browser integration did not reach expected state")
     }
     @Test fun browserParticipantUsesRealVehicleAndPublicServer() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("publicBrowser") == "true")
+        val arguments = InstrumentationRegistry.getArguments()
+        assumeTrue(arguments.getString("publicBrowser") == "true")
+        val participantClient = arguments.getString("participantClient") ?: "browser"
+        assumeTrue("Unsupported rehearsal client", participantClient in setOf("browser", "iosSimulator"))
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val finish = java.io.File(app.filesDir, "public-browser-finish")
         finish.delete()
@@ -62,17 +65,45 @@ class PublicBrowserPickupTest {
                 java.io.File(app.filesDir, "public-browser-invite.json").writeText(invitation.toString())
                 await(240000) { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 await(15000) { app.pickup.status == "ACTIVE" }
+                val expectedMessage = arguments.getString("participantMessage")
+                if (expectedMessage != null) await(240000) { app.pickup.quickMessage == expectedMessage }
+                if (arguments.getString("participantProposal") == "true") {
+                    await(240000) { app.pickup.placeProposal != null }
+                    await(240000) { app.pickup.placeProposal == null }
+                }
                 await(240000) { app.pickup.readiness == "READY" && !app.pickup.busy }
+                if (arguments.getString("cancelAfterReady") == "true") {
+                    // Allow the participant to focus and type before the terminal event arrives.
+                    SystemClock.sleep(8000)
+                    main.runOnMainSync { app.pickup.cancel() }
+                    await(15000) { app.pickup.status == "CANCELLED" && !app.pickup.busy && !app.sharingRunning }
+                    assertTrue(app.pickup.place == null)
+                    assertTrue(EncryptedPickupSessionStore(app).load() == null)
+                    java.io.File(app.filesDir, "public-browser-summary.json").writeText(JSONObject()
+                        .put("realSdk", true).put("publicHttps", true)
+                        .put("participantClient", participantClient)
+                        .put("browserParticipant", participantClient == "browser")
+                        .put("iosSimulatorParticipant", participantClient == "iosSimulator")
+                        .put("physicalPhone", false).put("physicalCar", false)
+                        .put("readyReachedVehicle", true).put("cancelled", true)
+                        .put("completed", false).put("result", "passed").toString(2))
+                    return@use
+                }
                 main.runOnMainSync { app.pickup.arrive() }
                 await(15000) { app.pickup.status == "ARRIVED" && !app.pickup.busy }
                 val finishMessage = InstrumentationRegistry.getArguments().getString("browserFinishMessage")
                 await(240000) { finish.exists() || (finishMessage != null && app.pickup.quickMessage == finishMessage) }
                 main.runOnMainSync { app.pickup.complete() }
-                await(15000) { app.pickup.status == "COMPLETED" && !app.pickup.busy }
+                await(15000) { app.pickup.status == "COMPLETED" && !app.pickup.busy && !app.sharingRunning }
                 assertTrue(app.pickup.place == null)
                 java.io.File(app.filesDir, "public-browser-summary.json").writeText(JSONObject()
-                    .put("realSdk", true).put("publicHttps", true).put("browserParticipant", true)
-                    .put("physicalPhone", false).put("readyReachedVehicle", true)
+                    .put("realSdk", true).put("publicHttps", true)
+                    .put("participantClient", participantClient)
+                    .put("browserParticipant", participantClient == "browser")
+                    .put("iosSimulatorParticipant", participantClient == "iosSimulator")
+                    .put("messageReceived", expectedMessage != null)
+                    .put("proposalReceivedAndWithdrawn", arguments.getString("participantProposal") == "true")
+                    .put("physicalPhone", false).put("physicalCar", false).put("readyReachedVehicle", true)
                     .put("manualArrival", true).put("completed", true).put("result", "passed").toString(2))
             }
         } finally {

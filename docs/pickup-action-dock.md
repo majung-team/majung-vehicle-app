@@ -24,3 +24,14 @@
 - 운영 브라우저 검사는 `publicBrowser=true`로 별도 실행한다. 기존 진행 중 픽업이 있으면 건너뛰고, 정리는 이번 검사에서 만든 픽업에만 적용한다.
 - 브라우저의 도착 확인 뒤 `browserFinishMessage` 인수에 지정한 시험 메시지를 보내면 완료 단계로 진행한다. 앱 내부 파일에 접근할 필요가 없다.
 - 복귀 완료 검사는 `browserFinishPickupId`로 명시한 ARRIVED 픽업과 저장된 픽업이 일치할 때만 완료한다.
+
+## iOS 시뮬레이터와 운영 연동
+
+운영 계측은 `publicBrowser=true` 인수를 유지하며 `participantClient=browser` 또는 `iosSimulator`로 참여 클라이언트를 구분한다. 결과의 `browserParticipant`·`iosSimulatorParticipant`도 같은 구분을 사용한다. 실물 휴대전화·실차 시험으로 표시하지 않는다.
+
+- `participantMessage`: 다음 단계로 가기 전에 차량의 실제 메시지 수신 확인
+- `participantProposal=true`: 장소 제안 수신과 철회 반영을 모두 확인한 뒤 준비 완료 대기
+- `browserFinishMessage`: 참여 클라이언트의 도착 확인 뒤 완료 진행
+- `cancelAfterReady=true`: 준비 완료 후 8초를 기다려 입력 중 취소 수신 검사 지원
+
+완료·취소 뒤 공유 서비스 종료, 취소 뒤 저장된 접근 정보 제거를 확인한다. 기존 진행 중 픽업은 건드리지 않고 이번 검사에서 만든 픽업만 정리한다. 제품 동작과 배포 APK 버전은 변경하지 않는다.
