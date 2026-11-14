@@ -237,17 +237,12 @@ class MainActivity : Activity() {
                 setStroke(1.dp, Color.rgb(229, 234, 241))
             }
             addView(views.label("마중을 시작하기 전에", 32f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
-<<<<<<< HEAD
             addView(views.label("픽업 중 탑승자에게 차량 위치와 도착 시간을 알려줘요. 픽업이 끝나면 공유도 끝나요.", 24f).apply {
                 setPadding(0, 16.dp, 0, 0)
             })
             addView(views.label("시작을 누르면 위치 권한을 확인해요. 허용하지 않아도 차량 연결과 픽업은 할 수 있어요.", 22f).apply {
                 setPadding(0, 12.dp, 0, 0)
             })
-=======
-            addView(views.label("픽업 중에는 탑승자가 차량 위치와 도착 시간을 볼 수 있어요. 픽업이 끝나면 공유도 끝나요.", 22f))
-            addView(views.label("다음 화면에서 위치를 허용해주세요. 허용하지 않아도 차량을 연결할 수 있어요.", 20f))
->>>>>>> main
             addView(Button(this@MainActivity).apply {
                 text = "위치 공유 안내에 동의하고 시작"
                 textSize = 28f
@@ -287,23 +282,7 @@ class MainActivity : Activity() {
                         .show().also(views::trackDialog)
                 }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
-<<<<<<< HEAD
 
-=======
-            addView(Button(this@MainActivity).apply {
-                text = "위치 공유 자세히 보기"
-                textSize = 20f
-                minimumHeight = 56.dp
-                flattenButtonSurface()
-                setOnClickListener {
-                    if (driving.allowed) AlertDialog.Builder(this@MainActivity)
-                        .setTitle("위치 공유 안내")
-                        .setMessage(SharingNotice.TEXT)
-                        .setPositiveButton("닫기", null)
-                        .show().also(views::trackDialog)
-                }
-            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 12.dp })
->>>>>>> main
         }
         noticeScreen = createSmoothScrollView().apply {
             setBackgroundColor(Color.rgb(247, 248, 250))
