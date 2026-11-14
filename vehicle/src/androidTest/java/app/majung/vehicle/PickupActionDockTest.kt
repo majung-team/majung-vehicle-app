@@ -35,7 +35,8 @@ class PickupActionDockTest {
         val originals = fields.map { it.get(app) }
         val accepted = app.sharingNotice.accepted
         fun set(target: Any, name: String, value: Any?) = target.javaClass.getDeclaredField(name).apply { isAccessible = true }.set(target, value)
-        val api = PickupApiClient("http://127.0.0.1:1")
+        val fixture = DockFixture()
+        val api = PickupApiClient(fixture.origin)
         val store = object : VehicleCredentialStore {
             override fun load(): VehicleCredential? = null
             override fun save(credential: VehicleCredential) {}
@@ -50,7 +51,10 @@ class PickupActionDockTest {
             instrumentation.runOnMainSync {
                 fields.zip(listOf(pickup, registration, account, DestinationReader(app))).forEach { (field,value)->field.set(app,value) }
                 set(registration,"development",true); set(registration,"registrationChecked",true)
-                set(pickup,"pickupId","display-only"); set(pickup,"status","ACTIVE"); set(pickup,"online",true)
+                set(pickup,"pickupId","display-only"); set(pickup,"driverToken","fixture-driver")
+                set(pickup,"status","ACTIVE"); set(pickup,"online",true)
+                // Exercise the action dock independently of the OS location dialog/service.
+                set(pickup,"needsSharingConfirmation",true)
                 set(pickup,"place",PickupPlace("시연역 1번 출구",37.5,127.0))
             }
             activity = instrumentation.startActivitySync(android.content.Intent(app,MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
@@ -78,12 +82,19 @@ class PickupActionDockTest {
                 val button=activity!!.findViewById<Button>(R.id.arrive_pickup)
                 assertTrue(button.getGlobalVisibleRect(bounds)); assertEquals(original,bounds)
                 assertTrue(button.isEnabled)
-                set(pickup,"status","ARRIVED")
-                MainActivity::class.java.getDeclaredMethod("render").apply {isAccessible=true}.invoke(activity)
+                pickup.arrive()
             }
+            val arrivedDeadline = SystemClock.elapsedRealtime() + 10000
+            var arrived = false
+            while (!arrived && SystemClock.elapsedRealtime() < arrivedDeadline) {
+                instrumentation.runOnMainSync { arrived = pickup.status == "ARRIVED" && !pickup.busy }
+                if (!arrived) SystemClock.sleep(50)
+            }
+            assertTrue("Arrival response: ${pickup.status}; ${pickup.message}; requests=${fixture.requests}", arrived)
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync {
                 assertTrue(activity!!.findViewById<Button>(R.id.complete_pickup).isShown)
+                assertTrue(activity!!.findViewById<Button>(R.id.complete_pickup).isEnabled)
                 assertFalse(activity!!.findViewById<Button>(R.id.arrive_pickup).isShown)
             }
             File(app.filesDir,"pickup-action-dock.png").outputStream().use {
@@ -95,6 +106,43 @@ class PickupActionDockTest {
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync { fields.zip(originals).forEach { (field,value)->field.set(app,value) } }
             if (accepted) app.sharingNotice.accept() else app.sharingNotice.withdraw()
+            fixture.close()
         }
     }
+
+    private class DockFixture : AutoCloseable {
+        private val server = java.net.ServerSocket(0, 0, java.net.InetAddress.getByName("127.0.0.1"))
+        val origin = "http://127.0.0.1:${server.localPort}"
+        @Volatile private var running = true
+        private var status = "ACTIVE"
+        val requests = java.util.concurrent.CopyOnWriteArrayList<String>()
+        private val worker = Thread {
+            while (running) try {
+                server.accept().use { socket ->
+                    socket.soTimeout = 5000
+                    val reader = socket.getInputStream().bufferedReader()
+                    val request = reader.readLine().orEmpty()
+                    requests.add(request)
+                    var length = 0
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (line.isEmpty()) break
+                        if (line.startsWith("Content-Length:", true)) length = line.substringAfter(':').trim().toInt()
+                    }
+                    repeat(length) { reader.read() }
+                    if (request.startsWith("POST /api/v1/pickups/display-only/arrival ")) status = "ARRIVED"
+                    val body = JSONObject().put("status", status).put("placeVersion", 1)
+                        .put("place", JSONObject().put("label", "시연역 1번 출구").put("latitude", 37.5).put("longitude", 127.0))
+                        .toString().toByteArray(Charsets.UTF_8)
+                    socket.getOutputStream().apply {
+                        write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                        write(body)
+                        flush()
+                    }
+                }
+            } catch (_: Exception) { }
+        }.apply { isDaemon = true; start() }
+        override fun close() { running = false; server.close(); worker.join(1000) }
+    }
+
 }

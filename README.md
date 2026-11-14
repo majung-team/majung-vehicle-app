@@ -1,491 +1,124 @@
+<div align="center">
+  <img src="docs/media/majung-icon.png" width="76" alt="마중 아이콘" />
+  <h1>마중 차량 앱 (Majung Vehicle App)</h1>
+  <p>Pleos Connect와 Android Automotive OS(AAOS) 환경에서 운전자가 픽업 장소를 확인하고, 초대·요청 수락과 실시간 위치·ETA 공유를 관리하는 차량용 앱입니다.</p>
+  <p>
+    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.35-preview.20261114">APK 다운로드 (0.2.35-preview)</a> ·
+    <a href="https://majung.cloud/account">모바일 웹</a> ·
+    <a href="https://github.com/majung-team/majung">마중 프로젝트</a> ·
+    <a href="https://github.com/majung-team/majung/wiki">Wiki</a> ·
+    <a href="https://github.com/majung-team/majung/blob/main/docs/development-status.md">개발 현황</a>
+  </p>
+</div>
 
-# 마중 차량 앱 (Majung Vehicle App)
-
-- [기존 경유지 좌표 복구·장소 다시 선택](docs/waypoint-coordinates.md#2026-10-31-기존-경유지-보완)
-
-## 차량 내비게이션과 탑승자를 연결하는 픽업 지원 애플리케이션
-
-마중 차량 앱은 **Android Automotive OS(AAOS)와 Pleos Connect SDK**를 기반으로 개발한 차량용 애플리케이션이다.
-
-운전자는 내비게이션에서 픽업 장소를 확인하고, 연결된 탑승자를 초대하거나 새로운 픽업 요청을 수락할 수 있다.
-
-픽업이 시작되면 차량 SDK에서 수신한 위치와 예상 도착 시간(ETA)을 서버에 전달하고, 탑승자가 모바일 웹에서 변경한 준비 상태를 차량 화면에 표시한다.
-
-주행 중에는 시스템 제한에 따라 상세 조작을 줄이고 필요한 정보만 간략하게 제공한다.
-
-> 현재 차량 앱은 공식 Pleos Connect 에뮬레이터를 중심으로 개발·검증하고 있다. 실제 차량 환경에서의 동작 및 앱마켓 배포는 아직 검증하지 않았다.
-
-**바로가기**
-
-- [마중 프로젝트 소개](https://github.com/majung-team/majung)
-- [전체 사용 안내 Wiki](https://github.com/majung-team/majung/wiki)
-- [차량 앱 APK 0.2.25-preview 다운로드](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.25-preview.20261106)
-- [화면 글자·버튼 가독성 변경](docs/readability-2026-10-30.md)
-- [모바일 웹](https://majung.cloud/account)
-- [개발 현황 및 기여 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
+> 공식 Pleos Connect 에뮬레이터(`0.2.35-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
 
 ---
 
 ## 1. 주요 기능
 
-### 차량 최초 연결
+### 차량 연결 · 픽업 초대 및 요청
+- **QR 차량 연결 · 초대**: 차량 화면의 QR 코드를 휴대전화로 스캔해 운전자 계정을 연결하고, 연결된 지인을 바로 초대하거나 비회원용 QR 초대 링크를 만듭니다.
+- **요청 대기열 관리**: 탑승자가 먼저 보낸 픽업 요청을 대기열로 받아 한 번에 한 건씩 진행하며, 완료 후 다음 요청을 이어갑니다.
 
-운전자 본인의 휴대전화와 차량을 QR코드로 연결한다.
+### 내비게이션 연동 · 장소 변경
+- **Pleos 내비 연동**: 내비게이션의 현재 경로, 최종 목적지, 경유지, 차량 위치, 예상 도착 시간(ETA)을 읽어 서버와 공유합니다.
+- **장소 변경 원터치 수락**: 탑승자가 새 만날 장소를 제안하면 상단 헤드업 알림이나 앱 화면의 **`[수락 및 내비 변경]`** 버튼으로 내비 경유지를 재탐색하고 확정합니다(확정 전까지는 기존 장소 유지).
 
-1. 차량 앱에서 **휴대전화로 시작하기 · QR 만들기** 선택
-2. 운전자 휴대전화로 QR코드 열기
-3. 카카오 로그인 및 닉네임 설정
-4. 휴대전화에서 차량 연결 요청
-5. 차량에서 닉네임·마중 ID 확인 및 승인
+### 주행 안전 · 음성 안내 (TTS)
+- **주행 중 요약 화면**: `CarUxRestrictions`에 따라 주행 중에는 상세 조작을 제한하고 핵심 정보와 도착·완료 버튼만 노출합니다.
+- **헤드업 알림 · TTS 음성 낭독**: 내비 화면만 보는 중에도 신규 요청·장소 제안·탑승자 메시지(빠른 칩·직접 입력)를 상단 헤드업 알림과 기본 켜짐 TTS 음성(정차 중 설정 가능)으로 안내하며, 빠른 메시지 확인 시에는 내비 화면에서 벗어나지 않고 알림만 닫힙니다.
+- **자동 도착 감지 · 종료**: 약속 장소 반경 100m·잔여 30초 이내로 접근하면 자동 도착을 알리며, 픽업 완료·취소 시 위치 공유를 즉시 종료합니다.
 
-일반적인 최초 연결 과정에서 관리자 코드는 필요하지 않다.
-
-### 픽업 초대 및 요청
-
-**연결된 탑승자 초대**
-
-차량에서 연결된 사람을 선택해 픽업 초대를 보낸다. 탑승자는 모바일 웹에서 초대를 수락한다.
-
-**QR 기반 초대**
-
-처음 이용하는 탑승자에게 차량 QR코드를 통해 초대 링크를 전달할 수 있다.
-
-**탑승자 요청 수락 및 주행 중 헤드업 알림**
-
-탑승자가 모바일 웹에서 먼저 보낸 요청은 차량의 **받은 요청**에서 확인한다.
-
-운전자가 마중 앱을 닫고 내비게이션 지도만 보며 주행 중일 때도 신규 픽업 요청을 놓치지 않도록 백그라운드 폴러가 감지하여 화면 상단 헤드업 알림(Heads-up Notification)과 음성("새로운 픽업 요청이 도착했습니다. 수락하시겠습니까?")으로 즉시 안내한다. 알림을 터치하면 상세 확인 및 수락 팝업으로 바로 연결된다.
-
-요청을 수락한 뒤 내비게이션 경로와 장소를 확인하고 픽업을 시작한다.
-
-### 내비게이션 연동
-
-Pleos NaviHelper SDK를 활용해 다음 정보를 확인한다.
-
-- 현재 내비게이션 경로
-- 최종 목적지 및 경유지
-- 픽업 장소
-- 차량 위치
-- 예상 도착 시간(ETA)
-
-기존 최종 목적지를 유지하면서 픽업 장소를 경유지로 반영하는 흐름을 지원한다.
-
-위치와 ETA는 SDK에서 제공하는 정보를 사용하며, 서버에서 별도의 경로 탐색이나 교통 상황 계산을 수행하지 않는다.
-
-### 장소 변경 제안 및 주행 중 헤즈업 원터치 수락
-
-탑승자가 모바일 웹에서 새로운 픽업 장소를 제안하면 차량 화면 및 상단 헤즈업 알림(Heads-up Notification)으로 즉시 안내한다.
-
-- **주행 중 헤즈업 원터치 수락**: 운전자가 내비게이션 주행 화면을 벗어나지 않고 상단 알림 바의 `[수락 및 내비 변경]` 버튼 1회 터치만으로 백그라운드 서비스가 목적지를 즉시 재탐색하고 자동 확정한다.
-- **앱 화면 내 승인**: 정차 중 마중 앱 화면에서도 제안 장소 확인 후 원터치로 내비게이션 경로 탐색 및 자동 확정 처리를 지원한다.
-- **안전 제어**: 운전자가 최종 확정하기 전까지는 기존 약속 장소와 경로를 유지하며, 단일 제안 심의 정책으로 주행 중 혼선을 차단한다.
-
-### 순차 픽업 관리
-
-여러 탑승자의 요청을 대기열에서 관리하고, 실제 픽업은 한 번에 한 건씩 진행한다.
-
-- 진행 중인 픽업과 대기 요청 분리
-- 다음 픽업의 장소 및 경로 확인
-- 중복 시작 방지
-- 픽업 완료 후 다음 요청 진행
-- 탑승자별 접근 권한 구분
-
-### 준비 상태, 퀵 메시지 및 음성 안내
-
-탑승자가 웹에서 선택한 **준비 중 / 준비 완료** 상태를 차량 앱에 실시간 반영한다.
-
-**탑승자 메시지(직접 입력 및 퀵 메시지) 수신 및 음성 낭독**
-
-탑승자가 모바일 웹에서 직접 입력하거나 빠른 선택 칩으로 전송한 메시지는 주행 요약 화면에 실시간 표시되는 동시에 차량 스피커(TTS)로 자동 낭독("${passenger}님이 ‘...’라고 전했어요")되어 운전자의 시선 분산을 최소화한다.
-
-**반경 100m 자동 도착 감지**
-
-약속 장소 반경 100m 이내로 접근하고 예상 주행 잔여 시간이 30초 이내로 줄어들면, 운전자의 수동 버튼 조작 없이도 시스템이 자동 도착을 판별하여 서버에 통보하고 음성("약속 장소에 도착했어요. 안전하게 정차한 뒤 탑승을 확인해주세요.")으로 안내한다.
-
-차량 앱의 상태 수신 확인은 운전자가 실제로 화면을 읽었다는 의미와 구분한다.
-
-주행 중 운전자 안전과 시선 유지를 위해 Pleos TTS 음성 안내는 기본적으로 활성화되어 있으며(Default ON), 신규 픽업 요청 수신, 장소 변경 요청, 탑승자 메시지 낭독, 준비 상태 및 도착 관련 정보를 안전하게 안내한다. 음성 안내는 정차 상태의 설정 메뉴에서 켜고 끌 수 있다.
-
-### 주행 제한
-
-차량 시스템의 CarUxRestrictions를 사용한다.
-
-주행 제한이 적용되면 상세 조작 대신 읽기 전용 요약 화면을 표시한다.
-
-장소 변경, 새로운 요청 수락 및 계정 연결 등의 조작은 안전하게 정차한 상태에서 진행한다.
+### 연결 복구 · 데이터 보호
+- **강제 종료 후 재개 확인**: 앱이 비정상 종료된 뒤 다시 켜지면 서버 상태와 저장된 세션을 확인해 운전자 확인 후 안전하게 이어가거나 취소합니다.
+- **암호화 저장**: 픽업 복구에 필요한 세션 자격증명은 Android Keystore에 암호화해 보관합니다.
 
 ---
 
-## 2. 차량 앱 설치 및 사용
+## 2. 시스템 구성 및 기술 스택
 
-### APK 다운로드
-
-현재 안내 기준 버전:
-
-**[v0.2.21-preview (2026.11.05)](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.21-preview.20261105)**
-
-APK 파일명:
-
-`Majung_Majung_release.apk`
-
-새 버전은 [GitHub Releases](https://github.com/majung-team/majung-vehicle-app/releases)에서 확인할 수 있다.
-
-### 설치 및 빠른 실행 (Quick Start)
-
-#### 1) 에뮬레이터 실행
-
-Android Studio의 Virtual Device Manager에서 실행하거나 터미널에서 다음 명령어로 직접 기동한다.
-
-```sh
-# PATH에 Android SDK가 설정된 경우
-emulator -avd Majung_Pleos_2_1
-
-# Mac 환경 절대 경로로 실행할 경우
-~/Library/Android/sdk/emulator/emulator -avd Majung_Pleos_2_1
+```mermaid
+flowchart LR
+    SDK["Pleos SDK (NaviHelper · TTS)"] -->|"경로 · 위치 · ETA · 음성"| Vehicle["차량 앱 (AAOS · Kotlin)"]
+    Car["CarUxRestrictions"] -->|"주행 제한 상태"| Vehicle
+    Vehicle -->|"HTTPS 상태 · 위치 · ETA"| API["마중 백엔드 (/api/v1)"]
+    API -->|"승인 요청 · 준비 상태 · 장소 제안"| Vehicle
 ```
 
-> **PATH 환경변수 설정 팁 (~/.zshrc)**:
-> ```sh
-> export ANDROID_HOME=$HOME/Library/Android/sdk
-> export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
-> ```
-
-#### 2) 최신 서명 APK 원클릭 설치 (GitHub Releases 연동)
-
-Releases 페이지에서 브라우저로 직접 받지 않고, 터미널에서 바로 최신 서명 APK를 내려받아 설치할 수 있다.
-
-```sh
-curl -sL https://github.com/majung-team/majung-vehicle-app/releases/latest/download/Majung_Majung_release.apk -o /tmp/majung.apk && adb install -r /tmp/majung.apk
-```
-
-#### 3) 코드 수정 후 로컬 빌드 및 즉시 반영
-
-코드를 수정한 뒤 로컬에서 정식 서명 바이너리를 빌드하여 에뮬레이터에 바로 덮어쓰기 설치(-r)한다.
-
-```sh
-cd ~/Coding/majung-vehicle-app
-python3 tools/build-release.py
-adb install -r vehicle/build/outputs/apk/release/vehicle-release.apk
-```
-
-#### 4) 앱 실행 및 로그 확인
-
-```sh
-# 앱 즉시 실행
-adb shell am start -n app.majung.vehicle/.MainActivity
-
-# 로그 모니터링
-adb logcat -s Majung
-```
-
-### 처음 사용하기
-
-1. 차량 앱 실행
-2. 위치 공유 안내 확인 및 동의
-3. QR코드를 통한 운전자 계정 연결
-4. 내비게이션에서 경로 안내 시작
-5. 마중 **픽업** 화면에서 장소 확인
-6. 연결된 사람 초대 또는 받은 요청 수락
-7. 경로 검증 후 픽업 시작
-
-탑승자는 별도 앱을 설치하지 않고 [모바일 웹](https://majung.cloud/account)을 사용한다.
-
-[차량 앱 설치와 최초 설정 상세 안내](https://github.com/majung-team/majung/wiki/차량-앱-설치)
-
----
-
-## 3. 개발 환경
-
-| 항목 | 기술 및 환경 |
-| --- | --- |
-| 개발 언어 | Kotlin |
-| 플랫폼 | Android Automotive OS |
-| 차량 환경 | Pleos Connect 공식 에뮬레이터 |
-| Android SDK | API 34 |
-| JDK | 25 |
-| 빌드 도구 | Gradle |
-| 내비게이션 | NaviHelper 3.0.5 |
-| 음성 안내 | Pleos TextToSpeech 3.3.1 |
-| QR 처리 | ZXing |
-| 커밋 규칙 도구 | Node.js 22+, Husky, commitlint |
-
-`vehicle/`은 실제 차량 애플리케이션 모듈이고, `probe/`는 SDK 동작을 확인하기 위한 진단 모듈이다.
-
----
-
-## 4. 직접 빌드 및 실행
-
-### 저장소 준비
-
-```sh
-git clone https://github.com/majung-team/majung-vehicle-app.git
-cd majung-vehicle-app
-```
-
-커밋 메시지 검사 도구를 설치한다.
-
-```sh
-npm ci
-```
-
-`npm ci`는 Husky와 commitlint 등 저장소 개발 도구를 설치하기 위한 명령이다.
-
-차량 애플리케이션 자체는 Gradle로 빌드한다.
-
-### Android SDK 설정
-
-프로젝트 루트의 `local.properties`에 SDK 경로를 지정한다.
-
-```properties
-sdk.dir=/사용자/환경에/맞는/Android/sdk
-```
-
-### 테스트 및 빌드
-
-공개 서버를 대상으로 빌드할 때는 `pickupApi`를 명시한다.
-
-```sh
-./gradlew \
-  :vehicle:testDebugUnitTest \
-  :vehicle:lintDebug \
-  :vehicle:assembleDebug \
-  -PpickupApi=https://majung.cloud
-```
-
-각 작업의 역할:
-
-| 작업 | 내용 |
-| --- | --- |
-| `testDebugUnitTest` | 차량 앱 단위 테스트 |
-| `lintDebug` | Android Lint 검사 |
-| `assembleDebug` | Debug APK 생성 |
-
-생성 경로:
-
-```text
-vehicle/build/outputs/apk/debug/vehicle-debug.apk
-```
-
-### APK 설치
-
-```sh
-adb devices
-```
-
-```sh
-adb -s emulator-5554 install -r \
-  vehicle/build/outputs/apk/debug/vehicle-debug.apk
-```
-
-### 앱 실행
-
-```sh
-adb -s emulator-5554 shell am start \
-  --user current \
-  -n app.majung.vehicle/.MainActivity
-```
-
-기기 이름과 Android 사용자는 자신의 에뮬레이터 환경에 맞게 확인한다.
-
-### API 주소
-
-| 빌드 | 연결 주소 |
-| --- | --- |
-| 기본 Debug | `http://10.0.2.2:8080` |
-| 공개 서버 Debug | `https://majung.cloud` |
-| Release | 명시한 HTTPS API 주소 |
-
-`10.0.2.2`는 Android 에뮬레이터에서 개발 PC의 로컬 서버에 접근하기 위한 주소다.
-
-공개 서버에서 시험할 때는 다음 옵션을 생략하지 않는다.
-
-```sh
--PpickupApi=https://majung.cloud
-```
-
-### ADB 연결 문제
-
-`No connected devices` 또는 `OFFLINE`이 표시되면 빌드 오류와 구분한다.
-
-- 에뮬레이터 실행 여부 확인
-- `adb devices`에서 기기 상태 확인
-- 여러 장치가 있다면 `-s`로 대상 지정
-- 이미 실행된 AVD 중복 실행 방지
-
-기기 상태가 `device`로 표시된 뒤 설치한다.
-
----
-
-## 5. 내부 동작 구조
-
-차량 앱은 화면, SDK 조회, 픽업 상태 관리, 서버 통신 및 복구 처리를 분리해 구성했다.
-
-### 패키지 및 아키텍처 구조
-
-마중 차량 앱은 계층과 책임별로 패키지가 명확히 분리된 클린 아키텍처 구조를 갖추고 있다.
+### 패키지 구조
 
 ```text
 vehicle/src/main/java/app/majung/vehicle/
-├── MainActivity.kt        # 주 액티비티 및 화면 생명주기 관리
-├── VehicleApplication.kt  # 전역 애플리케이션 및 의존성 진입점
-├── ui/                    # 화면 렌더링, 뷰 컴포넌트 및 레이아웃
-│   └── sections/          # 기능별 UI 섹션 (픽업생성, 계정, 초대, 픽업상태 등)
-├── navi/                  # Pleos NaviHelper SDK 연동, 경로 검증 및 텔레메트리
-├── domain/                # 픽업 컨트롤러, 계정·차량 권한, 주행 제한 모델
-├── data/
-│   ├── api/               # 백엔드 HTTPS REST API 클라이언트
-│   └── storage/           # Keystore 기반 암호화 픽업 세션 및 자격증명 저장소
-├── service/               # 백그라운드 위치·ETA 공유 포그라운드 서비스
-└── util/                  # 음성 안내(TTS), QR 생성 및 공통 유틸리티
+├── MainActivity.kt              # 화면 생명주기 및 루트 UI
+├── VehicleApplication.kt        # 전역 초기화 및 의존성 구성
+├── ui/sections/                 # 계정 · 픽업 생성 · 요청 · 초대 · 주행 요약 화면
+├── navi/                        # Pleos NaviHelper SDK 연동 · 경로 검증 · 텔레메트리
+├── domain/                      # 픽업 컨트롤러 · 권한 · 주행 제한 · 장소 변경 상태
+├── data/                        # 백엔드 HTTPS API 클라이언트 및 Keystore 암호화 저장소
+├── service/                     # 백그라운드 위치·ETA 공유 포그라운드 서비스
+└── util/                        # Pleos TTS 음성 안내 · QR 생성 · 헤드업 알림
+
+probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일반 배포 제외)
 ```
 
-단위 테스트(`src/test/java/`) 및 공식 에뮬레이터 통합 테스트(`src/androidTest/java/`) 또한 기능별 도메인에 맞추어 `navi`, `domain`, `util` 등으로 구조화되어 있다.
+### 기술 스택
 
-### 주요 구성 요소
-
-| 구성 요소 | 역할 |
+| 구분 | 구성 |
 | --- | --- |
-| `MainActivity` | 화면 생명주기 및 사용자 조작 |
-| `VehicleAccountController` | 차량 계정 연결 및 사람 관리 |
-| `RequestPickupFlow` | 요청 장소 경로 준비·검증 |
-| `DestinationReader` | SDK 연결 및 내비게이션 정보 조회 |
-| `VehicleTelemetry` | 위치·ETA 유효성 및 목적지 일치 확인 |
-| `PickupController` | 픽업 상태·권한·전송 순번 관리 |
-| `PickupSharingService` | 백그라운드 위치·ETA 공유 |
-| `PickupApiClient` | 서버 HTTPS API 통신 |
-| `EncryptedPickupSessionStore` | 암호화된 픽업 복구 정보 저장 |
-
-### 백그라운드 공유
-
-화면이 내려간 상태에서도 진행 중인 픽업의 위치 및 ETA 공유를 유지할 수 있도록 `PickupSharingService`를 사용한다.
-
-픽업이 완료되거나 취소되면 공유 서비스를 종료한다.
-
-### 프로세스 종료 후 복구
-
-차량 앱 프로세스가 종료된 경우에는 앱을 다시 실행한 뒤 서버 상태와 저장된 접근 권한을 확인한다.
-
-진행 중인 픽업이 확인되면 운전자가 재개 또는 취소를 선택한다.
-
-사용자 확인 없이 이전 픽업의 위치 공유를 자동으로 재개하지 않는다.
-
-복구에 필요한 접근 정보는 Android Keystore 기반 암호화 저장소에서 관리한다.
-
-차량 시동 OFF/ON 이후 자동 실행이나 내비게이션 자동 재시작은 별도 검증 범위다.
+| **플랫폼** | Kotlin · Android Automotive OS<br>`minSdk 28` · `targetSdk 34` · Java 17 (JDK 25) |
+| **SDK** | Pleos `NaviHelper 3.0.5` · `TextToSpeech 3.3.1`<br>`android.car` (`CarUxRestrictions`) |
+| **QR·보안** | ZXing Core 3.5.3 · Android Keystore 암호화 |
+| **배포** | GitHub Releases 서명 APK · JUnit · Android Lint |
 
 ---
 
-## 6. 현재 구현 및 검증 범위
+## 3. 실행 방법 · 테스트 환경 · 검증 범위
 
-**기준일: 2026년 10월 30일**
+> [!IMPORTANT]
+> **기본 내비 실행 제한 · 2026년 11월 12일 관찰**: Pleos Connect 2.1.0의 Navi42 `3.3.2-rc5-hotfix.3`이 지도 인증 응답의 `profile` 항목을 처리하지 못해 지도 초기화에 실패하는 현상을 확인했다. 마중을 실행하지 않은 콜드부팅에서도 재현됐다. 마중 APK 재설치나 NaviHelper 버전 변경으로 해결됐다고 확인한 상태는 아니며, 수정된 내비 APK·에뮬레이터 이미지와 적용 방법을 운영사무국에 문의했다. 11월 10일 정상 시연 기록과 이후 관찰한 환경 오류를 구분한다. [증상과 확인 범위](https://github.com/majung-team/majung-vehicle-app/blob/main/docs/navigation-environment.md).
 
-### 구현된 주요 기능
+### APK 위치 및 실행 방법
+- **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.35-preview`, `versionCode 37`, 정식 서명)
+- **GitHub Releases**: [v0.2.35-preview.20261114](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.35-preview.20261114)
 
-- 차량 최초 QR 등록 및 운전자 계정 연결
-- 연결된 사람 직접 초대
-- QR 기반 초대 링크 전달
-- 탑승자의 픽업 요청 수락
-- 여러 요청의 순차 처리
-- SDK 경로·위치·ETA 확인
-- 장소 변경 제안 및 경로 검증
-- 준비 상태 수신
-- 주행 제한에 따른 화면 전환
-- 선택적 음성 안내
-- 백그라운드 공유
-- 픽업 완료·취소 및 복구 처리
+```sh
+# 1) Pleos Connect v2.1.0 에뮬레이터에 Release APK 설치 및 실행
+adb install -r apk/마중_마중_release.apk
 
-### 수행한 검증
+# 2) 소스 빌드 및 단위 테스트 / 린트 실행
+./gradlew :vehicle:testDebugUnitTest :vehicle:lintDebug :vehicle:assembleDebug --no-daemon
+```
 
-- 공식 Pleos 에뮬레이터 기반 주요 기능 확인
-- SDK 경로·ETA 및 연결 시험
-- 로컬 API 기반 픽업 흐름 시험
-- 차량 상태 및 화면 관련 자동화 테스트
-- 백그라운드 공유와 재실행 복구 관련 시험
+1. 에뮬레이터에서 마중 앱을 실행하면 차량 연결 QR 코드가 표시됩니다.
+2. 휴대전화 브라우저로 QR을 스캔하거나 [`https://majung.cloud/account`](https://majung.cloud/account)에 카카오 로그인해 차량을 연결합니다.
+3. 다른 카카오 계정(탑승자)으로 픽업을 요청하거나 차량에서 초대 링크를 생성해 전체 픽업 흐름을 확인할 수 있습니다.
 
-### 추가 검증이 필요한 항목
+### 테스트 환경 및 필요한 설정
+- **빌드 · 실행 요구사항**: `minSdk 28` / `targetSdk 34`, Gradle, Java 17(JDK 25)
+- **백엔드 연결**: 별도 서버 키 설정 없이 공개 운영 서버(`https://majung.cloud`)로 기본 연결되며, 저장소에 비밀값이나 keystore를 포함하지 않습니다.
+- **필요 준비물**: Pleos Connect 공식 에뮬레이터(`NaviHelper 3.0.5`, `TextToSpeech 3.3.1` 탑재), 카카오 계정 2개(운전자·탑승자), 위치 권한 허용
 
-- 실제 휴대전화와 차량 앱 간 전체 픽업 흐름
-- 실제 차량 환경에서의 동작
-- 차량 시동 OFF/ON 및 장시간 실행
-- 실제 스피커 음성 출력
-- 통화와 TTS 안내 우선순위
-- 실차 주행 제한 상태
-- 앱마켓 배포 및 심사
-
-### 알려진 이슈
-
-**내비게이션 취소 후 상태 유지**
-
-과거 공식 에뮬레이터 시험에서 `cancelRoute` 호출 후 `ROUTE_GUIDING` 상태가 유지된 기록이 있다. 10/31 복제 AVD의 저장 정보를 지운 환경에서는 SDK 직접 취소 2회와 전체 경로 복구 시험이 모두 통과했다.
-
-[GitHub Issue #56](https://github.com/majung-team/majung-vehicle-app/issues/56)
-
-이 문제는 SDK 경로 취소 동작의 시험 결과다.
-
-마중의 픽업 완료·취소는 서버 위치 공유를 종료하며, 이 과정에서 내비게이션 안내를 취소하는 명령을 호출하지 않는다.
-
-과거 실패 원인은 확정하지 않았으며 재발 시 실행 환경과 함께 다시 확인한다. 현재 버전 재시험 통과 근거는 [시험 기록](evidence/2026-10-31-sdk-cancel/README.md)에 있다.
+| 구분 | 범위 |
+| --- | --- |
+| **에뮬레이터** | `Pleos Connect v2.1.0` (`Android 14`, `arm64-v8a`)<br>`Pleos_Connect_v2_0` · `2560 × 1440 px` (`160 dpi`)<br>SDK `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
+| **확인&nbsp;완료** | 단위 테스트(72)·Lint · 에뮬레이터(`0.2.29` 시연·`0.2.34` 설치)<br>QR 팝업 · 내비 알림 유지 · 경로·ETA·TTS · 재개 복구 |
+| **실차&nbsp;확인** | 실차 주행 · 스피커/통화 우선순위 · 주행 제한<br>시동 OFF/ON 복구 · 실기기 E2E · 앱마켓 심사 |
 
 ---
 
-## 7. 기술 문서
+## 4. 상세 문서 및 관련 저장소
 
-### 사용자 화면 및 기능
-
-| 문서 | 내용 |
+| 분류 | 문서 |
 | --- | --- |
-| [화면과 사용 순서](docs/service-screens.md) | 픽업, 받은 요청, 설정 화면 |
-| [QR 최초 연결](docs/vehicle-enrollment.md) | 차량 등록 및 운전자 계정 연결 |
-| [요청 및 다음 픽업](docs/request-pickup-flow.md) | 경로 검증, 명시적 시작, 대기열 및 복구 |
-| [계정 및 요청](docs/vehicle-account-requests.md) | 운전자와 탑승자 연결 및 요청 |
-| [음성 안내](docs/pickup-voice.md) | Pleos TTS 설정 및 동작 |
-
-### 내부 구조 및 SDK
-
-| 문서 | 내용 |
-| --- | --- |
-| [차량 화면 구조](docs/vehicle-screen.md) | MainActivity 및 화면 영역 |
-| [저장 및 복구](docs/pickup-recovery.md) | Keystore 암호화, 서버 확인 및 재개 |
-| [백그라운드 공유](docs/background-sharing.md) | 공유 서비스 및 종료 감지 |
-| [주행 중 요약 화면](docs/driving-summary.md) | 시스템 제한 및 읽기 전용 UI |
-| [SDK 콜백 측정](docs/sdk-callback-timing.md) | 에뮬레이터 측정 및 제약 사항 |
-| [팝업·새로고침 개선](docs/dialog-refresh-2026-10-28.md) | 지연 응답, 중복 조회 및 UI 개선 |
-| [Release 서명](docs/release-signing.md) | 서명 설정 및 APK 빌드 |
-
-### 프로젝트 공통 문서
-
-- [전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md)
-- [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
-- [시연 영상](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md)
-- [팀 테스트 안내](https://github.com/majung-team/majung/blob/main/docs/team-testing.md)
-- [개발 계획](docs/revised-plan.md)
-- [기여 가이드](CONTRIBUTING.md)
-
----
-
-## 8. 관련 저장소
+| **화면&nbsp;·&nbsp;기능** | [화면과 사용 순서](docs/service-screens.md) · [QR 최초 연결](docs/vehicle-enrollment.md)<br>[요청 및 다음 픽업](docs/request-pickup-flow.md) · [계정 및 요청](docs/vehicle-account-requests.md) · [음성 안내](docs/pickup-voice.md) |
+| **내부&nbsp;·&nbsp;SDK** | [차량 화면 구조](docs/vehicle-screen.md) · [저장 및 복구](docs/pickup-recovery.md)<br>[백그라운드 공유](docs/background-sharing.md) · [주행 중 요약 화면](docs/driving-summary.md) · [Release 서명](docs/release-signing.md) |
+| **프로젝트&nbsp;공통** | [전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [개발 현황](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시연 영상](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md)<br>[팀 테스트 안내](https://github.com/majung-team/majung/blob/main/docs/team-testing.md) · [Wiki 기술 회고](https://github.com/majung-team/majung/wiki#%EA%B8%B0%EC%88%A0-%ED%9A%8C%EA%B3%A0) · [기여 가이드](CONTRIBUTING.md) |
 
 | 저장소 | 역할 |
 | --- | --- |
-| [majung](https://github.com/majung-team/majung) | 프로젝트 소개, 설계 및 시연 |
-| [majung-backend](https://github.com/majung-team/majung-backend) | Spring Boot API, 픽업 및 계정 관리 |
-| [majung-web](https://github.com/majung-team/majung-web) | 탑승자 모바일 웹 |
-| [majung-vehicle-app](https://github.com/majung-team/majung-vehicle-app) | 차량 앱 및 Pleos SDK 연동 |
-
----
-
-## 참고 사항
-
-마중 차량 앱은 공식 Pleos 에뮬레이터를 기반으로 개발한 프로젝트다.
-
-현재 주요 기능 구현 및 에뮬레이터 검증 결과를 제공하지만, 실제 차량에서의 동작과 상용 배포 가능 여부는 별도 확인이 필요하다.
-
-기능별 구현 이력과 검증 범위는 GitHub PR 및 개발 문서에서 확인할 수 있다.
-
-## 화면과 조작 개선
-
-요청 목록에서 다음 행동을 표시하고, 이름과 메시지를 분리했다. 설정은 기본 스크롤로 통일했다. [변경 내용과 확인 범위](docs/usability-2026-11-05.md)를 참고한다.
-
-[픽업 주요 버튼·대기자 표시](docs/pickup-action-dock.md): 긴 내용 아래로 도착·완료 버튼이 밀리지 않도록 보완했다.
-
-첫 픽업의 위치 권한·자동 공유 흐름은 [위치 권한 안내](docs/location-permission-2026-11-06.md)에서 확인할 수 있습니다.
+| [majung](https://github.com/majung-team/majung) | 전체 서비스 소개 · 설계 · 시연 |
+| [majung-vehicle-app](https://github.com/majung-team/majung-vehicle-app) | AAOS 차량 앱 및 Pleos SDK 연동 |
+| [majung-web](https://github.com/majung-team/majung-web) | 운전자 · 탑승자 모바일 웹 |
+| [majung-ios](https://github.com/majung-team/majung-ios) | SwiftUI iOS 모바일 앱 |
+| [majung-backend](https://github.com/majung-team/majung-backend) | Spring Boot API 및 운영 배포 |

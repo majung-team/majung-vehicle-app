@@ -95,7 +95,7 @@ class DestinationReader(private val context: Context) {
     private var insertion: WaypointInsertion? = null
     private var placeChange: PickupPlaceChange? = null
     private var reviewedProposal: PickupPlace? = null
-    val checkingPlaceProposal: Boolean get() = pendingPlaceChange != null || (placeChange != null && route == null)
+    val checkingPlaceProposal: Boolean get() = pendingPlaceChange != null || ((placeChange != null || reviewedProposal != null) && route == null)
     private var requiredInsertion: WaypointInsertion? = null
     private val recentRecovery = WaypointRecentRecovery()
     private var recentRequestPending = false
@@ -325,7 +325,7 @@ class DestinationReader(private val context: Context) {
         requiredInsertion = null
         insertion = null
         invalidateRoute()
-        query()
+        if (connected) query() else connect()
     }
 
     fun changePickupPlace(old: PickupPlace, next: PickupPlace, proposalId: String): Boolean {

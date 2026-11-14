@@ -76,6 +76,42 @@ class PickupSharingServiceTest {
         }
     }
 
+    @Test fun passengerJoinsAndSendsAlertsWhileActivityIsStopped() {
+        val main = InstrumentationRegistry.getInstrumentation()
+        val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
+        val api = PickupApiClient()
+        assertTrue("Grant location permission before this test", PickupSharingService.hasLocationPermission(app))
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            main.runOnMainSync { app.pickup.prepareNextPickup(); app.destination.connect() }
+            await(20000) { app.pickup.canCreate && app.destination.selection.current(SystemClock.elapsedRealtime()) != null }
+            main.runOnMainSync { app.pickup.create(app.destination.selection.current(SystemClock.elapsedRealtime())!!) }
+            await { app.pickup.pickupId != null && !app.pickup.busy }
+            var invitation: String? = null
+            main.runOnMainSync { invitation = app.pickup.invitationForHostBrowser() }
+            val parts = URI(invitation!!).fragment.split('/')
+            val id = parts[1]
+            assertTrue("Must not start sharing before a passenger connects", !app.sharingRunning)
+            // Driver switches to Navigation immediately while pickup is still INVITING.
+            scenario.moveToState(Lifecycle.State.CREATED)
+            val guest = api.request("POST", "/$id/participants", body = JSONObject()
+                .put("inviteToken", parts[2]).put("displayName", "내비 화면 중 탑승자"))
+            val token = guest.getString("participantToken")
+            try {
+                // Without reopening MainActivity, background polling activates sharing and publishes fresh ETA.
+                await(20000) { app.pickup.status == "ACTIVE" && app.sharingRunning }
+                val state = awaitFresh(api, id, token)
+                assertTrue(state.optString("freshness") == "FRESH")
+                api.request("PUT", "/$id/readiness", token, JSONObject().put("readiness", "READY").put("sequence", 1))
+                api.request("PUT", "/$id/place-proposal", token, JSONObject().put("place", JSONObject()
+                    .put("label", "내비 화면 중 새 장소").put("latitude", 37.5).put("longitude", 127.04)))
+                await(15000) { app.pickup.readiness == "READY" && app.pickup.placeProposal?.label == "내비 화면 중 새 장소" }
+            } finally {
+                main.runOnMainSync { app.pickup.cancel() }
+                await { !app.sharingRunning }
+            }
+        }
+    }
+
     private fun awaitFresh(api: PickupApiClient, id: String, token: String): JSONObject {
         val end = SystemClock.elapsedRealtime() + 20000
         while (SystemClock.elapsedRealtime() < end) {

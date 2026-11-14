@@ -448,5 +448,14 @@ SDK 응답과 경로 검증에는 실제 처리 시간이 필요하므로 모든
 - [UI 점검 기록](ui-audit-2026-10-28.md)
 - [저장 및 복구](pickup-recovery.md)
 - [프로젝트 전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md)
+- [Wiki: 내비 화면·주행 제한·헤드업 알림 회고](https://github.com/majung-team/majung/wiki/%EB%82%B4%EB%B9%84-%ED%99%94%EB%A9%B4%EB%A7%8C-%EB%B3%B4%EA%B3%A0-%EC%9E%88%EC%96%B4%EB%8F%84-%EC%9A%94%EC%B2%AD%EA%B3%BC-%EB%A9%94%EC%8B%9C%EC%A7%80%EB%A5%BC-%EC%95%8C%EB%A6%B4-%EC%88%98-%EC%9E%88%EC%9D%84%EA%B9%8C)
 
 화면 구성은 기능 변경에 따라 달라질 수 있으며, 날짜가 포함된 이미지는 해당 시점의 UI 검증 기록으로 유지한다.
+
+### 2026-11-12 후속 반영 (`0.2.33-preview`)
+
+- `fcd03dc` (`#115`), `58b80f5` (`#117`), `214f2ad` (`#119`), `07f0b60` (`#125`), `fbd5d09`, `6d599f1` (`#132`), `ad3ffd6`를 거쳐 스크롤·메시지 가독성, 하단 주요 동작 고정, 첫 픽업 위치 권한·공유 안내, 만료 초대 QR 재발급, 내비 복귀 복구, QR 자동 확인 팝업이 반영됐다. (직전 시연 `0.2.29-preview` 포함)
+
+### 2026-11-13 후속 보완 (`0.2.34-preview`)
+
+- `9983272` · `0.2.34-preview` (`127c146`, `versionCode 36`): 주행 중 빠른 메시지 알림 시 내비 화면 이탈과 전체 화면 강제 전환을 막기 위해 `USE_FULL_SCREEN_INTENT`·`setFullScreenIntent`를 제거하고, `PickupNotificationPolicy`·`NotificationDismissReceiver`를 통해 빠른 메시지 본문·`[확인]` 탭 시 마중 앱 전환 없이 알림만 닫고 중복 `Toast`를 억제하도록 보완해 Release APK(`0.2.34-preview`)로 반영했다.

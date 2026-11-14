@@ -486,6 +486,8 @@ Release 빌드의 네트워크 보안 설정은 변경하지 않았다.
 - [요청에서 픽업 시작하기](request-pickup-flow.md)
 - [전체 시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md)
 - [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)
+- [Wiki: 앱 종료·내비 복귀·복구 회고](https://github.com/majung-team/majung/wiki/%EC%95%B1%EC%9D%B4-%EA%BA%BC%EC%A7%80%EA%B1%B0%EB%82%98-%EB%82%B4%EB%B9%84%EC%97%90%EC%84%9C-%EB%8F%8C%EC%95%84%EC%99%80%EB%8F%84-%ED%94%BD%EC%97%85%EC%9D%80-%EC%9D%B4%EC%96%B4%EC%A7%88%EA%B9%8C)
+- [Wiki: 내비 경유지·무한 루프 방지 회고](https://github.com/majung-team/majung/wiki/Pleos-%EB%82%B4%EB%B9%84%EA%B0%80-%EA%B2%BD%EC%9C%A0%EC%A7%80-%EC%A2%8C%ED%91%9C-0%EC%9D%84-%EB%8F%8C%EB%A0%A4%EC%A4%84-%EB%95%8C-%EA%B2%BD%EB%A1%9C%EB%8A%94-%EC%96%B4%EB%96%BB%EA%B2%8C-%EC%A7%80%ED%82%AC%EA%B9%8C)
 
 ### 공식 참고 자료
 

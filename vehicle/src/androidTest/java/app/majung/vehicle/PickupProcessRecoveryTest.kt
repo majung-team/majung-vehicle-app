@@ -81,8 +81,14 @@ class PickupProcessRecoveryTest {
                 app.destination.telemetry.destination(app.pickup.place!!, 110, now, Instant.now())
                 app.pickup.syncVehicle(app.destination)
             }
-            await { app.pickup.vehicleMessage == "SDK 위치·ETA를 서버에 전달했어요" }
-            assertTrue(api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken).getLong("sequence") == 501L)
+            val end = SystemClock.elapsedRealtime() + 15000
+            var updated = false
+            while (!updated && SystemClock.elapsedRealtime() < end) {
+                val state = api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken)
+                updated = state.optLong("sequence") == 501L && state.optString("freshness") == "FRESH"
+                if (!updated) SystemClock.sleep(100)
+            }
+            assertTrue("The restored pickup should publish fresh telemetry with the next sequence", updated)
             assertTrue(store.load()?.vehicleSequence == 501L)
             main.runOnMainSync { app.pickup.arrive() }
             await { app.pickup.status == "ARRIVED" && !app.pickup.busy }
