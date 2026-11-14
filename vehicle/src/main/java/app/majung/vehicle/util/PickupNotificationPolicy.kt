@@ -23,7 +23,7 @@ internal object PickupNotificationPolicy {
         PickupAlertKind.QUICK_MESSAGE -> PickupAlertBehavior(
             useFullScreenIntent = false,
             tapBehavior = AlertTapBehavior.DISMISS_ONLY,
-            showOverlayToast = false,
+            showOverlayToast = true,
         )
         PickupAlertKind.PLACE_PROPOSAL -> PickupAlertBehavior(
             useFullScreenIntent = false,

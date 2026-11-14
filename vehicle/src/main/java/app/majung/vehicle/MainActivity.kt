@@ -53,6 +53,7 @@ class MainActivity : Activity() {
     private var permissionRequestInFlight = false
     private val permissionPreferences by lazy { getSharedPreferences("location-permission", MODE_PRIVATE) }
     private var permissionAttempted = false
+    private var notificationPermissionAttempted = false
     private lateinit var resumeButton: Button
     private var selectedTab = "pickup"
     private lateinit var createGroup: LinearLayout
@@ -89,6 +90,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         permissionAttempted = permissionPreferences.getBoolean("requested", false)
+        notificationPermissionAttempted = permissionPreferences.getBoolean("notification_requested", false)
         val layout = object : LinearLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
                 val maximum = (1360 * resources.displayMetrics.density).toInt()
@@ -345,6 +347,11 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        if (app.sharingNotice.accepted && !app.pickup.needsSharingConfirmation &&
+            PickupSharingService.hasLocationPermission(this) && !app.serviceRunning &&
+            app.pickup.status in setOf("INVITING", "WAITING_APPROVAL", "ACTIVE", "ARRIVED")) {
+            runCatching { startForegroundService(Intent(this, PickupSharingService::class.java)) }
+        }
         resumed = false
         app.activityResumed = false
         super.onPause()
@@ -356,9 +363,12 @@ class MainActivity : Activity() {
         handler.removeCallbacks(tick)
         app.pickup.changed = null
         app.account.changed = null
-        if (!app.sharingRunning && !startRequested) {
-            // Pleos can bring navigation forward while a route request is in flight.
-            if (app.destination.addingWaypoint || app.destination.checkingPlaceProposal ||
+        if (!app.sharingRunning && !app.serviceRunning && !startRequested) {
+            if (app.sharingNotice.accepted && !app.pickup.needsSharingConfirmation &&
+                PickupSharingService.hasLocationPermission(this) &&
+                app.pickup.status in setOf("INVITING", "WAITING_APPROVAL", "ACTIVE", "ARRIVED")) {
+                // Keep DestinationReader connected in standby for backgroundPoller.
+            } else if (app.destination.addingWaypoint || app.destination.checkingPlaceProposal ||
                 app.requestFlow.stage == RequestPickupFlow.Stage.PREPARING) {
                 handler.postDelayed(disconnectIdleNavigation, 50000)
             } else app.destination.disconnect()
@@ -429,12 +439,43 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun isRunningInstrumentationTest(): Boolean = try {
+        val registry = Class.forName("androidx.test.platform.app.InstrumentationRegistry")
+        registry.getMethod("getInstrumentation").invoke(null) != null
+    } catch (_: Throwable) {
+        false
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33 || !resumed || !driving.allowed || !app.sharingNotice.accepted ||
+            permissionRequestInFlight || notificationPermissionAttempted || isRunningInstrumentationTest()) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionAttempted = true
+            permissionPreferences.edit().putBoolean("notification_requested", true).apply()
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
+        }
+    }
+
     private fun launchLocationPermission() {
         if (!resumed || !driving.allowed || permissionRequestInFlight) return
         permissionAttempted = true
         permissionPreferences.edit().putBoolean("requested", true).apply()
         permissionRequestInFlight = true
-        requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 32)
+        val permissions = if (Build.VERSION.SDK_INT >= 33) {
+            notificationPermissionAttempted = true
+            permissionPreferences.edit().putBoolean("notification_requested", true).apply()
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.POST_NOTIFICATIONS,
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            )
+        }
+        requestPermissions(permissions, 32)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -444,7 +485,10 @@ class MainActivity : Activity() {
             app.sharingMessage = if (PickupSharingService.hasLocationPermission(this)) "공유 시작 준비 중"
                 else "위치 권한이 꺼져 있어 차량 위치와 도착 시간을 공유하지 않아요"
             if (Build.VERSION.SDK_INT >= 33 && PickupSharingService.hasLocationPermission(this) &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+                !notificationPermissionAttempted) {
+                notificationPermissionAttempted = true
+                permissionPreferences.edit().putBoolean("notification_requested", true).apply()
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
             }
             startRequested = false
@@ -462,6 +506,9 @@ class MainActivity : Activity() {
             return
         }
         noticeScreen.visibility = View.GONE
+        if (PickupSharingService.hasLocationPermission(this)) {
+            maybeRequestNotificationPermission()
+        }
         app.requestFlow.tick()
         if (app.requestFlow.stage == RequestPickupFlow.Stage.DONE) {
             val place = app.pickup.place
@@ -523,6 +570,9 @@ class MainActivity : Activity() {
                 app.destination.disconnect()
                 app.sharingMessage = "위치 권한을 확인한 뒤 다시 시작해주세요"
             }
+        } else if (resumed && app.sharingNotice.accepted && !app.pickup.needsSharingConfirmation &&
+            hasLocation && !app.serviceRunning && app.pickup.status in setOf("INVITING", "WAITING_APPROVAL")) {
+            runCatching { startForegroundService(Intent(this, PickupSharingService::class.java)) }
         }
         restrictionText.updateText(if (driving.allowed) "●  정차 중 · 조작 가능" else
             "주행 제한 또는 차량 상태 미확인으로 조작을 잠갔어요. 안전하게 정차한 뒤 확인해주세요")
