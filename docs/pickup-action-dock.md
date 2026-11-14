@@ -10,8 +10,17 @@
 
 - 단위 시험·lintDebug·assembleDebug 통과
 - 공식 Pleos 2.1 에뮬레이터의 `PickupActionDockTest` 1개 통과: 스크롤 전후 주요 버튼 위치, 전체 너비/높이 노출, ACTIVE→ARRIVED 때 버튼 전환 확인
-- 시험용 상태와 로컬 비응답 API를 사용했다. 운영 픽업·초대는 만들지 않았다.
+- 11월 14일 재검사에서는 로컬 HTTP 서버의 실제 도착 응답으로 ACTIVE→ARRIVED를 전환했다. 위치 권한 창·공유 서비스는 복구 확인 대기 상태로 분리했다. 화면 회귀 자체는 운영 픽업·초대를 만들지 않는다.
 - release와 같은 키로 서명한 debug/시험 APK로 설치해 시험했다. 기존 앱 데이터를 삭제하지 않았다.
 - 기존 VehicleReadabilityTest의 ActivityScenario 종료 대기 이슈 #116은 별개로 남아 있다. 이번 시험은 ActivityScenario의 DESTROYED 대기 대신 일반 Activity 종료로 정리한다.
 
 ![고정된 탑승 완료 버튼 · 예시 상태](media/pickup-action-dock-20261105.png)
+
+## 11월 14일 회귀 보완
+
+- 운전자 요약의 진행 중 1건과 받은 요청의 수락 대기 1건을 각각 확인한다. 합계 2건을 운전자 요약에 기대하지 않는다.
+- 위치 권한이 없는 별도 시험 앱에서 ACTIVE 응답을 받은 뒤 서비스 시작을 시도해도 공유가 켜지지 않고, 위치 쓰기 요청·전송 순번 증가가 없는지 확인한다. Android 권한 창을 누르는 시험과 구분한다.
+- 회귀 실행 시 QR의 웹 주소는 HTTPS가 필요하므로 `-PpickupApi=https://majung.cloud`를 지정한다. 계정·픽업 요청은 검사에서 주입한 로컬 HTTP 서버가 처리한다.
+- 운영 브라우저 검사는 `publicBrowser=true`로 별도 실행한다. 기존 진행 중 픽업이 있으면 건너뛰고, 정리는 이번 검사에서 만든 픽업에만 적용한다.
+- 브라우저의 도착 확인 뒤 `browserFinishMessage` 인수에 지정한 시험 메시지를 보내면 완료 단계로 진행한다. 앱 내부 파일에 접근할 필요가 없다.
+- 복귀 완료 검사는 `browserFinishPickupId`로 명시한 ARRIVED 픽업과 저장된 픽업이 일치할 때만 완료한다.
