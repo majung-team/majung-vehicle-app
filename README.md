@@ -1,124 +1,93 @@
 <div align="center">
-  <img src="docs/media/majung-icon.png" width="76" alt="마중 아이콘" />
-  <h1>마중 차량 앱 (Majung Vehicle App)</h1>
-  <p>Pleos Connect와 Android Automotive OS(AAOS) 환경에서 운전자가 픽업 장소를 확인하고, 초대·요청 수락과 실시간 위치·ETA 공유를 관리하는 차량용 앱입니다.</p>
-  <p>
-    <a href="https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115">APK 다운로드 (0.2.36-preview)</a> ·
-    <a href="https://majung.cloud/account">모바일 웹</a> ·
-    <a href="https://github.com/majung-team/majung">마중 프로젝트</a> ·
-    <a href="https://github.com/majung-team/majung/wiki">Wiki</a> ·
-    <a href="https://github.com/majung-team/majung/blob/main/docs/development-status.md">개발 현황</a>
-  </p>
+  <img src="docs/media/majung-icon.png" width="72" alt="마중" />
+  <h1>마중 차량 앱</h1>
+  <p>내비를 보는 동안에도, 기다리는 사람의 준비 상태를 알 수 있도록.</p>
+  <p><a href="https://github.com/majung-team/majung-vehicle-app/releases">서명 APK</a> · <a href="https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md">시연 영상</a> · <a href="https://github.com/majung-team/majung">서비스 소개</a> · <a href="https://github.com/majung-team/majung/wiki">기술 회고</a></p>
 </div>
 
-> 공식 Pleos Connect 에뮬레이터(`0.2.36-preview`)를 중심으로 개발·검증 중이며, 실제 차량 주행 및 앱마켓 입점 심사는 아직 진행하지 않았습니다.
+## 운전자는 내비를 계속 본다
 
----
+탑승자가 ‘지금 내려가요’를 보내면 내비 화면 위 알림과 Pleos 음성 안내로 전달한다. 메시지의 **확인**은 알림만 닫아 길안내를 유지한다. 장소 변경 제안은 **수락 및 내비 변경**으로 경로를 바꾸고 실제 반영 결과를 확인한다.
 
-## 1. 주요 기능
+새 마중 요청의 **요청 확인**은 마중 앱을 연다. 새 요청을 알림에서 바로 수락해 픽업을 시작하는 기능과, 이미 진행 중인 픽업의 장소 제안 수락은 서로 다르다.
 
-### 차량 연결 · 픽업 초대 및 요청
-- **QR 차량 연결 · 초대**: 차량 화면의 QR 코드를 휴대전화로 스캔해 운전자 계정을 연결하고, 연결된 지인을 바로 초대하거나 비회원용 QR 초대 링크를 만듭니다.
-- **요청 대기열 관리**: 탑승자가 먼저 보낸 픽업 요청을 대기열로 받아 한 번에 한 건씩 진행하며, 완료 후 다음 요청을 이어갑니다.
+| 상황 | 차량 앱의 처리 |
+| --- | --- |
+| 처음 연결 | 휴대전화로 차량 QR을 열고 요청한 계정을 차량에서 확인 |
+| 픽업 만들기 | 내비 목적지·경유지 확인 후 지인 또는 링크로 초대 |
+| 탑승자가 먼저 요청 | 수락해 대기열에 추가, 차례가 되면 경로 준비 후 시작 |
+| 내비로 화면 이동 | 시작한 위치·도착 시간 공유 유지 |
+| 주행 중 | 차량 UX 제한에 따라 조작 화면을 닫고 읽기 전용 요약 표시 |
+| 탑승 완료·취소 | 위치 공유와 픽업 접근 정보 정리 |
 
-### 내비게이션 연동 · 장소 변경
-- **Pleos 내비 연동**: 내비게이션의 현재 경로, 최종 목적지, 경유지, 차량 위치, 예상 도착 시간(ETA)을 읽어 서버와 공유합니다.
-- **장소 변경 원터치 수락**: 탑승자가 새 만날 장소를 제안하면 상단 헤드업 알림이나 앱 화면의 **`[수락 및 내비 변경]`** 버튼으로 내비 경유지를 재탐색하고 확정합니다(확정 전까지는 기존 장소 유지).
+주행 중 도착·완료 버튼을 누르는 방식이 아니다. 차량이 조작을 허용하는 상태에서 운전자가 탑승 완료를 확인한다. 도착은 내비 목표 일치·거리·남은 시간 조건을 함께 사용하며, 도착 시간이 0이라고 탑승까지 자동 완료하지 않는다.
 
-### 주행 안전 · 음성 안내 (TTS)
-- **주행 중 요약 화면**: `CarUxRestrictions`에 따라 주행 중에는 상세 조작을 제한하고 핵심 정보와 도착·완료 버튼만 노출합니다.
-- **헤드업 알림 · TTS 음성 낭독**: 내비 화면만 보는 중에도 신규 요청·장소 제안·탑승자 메시지(빠른 칩·직접 입력)를 상단 헤드업 알림과 기본 켜짐 TTS 음성(정차 중 설정 가능)으로 안내하며, 빠른 메시지 확인 시에는 내비 화면에서 벗어나지 않고 알림만 닫힙니다.
-- **자동 도착 감지 · 종료**: 약속 장소 반경 100m·잔여 30초 이내로 접근하면 자동 도착을 알리며, 픽업 완료·취소 시 위치 공유를 즉시 종료합니다.
+## 내비 응답을 그대로 믿을 수 없을 때
 
-### 연결 복구 · 데이터 보호
-- **강제 종료 후 재개 확인**: 앱이 비정상 종료된 뒤 다시 켜지면 서버 상태와 저장된 세션을 확인해 운전자 확인 후 안전하게 이어가거나 취소합니다.
-- **암호화 저장**: 픽업 복구에 필요한 세션 자격증명은 Android Keystore에 암호화해 보관합니다.
+- **경유지 좌표 누락** — `(0, 0)` 응답은 장소 식별자가 한 건씩 일치할 때만 알고 있는 좌표로 보완한다. 확인할 수 없으면 재선택을 안내한다.
+- **경로 변경 도중 화면 이동** — 경유지 추가 작업이 끝나기 전에 내비 연결을 끊지 않도록 처리한다.
+- **앱 강제 종료 후 복구** — 저장된 픽업으로 서버 상태를 먼저 확인하고, 운전자가 재개한 뒤 새 내비 정보를 전송한다. 좌표·ETA를 저장해 그대로 다시 보내지 않는다.
 
----
+[경유지 좌표 처리](docs/waypoint-coordinates.md) · [픽업 저장·복구](docs/pickup-recovery.md) · [백그라운드 공유](docs/background-sharing.md)
 
-## 2. 시스템 구성 및 기술 스택
+## 설치와 첫 연결
+
+최신 게시 APK는 **0.2.36-preview · versionCode 38**이다. [Releases](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115) 또는 [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk)에서 받는다.
+
+```sh
+adb install -r apk/마중_마중_release.apk
+```
+
+1. Pleos 에뮬레이터에서 마중을 실행하고 필요한 위치 권한을 허용한다.
+2. 차량 QR을 휴대전화로 열어 카카오 계정을 연결한다.
+3. 지인을 초대하거나, 탑승자가 웹에서 보낸 요청을 차량에서 확인한다.
+
+게시된 Release APK는 `https://majung.cloud`에 연결된다. 직접 빌드하는 Debug 앱의 기본 주소는 로컬 서버이므로 운영 서버를 쓰려면 아래처럼 지정한다.
+
+```sh
+./gradlew :vehicle:assembleDebug -PpickupApi=https://majung.cloud --no-daemon
+./gradlew :vehicle:testDebugUnitTest :vehicle:lintDebug --no-daemon
+```
+
+Android SDK 34와 JDK 25를 사용하며 Java 17 대상으로 컴파일한다. Pleos 의존성 저장소 설정은 [settings.gradle.kts](settings.gradle.kts), 서명 키 설정은 [Release 서명 안내](docs/release-signing.md)에서 확인한다. Release 서명 키는 저장소에 포함하지 않는다.
+
+## 구조와 사용 기술
 
 ```mermaid
 flowchart LR
-    SDK["Pleos SDK (NaviHelper · TTS)"] -->|"경로 · 위치 · ETA · 음성"| Vehicle["차량 앱 (AAOS · Kotlin)"]
-    Car["CarUxRestrictions"] -->|"주행 제한 상태"| Vehicle
-    Vehicle -->|"HTTPS 상태 · 위치 · ETA"| API["마중 백엔드 (/api/v1)"]
-    API -->|"승인 요청 · 준비 상태 · 장소 제안"| Vehicle
+    Navi["NaviHelper"] -->|"경로 · 위치 · ETA"| App["차량 앱"]
+    UX["CarUxRestrictions"] -->|"조작 제한"| App
+    App <-->|"HTTPS"| API["마중 API"]
+    App --> TTS["Pleos TextToSpeech"]
 ```
 
-### 패키지 구조
-
-```text
-vehicle/src/main/java/app/majung/vehicle/
-├── MainActivity.kt              # 화면 생명주기 및 루트 UI
-├── VehicleApplication.kt        # 전역 초기화 및 의존성 구성
-├── ui/sections/                 # 계정 · 픽업 생성 · 요청 · 초대 · 주행 요약 화면
-├── navi/                        # Pleos NaviHelper SDK 연동 · 경로 검증 · 텔레메트리
-├── domain/                      # 픽업 컨트롤러 · 권한 · 주행 제한 · 장소 변경 상태
-├── data/                        # 백엔드 HTTPS API 클라이언트 및 Keystore 암호화 저장소
-├── service/                     # 백그라운드 위치·ETA 공유 포그라운드 서비스
-└── util/                        # Pleos TTS 음성 안내 · QR 생성 · 헤드업 알림
-
-probe/                           # Pleos SDK 동작 확인용 진단 모듈 (일반 배포 제외)
-```
-
-### 기술 스택
-
-| 구분 | 구성 |
+| 구성 | 역할 |
 | --- | --- |
-| **플랫폼** | Kotlin · Android Automotive OS<br>`minSdk 28` · `targetSdk 34` · Java 17 (JDK 25) |
-| **SDK** | Pleos `NaviHelper 3.0.5` · `TextToSpeech 3.3.1`<br>`android.car` (`CarUxRestrictions`) |
-| **QR·보안** | ZXing Core 3.5.3 · Android Keystore 암호화 |
-| **배포** | GitHub Releases 서명 APK · JUnit · Android Lint |
+| Kotlin · AAOS, minSdk 28 / targetSdk 34 | 차량 화면과 Android 서비스 |
+| NaviHelper 3.0.5 · TextToSpeech 3.3.1 | 내비 경로·위치·도착 시간, 음성 안내 |
+| Android Keystore · ZXing | 픽업 접근 정보 암호화, QR 생성 |
 
----
+<details>
+<summary>소스에서 기능 찾기</summary>
 
-## 3. 실행 방법 · 테스트 환경 · 검증 범위
+`vehicle/src/main/java/app/majung/vehicle/` 기준이다.
 
-> [!IMPORTANT]
-> **기본 내비 실행 제한 · 2026년 11월 12일 관찰**: Pleos Connect 2.1.0의 Navi42 `3.3.2-rc5-hotfix.3`이 지도 인증 응답의 `profile` 항목을 처리하지 못해 지도 초기화에 실패하는 현상을 확인했다. 마중을 실행하지 않은 콜드부팅에서도 재현됐다. 마중 APK 재설치나 NaviHelper 버전 변경으로 해결됐다고 확인한 상태는 아니며, 수정된 내비 APK·에뮬레이터 이미지와 적용 방법을 운영사무국에 문의했다. 11월 10일 정상 시연 기록과 이후 관찰한 환경 오류를 구분한다. [증상과 확인 범위](https://github.com/majung-team/majung-vehicle-app/blob/main/docs/navigation-environment.md).
+- `ui/sections/` — 연결·요청·초대·픽업·주행 요약 화면
+- `navi/` — SDK 연결·경로 확인·좌표와 ETA 처리
+- `domain/` — 픽업 상태·공유 시작·주행 제한
+- `service/` — 화면 밖 위치 공유와 알림 동작
+- `data/` — API 통신과 암호화 저장소
+- `util/` — 음성·QR·알림 정책
+- `probe/` 모듈 — SDK 진단용, 일반 배포 제외
 
-### APK 위치 및 실행 방법
-- **저장소 APK 파일**: [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk) (`0.2.36-preview`, `versionCode 38`, 정식 서명)
-- **GitHub Releases**: [v0.2.36-preview.20261115](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115)
+</details>
 
-```sh
-# 1) Pleos Connect v2.1.0 에뮬레이터에 Release APK 설치 및 실행
-adb install -r apk/마중_마중_release.apk
+## 시험 환경과 남은 범위
 
-# 2) 소스 빌드 및 단위 테스트 / 린트 실행
-./gradlew :vehicle:testDebugUnitTest :vehicle:lintDebug :vehicle:assembleDebug --no-daemon
-```
+공식 **Pleos Connect 2.1.0 · Android 14/API 34 · arm64-v8a · 2560×1440px/160dpi**에서 개발한다. 단위 시험·Lint·컴파일은 [Android CI](https://github.com/majung-team/majung-vehicle-app/actions)에서, SDK를 사용하는 기기 시험은 에뮬레이터에서 별도로 확인한다.
 
-1. 에뮬레이터에서 마중 앱을 실행하면 차량 연결 QR 코드가 표시됩니다.
-2. 휴대전화 브라우저로 QR을 스캔하거나 [`https://majung.cloud/account`](https://majung.cloud/account)에 카카오 로그인해 차량을 연결합니다.
-3. 다른 카카오 계정(탑승자)으로 픽업을 요청하거나 차량에서 초대 링크를 생성해 전체 픽업 흐름을 확인할 수 있습니다.
+> 11월 12일 기본 내비 자체의 지도 초기화 실패를 관찰했다. 마중 APK나 SDK 버전 변경으로 해결된 상태로 안내하지 않는다. [내비 환경과 문의 기록](docs/navigation-environment.md)
 
-### 테스트 환경 및 필요한 설정
-- **빌드 · 실행 요구사항**: `minSdk 28` / `targetSdk 34`, Gradle, Java 17(JDK 25)
-- **백엔드 연결**: 별도 서버 키 설정 없이 공개 운영 서버(`https://majung.cloud`)로 기본 연결되며, 저장소에 비밀값이나 keystore를 포함하지 않습니다.
-- **필요 준비물**: Pleos Connect 공식 에뮬레이터(`NaviHelper 3.0.5`, `TextToSpeech 3.3.1` 탑재), 카카오 계정 2개(운전자·탑승자), 위치 권한 허용
+[11월 10일 시연](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md)은 `0.2.29-preview` 기준이다. 최신 APK 설치·공유 확인 기록과 촬영 기록을 구분하며, 실차 주행·시동 OFF/ON·차량 스피커와 통화 간 음성 우선순위는 별도 확인 범위다.
 
-| 구분 | 범위 |
-| --- | --- |
-| **에뮬레이터** | `Pleos Connect v2.1.0` (`Android 14`, `arm64-v8a`)<br>`Pleos_Connect_v2_0` · `2560 × 1440 px` (`160 dpi`)<br>SDK `NaviHelper 3.0.5` · `TextToSpeech 3.3.1` |
-| **확인&nbsp;완료** | 단위 테스트(72)·Lint · 에뮬레이터(`0.2.29` 시연·`0.2.36` 설치)<br>QR 팝업 · 내비 알림 유지 · 경로·ETA·TTS · 재개 복구 |
-| **실차&nbsp;확인** | 실차 주행 · 스피커/통화 우선순위 · 주행 제한<br>시동 OFF/ON 복구 · 실기기 E2E · 앱마켓 심사 |
-
----
-
-## 4. 상세 문서 및 관련 저장소
-
-| 분류 | 문서 |
-| --- | --- |
-| **화면&nbsp;·&nbsp;기능** | [화면과 사용 순서](docs/service-screens.md) · [QR 최초 연결](docs/vehicle-enrollment.md)<br>[요청 및 다음 픽업](docs/request-pickup-flow.md) · [계정 및 요청](docs/vehicle-account-requests.md) · [음성 안내](docs/pickup-voice.md) |
-| **내부&nbsp;·&nbsp;SDK** | [차량 화면 구조](docs/vehicle-screen.md) · [저장 및 복구](docs/pickup-recovery.md)<br>[백그라운드 공유](docs/background-sharing.md) · [주행 중 요약 화면](docs/driving-summary.md) · [Release 서명](docs/release-signing.md) |
-| **프로젝트&nbsp;공통** | [전체 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [개발 현황](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시연 영상](https://github.com/majung-team/majung/blob/main/docs/pickup-demo.md)<br>[팀 테스트 안내](https://github.com/majung-team/majung/blob/main/docs/team-testing.md) · [Wiki 기술 회고](https://github.com/majung-team/majung/wiki#%EA%B8%B0%EC%88%A0-%ED%9A%8C%EA%B3%A0) · [기여 가이드](CONTRIBUTING.md) |
-
-| 저장소 | 역할 |
-| --- | --- |
-| [majung](https://github.com/majung-team/majung) | 전체 서비스 소개 · 설계 · 시연 |
-| [majung-vehicle-app](https://github.com/majung-team/majung-vehicle-app) | AAOS 차량 앱 및 Pleos SDK 연동 |
-| [majung-web](https://github.com/majung-team/majung-web) | 운전자 · 탑승자 모바일 웹 |
-| [majung-ios](https://github.com/majung-team/majung-ios) | SwiftUI iOS 모바일 앱 |
-| [majung-backend](https://github.com/majung-team/majung-backend) | Spring Boot API 및 운영 배포 |
+[화면과 사용 순서](docs/service-screens.md) · [주행 요약](docs/driving-summary.md) · [음성 안내](docs/pickup-voice.md) · [요청 대기열](docs/request-pickup-flow.md) · [개발 기록](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [기여 가이드](CONTRIBUTING.md)
