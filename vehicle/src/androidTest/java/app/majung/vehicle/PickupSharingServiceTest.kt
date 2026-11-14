@@ -104,7 +104,7 @@ class PickupSharingServiceTest {
                 api.request("PUT", "/$id/readiness", token, JSONObject().put("readiness", "READY").put("sequence", 1))
                 api.request("PUT", "/$id/place-proposal", token, JSONObject().put("place", JSONObject()
                     .put("label", "내비 화면 중 새 장소").put("latitude", 37.5).put("longitude", 127.04)))
-                await(15000) { app.pickup.readiness == "READY" && app.pickup.proposal?.place?.label == "내비 화면 중 새 장소" }
+                await(15000) { app.pickup.readiness == "READY" && app.pickup.placeProposal?.label == "내비 화면 중 새 장소" }
             } finally {
                 main.runOnMainSync { app.pickup.cancel() }
                 await { !app.sharingRunning }
