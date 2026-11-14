@@ -9,20 +9,22 @@
 
 ## 1. 현재 배포 버전
 
-**기준일: 2026년 11월 14일**
+**기준일: 2026년 11월 15일**
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026년 11월 14일 |
-| 버전 | `0.2.35-preview` |
-| versionCode | `37` |
+| 기준일 | 2026년 11월 15일 |
+| 버전 | `0.2.36-preview` |
+| versionCode | `38` |
 | API origin | `https://majung.cloud` |
 | 서명 인증서 SHA-256 | `8d9ea4cd41a7a576b67faced207231088e78af81c41f0007e326cd380006bf98` |
-| 릴리스 | [0.2.35-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.35-preview.20261114) |
-| 소스 커밋 | `720c95cf7d9126868d9f1432e5d45dac783a3e37` |
-| APK SHA-256 | `8d2296b9548701db45a83c9a0bb4baae625176ce99f427d482f940fbc392e31e` |
+| 릴리스 | [0.2.36-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115) |
+| 소스 커밋 | `7750922233c9ea93d179daeeb73754a3a809f78f` |
+| APK SHA-256 | `0ea73655a5dc0041f3418e03d3f7539b8aeb542fa7caa70f5b9b895c10b324b8` |
 
-0.2.35는 운전자가 초대 링크 생성 뒤 곧바로 내비게이션 화면으로 전환해도 백그라운드 대기 서비스가 탑승자 합류를 감지해 즉시 ETA·위치 공유를 시작하고, 내비게이션 화면 위에서 장소 제안·빠른 메시지·준비 상태 헤드업 알림과 오버레이 토스트를 자동 표시하도록 보완한다. 또한 탑승자 참여 뒤 남아 있던 초대 생성 안내를 픽업 단계에 맞춰 지운다. 단위 72개·Lint·기기 회귀 및 공식 Pleos 에뮬레이터 내비게이션 전환 연동 시험을 확인했다. 실제 차량의 시동 종료·재시동 시험은 추가 검증이 필요하다.
+0.2.36은 운전자가 초대 링크 생성 뒤 곧바로 내비게이션 화면으로 전환해도 백그라운드 대기 서비스가 탑승자 합류를 감지해 즉시 ETA·위치 공유를 시작하고, 내비게이션 화면 위에서 장소 제안·빠른 메시지·준비 상태 헤드업 알림과 오버레이 토스트를 자동 표시하도록 보완했다. 또한 첫 사용 권한 안내와 차량 연결 화면 흐름(#127)을 함께 반영했다. 단위·Lint·기기 회귀와 공식 Pleos 에뮬레이터 내비게이션 전환 연동 시험을 확인했다. 실제 차량의 시동 종료·재시동 시험은 추가 검증이 필요하다.
+
+- 직전 버전([0.2.35-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.35-preview.20261114), `versionCode 37`, 소스 `8ccb84b36f35b7112a51e22950cfc423edeed3c8`, SHA-256 `5ca24074f37558ba097246bfe74a6fac4cc3fc5664496aa17d253cd0798812c1`): 탑승자 참여 뒤 남아 있던 초대 생성 안내를 픽업 단계에 맞춰 정리.
 
 - 직전 버전([0.2.34-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.34-preview.20261113), versionCode 36): 빠른 메시지 알림 확인 시 내비 유지 보완.
 - 직전 기준 버전([0.2.33-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112), `versionCode 35`, 소스 `692eae5e3e5a2ebac1617ef089803b232d46eaab`, SHA-256 `97738e46ffef16a8ac42533b9411d5e24501c478e01eb0b75765604671c983fc`): 휴대전화 QR 스캔 직후 자동 계정 확인 팝업 및 3초 백그라운드 폴링.
