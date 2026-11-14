@@ -14,16 +14,17 @@
 | 항목 | 내용 |
 | --- | --- |
 | 기준일 | 2026년 11월 13일 |
-| 버전 | `0.2.34-preview` |
-| versionCode | `36` |
-| 배포 형식 | 서명된 Release APK |
-| 운영 API | `https://majung.cloud` |
-| 릴리스 | [0.2.34-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.34-preview.20261113) |
-| 소스 커밋 | `127c146574ea859a0c6faedb7d2dd5dfe17182f4` |
-| APK SHA-256 | `89ad895c639991690c312a2cd932dd851df004445983a0674218c6c342af215e` |
+| 버전 | `0.2.35-preview` |
+| versionCode | `37` |
+| API origin | `https://majung.cloud` |
+| 서명 인증서 SHA-256 | `8d9ea4cd41a7a576b67faced207231088e78af81c41f0007e326cd380006bf98` |
+| 릴리스 | [0.2.35-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.35-preview.20261114) |
+| 소스 커밋 | `8ccb84b36f35b7112a51e22950cfc423edeed3c8` |
+| APK SHA-256 | `5ca24074f37558ba097246bfe74a6fac4cc3fc5664496aa17d253cd0798812c1` |
 
-0.2.34는 `0.2.33-preview` 기능 위에 빠른 메시지 알림(`QUICK_MESSAGE`) 본문·`[확인]` 탭 시 마중 앱 전환 없이 내비 화면을 유지한 채 알림만 닫고(`NotificationDismissReceiver`), `USE_FULL_SCREEN_INTENT`·`setFullScreenIntent` 및 중복 오버레이 `Toast`를 제거한 최신 서명 Release APK다. Pleos Connect 에뮬레이터(`Majung_Pleos_2_1`, `emulator-5554`)에서 기존 서명 APK 덮어쓰기 업데이트 설치(`versionCode=36`)를 확인했다(단위 테스트 72개·Lint 통과; 실제 내비 위 알림 탭 재촬영은 별도 검증).
+0.2.35는 탑승자 참여 뒤 남아 있던 초대 생성 안내를 픽업 단계에 맞춰 지운다. 단위 72개·Lint·별도 검사 앱의 기기 회귀 14개를 확인했다. 운영 웹과 같은 픽업의 SDK ETA·준비·도착·완료는 공식 Pleos 에뮬레이터에서 확인한다. 실제 iPhone 최초 인증·물리 카메라 QR·실차·최초 권한 창 거절 후 설정 허용 조작은 추가 검증이 필요하다.
 
+- 직전 버전([0.2.34-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.34-preview.20261113), versionCode 36): 빠른 메시지 알림 확인 시 내비 유지 보완.
 - 직전 기준 버전([0.2.33-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.33-preview.20261112), `versionCode 35`, 소스 `692eae5e3e5a2ebac1617ef089803b232d46eaab`, SHA-256 `97738e46ffef16a8ac42533b9411d5e24501c478e01eb0b75765604671c983fc`): 휴대전화 QR 스캔 직후 자동 계정 확인 팝업 및 3초 백그라운드 폴링.
 - 직전 안정 기준 버전([0.2.30-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.30-preview.20261112), `versionCode 32`, 소스 `a584d969c51b2d7a6ae305e436685e93851833b7`, SHA-256 `9e1ca49238f4c9ebb57bf092c90c530bf6db84d452c2d834510423f3a449ffcc`): 휴대전화 QR 스캔 직후 자동 계정 확인 팝업 및 3초 백그라운드 폴링.
 - 직전 1차 시연 기준 버전([0.2.29-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.29-preview.20261109), `versionCode 31`, 소스 `6d599f16339965da81a4238b55a4fe0d9e5a69cb`, SHA-256 `15a88d9a4954313f1440f29ada880b89d22368d5441c841824e7033557e1510f`): 내비 복귀 후 제안 장소 확인 및 강제 종료 후 공유 재개 검증. 실제 차량의 시동 종료·재시동 시험은 남아 있다.
