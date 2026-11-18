@@ -1,16 +1,5 @@
 package app.majung.vehicle.ui
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.content.Context
 import android.widget.LinearLayout
 
@@ -31,10 +20,13 @@ internal class VehicleColumns(context: Context) : LinearLayout(context) {
         if (wide != horizontal) {
             wide = horizontal
             orientation = if (horizontal) HORIZONTAL else VERTICAL
-            leading.layoutParams = if (horizontal) LayoutParams(0, -2, 1.1f) else LayoutParams(-1, -2)
-            trailing.layoutParams = (if (horizontal) LayoutParams(0, -2, 1f) else LayoutParams(-1, -2)).apply {
-                if (horizontal) marginStart = (28 * density).toInt() else topMargin = (20 * density).toInt()
-            }
+            leading.layoutParams =
+                if (horizontal) LayoutParams(0, -2, 1.1f) else LayoutParams(-1, -2)
+            trailing.layoutParams =
+                (if (horizontal) LayoutParams(0, -2, 1f) else LayoutParams(-1, -2)).apply {
+                    if (horizontal) marginStart = (28 * density).toInt()
+                    else topMargin = (20 * density).toInt()
+                }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }

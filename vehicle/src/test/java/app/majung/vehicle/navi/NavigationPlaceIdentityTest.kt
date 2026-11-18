@@ -1,16 +1,5 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -20,7 +9,8 @@ import org.junit.Test
 class NavigationPlaceIdentityTest {
     private val place = SdkPickupPlace(PickupPlace("같은 이름", 37.4, 127.1), "", "", "0")
 
-    @Test fun missingProviderIdentityGetsUniqueAppNamespaceWithoutChangingCoordinates() {
+    @Test
+    fun missingProviderIdentityGetsUniqueAppNamespaceWithoutChangingCoordinates() {
         val first = place.withRequestIdentity()
         val second = place.withRequestIdentity()
         assertTrue(first.poiId.startsWith("majung:"))
@@ -30,30 +20,50 @@ class NavigationPlaceIdentityTest {
         assertEquals(first, first.withRequestIdentity())
     }
 
-    @Test fun realProviderIdentityIsNeverReplaced() {
+    @Test
+    fun realProviderIdentityIsNeverReplaced() {
         val known = place.copy(poiId = "provider-id", poiProvider = "provider")
         assertEquals(known, known.withRequestIdentity())
     }
 
-    @Test fun idlessPlaceOnlyRecoversWhenSdkEchoesTheExactIssuedIdentity() {
+    @Test
+    fun idlessPlaceOnlyRecoversWhenSdkEchoesTheExactIssuedIdentity() {
         val issued = place.withRequestIdentity()
         val zero = PickupPlace("같은 이름", 0.0, 0.0)
-        val matched = WaypointCoordinates.resolve(listOf(SdkWaypoint(zero, 420, issued.poiId)), issued).single()
+        val matched =
+            WaypointCoordinates.resolve(listOf(SdkWaypoint(zero, 420, issued.poiId)), issued)
+                .single()
         assertEquals(place.place, matched.place)
         assertEquals(420L, matched.durationSeconds)
         listOf("", "majung:other").forEach { id ->
-            assertFalse(WaypointCoordinates.resolve(listOf(SdkWaypoint(zero, 420, id)), issued).single().usable)
+            assertFalse(
+                WaypointCoordinates.resolve(listOf(SdkWaypoint(zero, 420, id)), issued)
+                    .single()
+                    .usable
+            )
         }
-        assertFalse(WaypointCoordinates.resolve(listOf(SdkWaypoint(zero, 420, issued.poiId),
-            SdkWaypoint(zero, 900, issued.poiId)), issued).any { it.usable })
+        assertFalse(
+            WaypointCoordinates.resolve(
+                    listOf(
+                        SdkWaypoint(zero, 420, issued.poiId),
+                        SdkWaypoint(zero, 900, issued.poiId),
+                    ),
+                    issued,
+                )
+                .any { it.usable }
+        )
     }
 
-    @Test fun multipleOwnedWaypointsKeepTheirOwnCoordinatesAndEtasAfterReordering() {
+    @Test
+    fun multipleOwnedWaypointsKeepTheirOwnCoordinatesAndEtasAfterReordering() {
         val first = place.withRequestIdentity()
         val second = place.copy(place = place.place.copy(latitude = 37.5)).withRequestIdentity()
         val zero = PickupPlace("같은 이름", 0.0, 0.0)
-        val result = WaypointCoordinates.resolveKnown(listOf(SdkWaypoint(zero, 900, second.poiId),
-            SdkWaypoint(zero, 420, first.poiId)), listOf(first, second))
+        val result =
+            WaypointCoordinates.resolveKnown(
+                listOf(SdkWaypoint(zero, 900, second.poiId), SdkWaypoint(zero, 420, first.poiId)),
+                listOf(first, second),
+            )
         assertEquals(second.place, result[0].place)
         assertEquals(900L, result[0].durationSeconds)
         assertEquals(first.place, result[1].place)

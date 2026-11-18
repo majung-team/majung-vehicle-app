@@ -1,16 +1,9 @@
 package app.majung.vehicle.domain
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
+import app.majung.vehicle.navi.NavigationStop
+import app.majung.vehicle.navi.NavigationStopKind
+import app.majung.vehicle.navi.NavigationStops
+import app.majung.vehicle.navi.PickupPlace
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -19,11 +12,15 @@ class PickupPlaceChangeTest {
     private val old = PickupPlace("기존 픽업", 37.2, 127.2)
     private val next = PickupPlace("새 픽업", 37.3, 127.3)
     private val other = PickupPlace("다른 경유지", 37.4, 127.4)
-    private fun route(vararg stops: PickupPlace, destination: PickupPlace = final) = NavigationStops(
-        NavigationStop(destination, 500, NavigationStopKind.DESTINATION),
-        stops.map { NavigationStop(it, 100, NavigationStopKind.WAYPOINT) })
 
-    @Test fun replacesOnlyThePickupAndPreservesOrderAndFinalDestination() {
+    private fun route(vararg stops: PickupPlace, destination: PickupPlace = final) =
+        NavigationStops(
+            NavigationStop(destination, 500, NavigationStopKind.DESTINATION),
+            stops.map { NavigationStop(it, 100, NavigationStopKind.WAYPOINT) },
+        )
+
+    @Test
+    fun replacesOnlyThePickupAndPreservesOrderAndFinalDestination() {
         val plan = requireNotNull(PickupPlaceChange.plan(route(old, other), old, next))
         assertNotNull(plan.confirmed(route(next, other)))
         assertNull(plan.confirmed(route(other, next)))
@@ -31,20 +28,27 @@ class PickupPlaceChangeTest {
         assertNull(plan.confirmed(route(next, other, destination = old)))
         assertNull(plan.confirmed(route(old, other)))
     }
-    @Test fun finalPickupBecomesAWaypointWithoutRemovingTheFinalDestination() {
+
+    @Test
+    fun finalPickupBecomesAWaypointWithoutRemovingTheFinalDestination() {
         val plan = requireNotNull(PickupPlaceChange.plan(route(other), final, next))
         assertNotNull(plan.confirmed(route(next, other)))
         assertNull(PickupPlaceChange.plan(route(old, other), final, next))
     }
-    @Test fun rejectsUnknownAmbiguousAndDuplicateTargets() {
+
+    @Test
+    fun rejectsUnknownAmbiguousAndDuplicateTargets() {
         assertNull(PickupPlaceChange.plan(route(old, old), old, next))
         assertNull(PickupPlaceChange.plan(route(old), old, final))
         assertNull(PickupPlaceChange.plan(route(old, PickupPlace("미확인", 0.0, 0.0)), old, next))
         assertNull(PickupPlaceChange.plan(route(old), other, next))
     }
-    @Test fun finalPickupCanSwitchToExistingOrUnverifiedSameNameWaypoint() {
+
+    @Test
+    fun finalPickupCanSwitchToExistingOrUnverifiedSameNameWaypoint() {
         val unverifiedNext = PickupPlace(next.label, 0.0, 0.0)
-        val planFromUnverified = requireNotNull(PickupPlaceChange.plan(route(unverifiedNext), final, next))
+        val planFromUnverified =
+            requireNotNull(PickupPlaceChange.plan(route(unverifiedNext), final, next))
         assertNotNull(planFromUnverified.confirmed(route(next)))
         val planFromExisting = requireNotNull(PickupPlaceChange.plan(route(next), final, next))
         assertNotNull(planFromExisting.confirmed(route(next)))

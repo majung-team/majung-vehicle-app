@@ -1,16 +1,5 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import android.os.Handler
@@ -20,6 +9,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.ApiRejected
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.navi.SdkTimingType
+import app.majung.vehicle.service.PickupSharingService
 import java.io.File
 import java.net.URI
 import org.json.JSONObject
@@ -29,8 +22,11 @@ import org.junit.Test
 
 /** Opt-in: real NaviHelper and local API, with the Activity stopped during route changes. */
 class RouteRecoveryTest {
-    @Test fun recoverRouteWithoutReusingCancelledTelemetry() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("verifyRouteRecovery") == "true")
+    @Test
+    fun recoverRouteWithoutReusingCancelledTelemetry() {
+        assumeTrue(
+            InstrumentationRegistry.getArguments().getString("verifyRouteRecovery") == "true"
+        )
         val main = InstrumentationRegistry.getInstrumentation()
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val api = PickupApiClient()
@@ -51,7 +47,10 @@ class RouteRecoveryTest {
                     app.pickup.prepareNextPickup()
                     app.destination.connect()
                     control = NaviHelper(app)
-                    control!!.initialize(onConnected = { Handler(Looper.getMainLooper()).post { connected = true } }, onFailed = {})
+                    control!!.initialize(
+                        onConnected = { Handler(Looper.getMainLooper()).post { connected = true } },
+                        onFailed = {},
+                    )
                     app.destination.timingObserver = { event ->
                         counts[event.type] = (counts[event.type] ?: 0) + 1
                         if (event.type == SdkTimingType.ROUTE_STARTED) started++
@@ -66,29 +65,45 @@ class RouteRecoveryTest {
                 await { !app.pickup.busy }
                 main.runOnMainSync { app.pickup.prepareNextPickup() }
                 phase("initial_destination")
-                await { app.destination.selection.current(SystemClock.elapsedRealtime()) != null && app.pickup.canCreate }
+                await {
+                    app.destination.selection.current(SystemClock.elapsedRealtime()) != null &&
+                        app.pickup.canCreate
+                }
                 phase("create")
-                main.runOnMainSync { app.pickup.create(app.destination.selection.current(SystemClock.elapsedRealtime())!!) }
+                main.runOnMainSync {
+                    app.pickup.create(
+                        app.destination.selection.current(SystemClock.elapsedRealtime())!!
+                    )
+                }
                 await { app.pickup.pickupId != null && !app.pickup.busy }
                 var invite: String? = null
                 main.runOnMainSync { invite = app.pickup.invitationForHostBrowser() }
                 val parts = URI(invite!!).fragment.split('/')
                 val id = parts[1]
-                val guest = api.request("POST", "/$id/participants", body = JSONObject()
-                    .put("inviteToken", parts[2]).put("displayName", "경로 복구 확인"))
+                val guest =
+                    api.request(
+                        "POST",
+                        "/$id/participants",
+                        body =
+                            JSONObject().put("inviteToken", parts[2]).put("displayName", "경로 복구 확인"),
+                    )
                 val token = guest.getString("participantToken")
                 main.runOnMainSync { app.pickup.refresh() }
                 await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
                 phase("sharing_service")
                 await { app.sharingRunning }
                 fun vehicle(): JSONObject {
-                    try { return api.request("GET", "/$id/vehicle-state", token) }
-                    catch (error: ApiRejected) { throw AssertionError("Vehicle state HTTP ${error.status}") }
+                    try {
+                        return api.request("GET", "/$id/vehicle-state", token)
+                    } catch (error: ApiRejected) {
+                        throw AssertionError("Vehicle state HTTP ${error.status}")
+                    }
                 }
                 fun awaitFresh(): Long {
                     val begin = SystemClock.elapsedRealtime()
                     while (SystemClock.elapsedRealtime() - begin < 45000) {
-                        if (vehicle().optString("freshness") == "FRESH") return SystemClock.elapsedRealtime() - begin
+                        if (vehicle().optString("freshness") == "FRESH")
+                            return SystemClock.elapsedRealtime() - begin
                         SystemClock.sleep(1000)
                     }
                     throw AssertionError("Validated route did not restore sharing")
@@ -97,7 +112,12 @@ class RouteRecoveryTest {
                     val begin = SystemClock.elapsedRealtime()
                     while (SystemClock.elapsedRealtime() - begin < 15000) {
                         val state = vehicle()
-                        if (state.optString("freshness") == "WAITING" && state.isNull("latitude") && state.isNull("durationSeconds")) return
+                        if (
+                            state.optString("freshness") == "WAITING" &&
+                                state.isNull("latitude") &&
+                                state.isNull("durationSeconds")
+                        )
+                            return
                         SystemClock.sleep(1000)
                     }
                     throw AssertionError("Invalid route still exposes vehicle data")
@@ -107,14 +127,21 @@ class RouteRecoveryTest {
                 scenario.moveToState(Lifecycle.State.CREATED)
                 phase("background_route_request")
                 var before = 0
-                main.runOnMainSync { before = started; counts.clear(); control!!.requestRoute(exampleRoute()) }
+                main.runOnMainSync {
+                    before = started
+                    counts.clear()
+                    control!!.requestRoute(exampleRoute())
+                }
                 await { started > before }
                 phase("request_hidden")
                 awaitHidden()
                 phase("request_recovery")
                 report.put("backgroundRequestRecoveryMs", awaitFresh())
                 main.runOnMainSync {
-                    report.put("routingCompletedCallbacks", counts[SdkTimingType.ROUTING_COMPLETED] ?: 0)
+                    report.put(
+                        "routingCompletedCallbacks",
+                        counts[SdkTimingType.ROUTING_COMPLETED] ?: 0,
+                    )
                     report.put("rerouteEndedCallbacks", counts[SdkTimingType.REROUTE_ENDED] ?: 0)
                     control!!.cancelRoute()
                 }
@@ -123,7 +150,10 @@ class RouteRecoveryTest {
                 val hiddenUntil = SystemClock.elapsedRealtime() + 12000
                 while (SystemClock.elapsedRealtime() < hiddenUntil) {
                     val state = vehicle()
-                    assertTrue("Cancelled route revived old position", state.optString("freshness") == "WAITING" && state.isNull("latitude"))
+                    assertTrue(
+                        "Cancelled route revived old position",
+                        state.optString("freshness") == "WAITING" && state.isNull("latitude"),
+                    )
                     SystemClock.sleep(500)
                 }
                 report.put("cancelledRouteStayedHiddenMs", 12000)
@@ -140,7 +170,10 @@ class RouteRecoveryTest {
                 main.runOnMainSync {
                     report.put("counts", JSONObject(counts.mapKeys { it.key.name }))
                     report.put("canCreate", app.pickup.canCreate)
-                    report.put("selectionAvailable", app.destination.selection.current(SystemClock.elapsedRealtime()) != null)
+                    report.put(
+                        "selectionAvailable",
+                        app.destination.selection.current(SystemClock.elapsedRealtime()) != null,
+                    )
                     report.put("controllerStatus", app.pickup.status)
                 }
                 File(app.filesDir, "route-recovery-summary.json").writeText(report.toString(2))
@@ -150,7 +183,8 @@ class RouteRecoveryTest {
                     if (app.pickup.canCancel) app.pickup.cancel()
                 }
                 val cleanupEnd = SystemClock.elapsedRealtime() + 10000
-                while (app.sharingRunning && SystemClock.elapsedRealtime() < cleanupEnd) SystemClock.sleep(100)
+                while (app.sharingRunning && SystemClock.elapsedRealtime() < cleanupEnd) SystemClock
+                    .sleep(100)
                 main.runOnMainSync {
                     app.stopService(android.content.Intent(app, PickupSharingService::class.java))
                     app.destination.disconnect()
@@ -159,8 +193,15 @@ class RouteRecoveryTest {
         }
     }
 
-    private fun exampleRoute() = RouteInfo(latitude = 37.48544722, longitude = 127.03636666,
-        poiName = "42dot", poiId = "36khp37hh8gqcm5nqhe5", address = "서울시 강남구 남부순환로 2621", poiSubId = "0")
+    private fun exampleRoute() =
+        RouteInfo(
+            latitude = 37.48544722,
+            longitude = 127.03636666,
+            poiName = "42dot",
+            poiId = "36khp37hh8gqcm5nqhe5",
+            address = "서울시 강남구 남부순환로 2621",
+            poiSubId = "0",
+        )
 
     private fun await(condition: () -> Boolean) {
         val end = SystemClock.elapsedRealtime() + 35000

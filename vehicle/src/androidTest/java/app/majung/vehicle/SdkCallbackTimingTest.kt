@@ -1,16 +1,5 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import android.os.Build
@@ -21,6 +10,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.service.PickupSharingService
 import java.io.File
 import java.net.URI
 import org.json.JSONArray
@@ -31,7 +22,8 @@ import org.junit.Test
 
 /** Opt-in ten-minute run against the real emulator SDK and local API. */
 class SdkCallbackTimingTest {
-    @Test fun measureRealCallbacksForTenMinutes() {
+    @Test
+    fun measureRealCallbacksForTenMinutes() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("measureSdkTiming") == "true")
         assertTrue(Build.MODEL.contains("emulator", true))
         val main = InstrumentationRegistry.getInstrumentation()
@@ -46,14 +38,22 @@ class SdkCallbackTimingTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             try {
                 assertTrue(PickupSharingService.hasLocationPermission(app))
-                main.runOnMainSync { app.pickup.prepareNextPickup(); app.destination.connect() }
-                await { app.destination.selection.current(SystemClock.elapsedRealtime()) != null && app.pickup.canCreate }
+                main.runOnMainSync {
+                    app.pickup.prepareNextPickup()
+                    app.destination.connect()
+                }
+                await {
+                    app.destination.selection.current(SystemClock.elapsedRealtime()) != null &&
+                        app.pickup.canCreate
+                }
                 main.runOnMainSync {
                     app.destination.timingObserver = recorder::record
                     control = NaviHelper(app)
                     control!!.initialize(
-                        onConnected = { Handler(Looper.getMainLooper()).post { controlConnected = true } },
-                        onFailed = {}
+                        onConnected = {
+                            Handler(Looper.getMainLooper()).post { controlConnected = true }
+                        },
+                        onFailed = {},
                     )
                 }
                 fun observe(name: String, seconds: Int, action: () -> Unit = {}) {
@@ -62,7 +62,10 @@ class SdkCallbackTimingTest {
                     var advances = 0
                     val freshness = linkedMapOf<String, Int>()
                     val start = SystemClock.elapsedRealtime()
-                    main.runOnMainSync { recorder.begin(start); action() }
+                    main.runOnMainSync {
+                        recorder.begin(start)
+                        action()
+                    }
                     main.sendStatus(0, android.os.Bundle().apply { putString("timingPhase", name) })
                     while (SystemClock.elapsedRealtime() - start < seconds * 1000L) {
                         SystemClock.sleep(2000)
@@ -78,26 +81,46 @@ class SdkCallbackTimingTest {
                         }
                     }
                     main.runOnMainSync {
-                        report.put(recorder.finish(name, SystemClock.elapsedRealtime())
-                            .put("serverObservations", JSONObject(freshness))
-                            .put("sequenceDelta", if (firstSequence == null) JSONObject.NULL else lastSequence!! - firstSequence!!)
-                            .put("sequenceAdvanceObservations", advances))
-                        File(app.filesDir, "sdk-timing-summary.json").writeText(JSONObject()
-                            .put("sdk", "NaviHelper 3.0.5").put("phases", report).toString(2))
+                        report.put(
+                            recorder
+                                .finish(name, SystemClock.elapsedRealtime())
+                                .put("serverObservations", JSONObject(freshness))
+                                .put(
+                                    "sequenceDelta",
+                                    if (firstSequence == null) JSONObject.NULL
+                                    else lastSequence!! - firstSequence!!,
+                                )
+                                .put("sequenceAdvanceObservations", advances)
+                        )
+                        File(app.filesDir, "sdk-timing-summary.json")
+                            .writeText(
+                                JSONObject()
+                                    .put("sdk", "NaviHelper 3.0.5")
+                                    .put("phases", report)
+                                    .toString(2)
+                            )
                     }
                 }
                 await { controlConnected }
                 observe("passive_foreground", 120)
                 main.runOnMainSync { app.destination.query() }
                 await { app.destination.selection.current(SystemClock.elapsedRealtime()) != null }
-                main.runOnMainSync { app.pickup.create(app.destination.selection.current(SystemClock.elapsedRealtime())!!) }
+                main.runOnMainSync {
+                    app.pickup.create(
+                        app.destination.selection.current(SystemClock.elapsedRealtime())!!
+                    )
+                }
                 await { app.pickup.pickupId != null && !app.pickup.busy }
                 var invite: String? = null
                 main.runOnMainSync { invite = app.pickup.invitationForHostBrowser() }
                 val parts = URI(invite!!).fragment.split('/')
                 pickupId = parts[1]
-                val guest = api.request("POST", "/$pickupId/participants", body = JSONObject()
-                    .put("inviteToken", parts[2]).put("displayName", "간격 측정"))
+                val guest =
+                    api.request(
+                        "POST",
+                        "/$pickupId/participants",
+                        body = JSONObject().put("inviteToken", parts[2]).put("displayName", "간격 측정"),
+                    )
                 guestToken = guest.getString("participantToken")
                 main.runOnMainSync { app.pickup.refresh() }
                 await { app.pickup.status == "ACTIVE" && !app.pickup.busy }
@@ -106,9 +129,18 @@ class SdkCallbackTimingTest {
                 scenario.moveToState(Lifecycle.State.CREATED)
                 observe("polling_background", 240)
                 observe("route_request_background", 60) {
-                    // Official SDK example POI, not the user's location. Request only; no extra polling.
-                    control!!.requestRoute(RouteInfo(latitude = 37.48544722, longitude = 127.03636666,
-                        poiName = "42dot", poiId = "36khp37hh8gqcm5nqhe5", address = "서울시 강남구 남부순환로 2621", poiSubId = "0"))
+                    // Official SDK example POI, not the user's location. Request only; no extra
+                    // polling.
+                    control!!.requestRoute(
+                        RouteInfo(
+                            latitude = 37.48544722,
+                            longitude = 127.03636666,
+                            poiName = "42dot",
+                            poiId = "36khp37hh8gqcm5nqhe5",
+                            address = "서울시 강남구 남부순환로 2621",
+                            poiSubId = "0",
+                        )
+                    )
                 }
                 // The production service attempts reconnection on its next five-second poll.
                 observe("disconnect_reconnect_background", 60) { app.destination.disconnect() }

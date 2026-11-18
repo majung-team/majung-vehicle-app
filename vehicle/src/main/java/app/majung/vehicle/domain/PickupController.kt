@@ -1,26 +1,27 @@
 package app.majung.vehicle.domain
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import org.json.JSONObject
+import app.majung.vehicle.BuildConfig
+import app.majung.vehicle.data.api.ApiRejected
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.MemoryPickupSessionStore
+import app.majung.vehicle.data.storage.PickupSessionStore
+import app.majung.vehicle.data.storage.SavedPickupSession
+import app.majung.vehicle.navi.DestinationReader
+import app.majung.vehicle.navi.PickupPlace
+import app.majung.vehicle.navi.VehicleSharingFeedback
+import app.majung.vehicle.navi.sameCoordinates
 import java.util.concurrent.Executors
+import org.json.JSONObject
 
 /** One application-owned session; persistent credentials are injected through a session store. */
-class PickupController(private val api: PickupApiClient = PickupApiClient(),
-                       private val sessionStore: PickupSessionStore = MemoryPickupSessionStore(),
-                       private val registration: VehicleRegistrationController? = null) {
+class PickupController(
+    private val api: PickupApiClient = PickupApiClient(),
+    private val sessionStore: PickupSessionStore = MemoryPickupSessionStore(),
+    private val registration: VehicleRegistrationController? = null,
+) {
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private var driverToken: String? = null
@@ -30,7 +31,8 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var receivedReadinessSequence = 0L
     private var supportsReadinessReceipt = false
     private var receiptInFlight = false
-    // Pickups started from an accepted ride request are managed in the request list, not by invitation.
+    // Pickups started from an accepted ride request are managed in the request list, not by
+    // invitation.
     private var requestedPickup = false
     private var uncertainCreate = false
     private var refreshing = false
@@ -44,35 +46,49 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var nextInvalidationSend = 0L
     var vehicleMessage = "차량 정보 전송 대기"
         private set
+
     var pickupId: String? = null
         private set
+
     var place: PickupPlace? = null
         private set
+
     var placeVersion = 1L
         private set
+
     var placeProposal: PickupPlace? = null
         private set
+
     var proposalId: String? = null
         private set
+
     var autoConfirmProposalId: String? = null
     var navigationReference: String? = null
         private set
+
     var status = ""
         private set
+
     var participantName: String? = null
         private set
+
     var quickMessage: String? = null
         private set
+
     private var lastQuickMessageAt: String? = null
     var onQuickMessageReceived: ((String) -> Unit)? = null
     var readiness = ""
         private set
+
     var busy = false
         private set
+
     var online = false
         private set
+
     var message = ""
         private set
+
     var needsSharingConfirmation = false
         private set
 
@@ -86,13 +102,19 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     var changed: (() -> Unit)? = null
     private val observers = linkedSetOf<() -> Unit>()
 
-    fun addObserver(observer: () -> Unit) { observers.add(observer) }
-    fun removeObserver(observer: () -> Unit) { observers.remove(observer) }
+    fun addObserver(observer: () -> Unit) {
+        observers.add(observer)
+    }
+
+    fun removeObserver(observer: () -> Unit) {
+        observers.remove(observer)
+    }
 
     private fun notifyChanged() {
         observers.toList().forEach { it() }
         changed?.invoke()
     }
+
     private var restoringSession = false
     private var savedSession: SavedPickupSession? = null
     private var storageCleanupFailed = false
@@ -105,24 +127,31 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             val result = runCatching { sessionStore.load() }
             handler.post {
                 busy = false
-                result.fold(onSuccess = { saved ->
-                    if (saved == null) { restoringSession = false; notifyChanged(); return@fold }
-                    resetVehiclePublisher()
-                    pickupId = saved.pickupId
-                    driverToken = saved.driverToken
-                    inviteToken = saved.inviteToken
-                    vehicleSequence = saved.vehicleSequence
-                    vehicleKnownEmpty = saved.vehicleSequence == 0L
-                    navigationReference = saved.navigationReference
-                    savedSession = saved
-                    status = "RESTORING"
-                    online = false
-                    message = "진행 중인 픽업을 서버에서 확인하고 있어요."
-                    refresh()
-                }, onFailure = {
-                    restoringSession = false
-                    if (clearSavedSession()) message = "저장된 접근 정보를 읽을 수 없어 지웠어요."
-                })
+                result.fold(
+                    onSuccess = { saved ->
+                        if (saved == null) {
+                            restoringSession = false
+                            notifyChanged()
+                            return@fold
+                        }
+                        resetVehiclePublisher()
+                        pickupId = saved.pickupId
+                        driverToken = saved.driverToken
+                        inviteToken = saved.inviteToken
+                        vehicleSequence = saved.vehicleSequence
+                        vehicleKnownEmpty = saved.vehicleSequence == 0L
+                        navigationReference = saved.navigationReference
+                        savedSession = saved
+                        status = "RESTORING"
+                        online = false
+                        message = "진행 중인 픽업을 서버에서 확인하고 있어요."
+                        refresh()
+                    },
+                    onFailure = {
+                        restoringSession = false
+                        if (clearSavedSession()) message = "저장된 접근 정보를 읽을 수 없어 지웠어요."
+                    },
+                )
                 notifyChanged()
             }
         }
@@ -133,8 +162,11 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val token = driverToken ?: return true
         val saved = SavedPickupSession(id, token, inviteToken, vehicleSequence, navigationReference)
         if (saved == savedSession) return true
-        return try { sessionStore.save(saved); savedSession = saved; true }
-        catch (_: Exception) {
+        return try {
+            sessionStore.save(saved)
+            savedSession = saved
+            true
+        } catch (_: Exception) {
             message = "접근 정보를 안전하게 저장하지 못했어요. 앱을 닫기 전에 픽업을 종료해주세요."
             false
         }
@@ -153,57 +185,85 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }
     }
 
-    val canCreate: Boolean get() = !busy && !restoringSession && !storageCleanupFailed && pickupId == null && !uncertainCreate && registration?.canCreate != false
-    val canApprove: Boolean get() = !busy && online && status == "WAITING_APPROVAL" && participantId != null
-    val canDisconnect: Boolean get() = !busy && online && status == "ACTIVE" && participantId != null && !requestedPickup
-    val canArrive: Boolean get() = !busy && online && status == "ACTIVE"
-    val canComplete: Boolean get() = !busy && online && status == "ARRIVED"
-    val canCancel: Boolean get() = !busy && online && pickupId != null && status !in ended
+    val canCreate: Boolean
+        get() =
+            !busy &&
+                !restoringSession &&
+                !storageCleanupFailed &&
+                pickupId == null &&
+                !uncertainCreate &&
+                registration?.canCreate != false
+
+    val canApprove: Boolean
+        get() = !busy && online && status == "WAITING_APPROVAL" && participantId != null
+
+    val canDisconnect: Boolean
+        get() = !busy && online && status == "ACTIVE" && participantId != null && !requestedPickup
+
+    val canArrive: Boolean
+        get() = !busy && online && status == "ACTIVE"
+
+    val canComplete: Boolean
+        get() = !busy && online && status == "ARRIVED"
+
+    val canCancel: Boolean
+        get() = !busy && online && pickupId != null && status !in ended
 
     fun create(selectedPlace: PickupPlace, waypointReference: String? = null) {
         if (!canCreate) return
         uncertainCreate = true
-        runRequest({ api.create(selectedPlace, registration?.vehicleToken) }, { result ->
-            val id = result.getString("pickupId")
-            val owner = result.getString("driverToken")
-            val invitation = result.getString("inviteToken")
-            resetVehiclePublisher()
-            pickupId = id
-            driverToken = owner
-            inviteToken = invitation
-            place = selectedPlace
-            navigationReference = waypointReference
-            status = "INVITING"
-            message = "픽업을 만들었어요. 초대 링크로 참여하면 바로 연결돼요."
-            uncertainCreate = false
-            persistSession()
-        }, creating = true)
+        runRequest(
+            { api.create(selectedPlace, registration?.vehicleToken) },
+            { result ->
+                val id = result.getString("pickupId")
+                val owner = result.getString("driverToken")
+                val invitation = result.getString("inviteToken")
+                resetVehiclePublisher()
+                pickupId = id
+                driverToken = owner
+                inviteToken = invitation
+                place = selectedPlace
+                navigationReference = waypointReference
+                status = "INVITING"
+                message = "픽업을 만들었어요. 초대 링크로 참여하면 바로 연결돼요."
+                uncertainCreate = false
+                persistSession()
+            },
+            creating = true,
+        )
     }
 
     private var uncertainRequestId: String? = null
-    fun canStartRequested(id: String): Boolean = canCreate || (!busy && pickupId == null && uncertainRequestId == id)
+
+    fun canStartRequested(id: String): Boolean =
+        canCreate || (!busy && pickupId == null && uncertainRequestId == id)
 
     fun startRequested(requestId: String, requestedPlace: PickupPlace, waypointReference: String?) {
         if (!canStartRequested(requestId)) return
-        val token=registration?.vehicleToken ?: return
-        uncertainRequestId=requestId
-        uncertainCreate=true
-        // Starting the same accepted request is recoverable on the server; it cannot create a second pickup.
-        runRequest({ api.requestApi("POST", "/vehicles/ride-requests/$requestId/start", token) }, { result ->
-            uncertainCreate=false
-            uncertainRequestId=null
-            resetVehiclePublisher()
-            requestedPickup=true
-            pickupId=result.getString("pickupId")
-            driverToken=result.getString("driverToken")
-            inviteToken=null
-            place=requestedPlace
-            navigationReference=waypointReference
-            receiveSnapshot(result.getJSONObject("pickup"))
-            needsSharingConfirmation=true
-            message="마중 요청을 픽업으로 연결했어요. 경로를 확인한 뒤 계속하기를 눌러 공유해주세요."
-            persistSession()
-        }, creating = true)
+        val token = registration?.vehicleToken ?: return
+        uncertainRequestId = requestId
+        uncertainCreate = true
+        // Starting the same accepted request is recoverable on the server; it cannot create a
+        // second pickup.
+        runRequest(
+            { api.requestApi("POST", "/vehicles/ride-requests/$requestId/start", token) },
+            { result ->
+                uncertainCreate = false
+                uncertainRequestId = null
+                resetVehiclePublisher()
+                requestedPickup = true
+                pickupId = result.getString("pickupId")
+                driverToken = result.getString("driverToken")
+                inviteToken = null
+                place = requestedPlace
+                navigationReference = waypointReference
+                receiveSnapshot(result.getJSONObject("pickup"))
+                needsSharingConfirmation = true
+                message = "마중 요청을 픽업으로 연결했어요. 경로를 확인한 뒤 계속하기를 눌러 공유해주세요."
+                persistSession()
+            },
+            creating = true,
+        )
     }
 
     fun confirmProposedPlace(reader: DestinationReader) {
@@ -216,17 +276,35 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val sample = reader.telemetry.current(proposed, SystemClock.elapsedRealtime()) ?: return
         val version = placeVersion
         val reference = reader.referenceFor(proposed)
-        runRequest({ api.request("PUT", "/$id/place-confirmation", token, JSONObject()
-            .put("proposalId", proposal).put("expectedPlaceVersion", version)
-            .put("place", JSONObject().put("label", proposed.label).put("latitude", proposed.latitude).put("longitude", proposed.longitude))
-            .put("durationSeconds", selected.durationSeconds).put("sourceTime", sample.observedAt.toString())) }, { result ->
+        runRequest(
+            {
+                api.request(
+                    "PUT",
+                    "/$id/place-confirmation",
+                    token,
+                    JSONObject()
+                        .put("proposalId", proposal)
+                        .put("expectedPlaceVersion", version)
+                        .put(
+                            "place",
+                            JSONObject()
+                                .put("label", proposed.label)
+                                .put("latitude", proposed.latitude)
+                                .put("longitude", proposed.longitude),
+                        )
+                        .put("durationSeconds", selected.durationSeconds)
+                        .put("sourceTime", sample.observedAt.toString()),
+                )
+            },
+            { result ->
                 receiveSnapshot(result)
                 if (place?.sameCoordinates(proposed) == true) {
                     navigationReference = reference
                     persistSession()
                     message = "만날 장소를 바꿨어요. 새 경로의 위치와 시간을 공유해요."
                 }
-            })
+            },
+        )
     }
 
     fun checkAutoConfirmProposal(reader: DestinationReader) {
@@ -236,8 +314,9 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             autoConfirmProposalId = null
             return
         }
-        val verified = reader.verifiedPlaceChange(proposed) != null &&
-            reader.telemetry.current(proposed, SystemClock.elapsedRealtime()) != null
+        val verified =
+            reader.verifiedPlaceChange(proposed) != null &&
+                reader.telemetry.current(proposed, SystemClock.elapsedRealtime()) != null
         if (verified && !busy && online && status == "ACTIVE" && !needsSharingConfirmation) {
             autoConfirmProposalId = null
             confirmProposedPlace(reader)
@@ -251,24 +330,28 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         runRequest({ api.request("GET", "/$id", token) }, ::receiveSnapshot, readOnly = true)
     }
 
-    val needsNewInvitation: Boolean get() =
-        status == "INVITE_EXPIRED" || (status == "INVITING" && inviteToken == null)
+    val needsNewInvitation: Boolean
+        get() = status == "INVITE_EXPIRED" || (status == "INVITING" && inviteToken == null)
 
-    val canRenewInvitation: Boolean get() = !busy && online && needsNewInvitation && driverToken != null
+    val canRenewInvitation: Boolean
+        get() = !busy && online && needsNewInvitation && driverToken != null
 
     fun renewInvitation() {
         val id = pickupId ?: return
         val token = driverToken ?: return
         if (!canRenewInvitation) return
-        runRequest({ api.request("POST", "/$id/invitations", token) }, { result ->
-            inviteToken = result.getString("inviteToken")
-            status = "INVITING"
-            participantId = null
-            participantName = null
-            readiness = ""
-            message = "새 초대를 만들었어요."
-            persistSession()
-        })
+        runRequest(
+            { api.request("POST", "/$id/invitations", token) },
+            { result ->
+                inviteToken = result.getString("inviteToken")
+                status = "INVITING"
+                participantId = null
+                participantName = null
+                readiness = ""
+                message = "새 초대를 만들었어요."
+                persistSession()
+            },
+        )
     }
 
     fun approve() {
@@ -278,31 +361,41 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         runRequest({ api.request("POST", path, token) }, ::receiveSnapshot)
     }
 
-    /** Disconnects the passenger who opened the invitation and shows a fresh invitation for the next person. */
+    /**
+     * Disconnects the passenger who opened the invitation and shows a fresh invitation for the next
+     * person.
+     */
     fun disconnectParticipant() {
         if (!canDisconnect) return
         val path = "/$pickupId/participant"
         val token = driverToken ?: return
-        runRequest({
-            try { api.request("DELETE", path, token) }
-            catch (rejected: ApiRejected) {
-                // The server owns this rule; remember it so the button stays hidden after a restart.
-                if (rejected.code == "RIDE_REQUEST_PICKUP") JSONObject().put("requestedPickup", true) else throw rejected
-            }
-        }, { result ->
-            if (result.optBoolean("requestedPickup")) {
-                requestedPickup = true
-                message = "마중 요청으로 시작한 픽업은 요청 목록에서 관리해주세요."
-                return@runRequest
-            }
-            inviteToken = result.getString("inviteToken")
-            status = "INVITING"
-            participantId = null
-            participantName = null
-            readiness = ""
-            message = "탑승자를 끊었어요. 새 초대로 다시 연결할 수 있어요."
-            persistSession()
-        })
+        runRequest(
+            {
+                try {
+                    api.request("DELETE", path, token)
+                } catch (rejected: ApiRejected) {
+                    // The server owns this rule; remember it so the button stays hidden after a
+                    // restart.
+                    if (rejected.code == "RIDE_REQUEST_PICKUP")
+                        JSONObject().put("requestedPickup", true)
+                    else throw rejected
+                }
+            },
+            { result ->
+                if (result.optBoolean("requestedPickup")) {
+                    requestedPickup = true
+                    message = "마중 요청으로 시작한 픽업은 요청 목록에서 관리해주세요."
+                    return@runRequest
+                }
+                inviteToken = result.getString("inviteToken")
+                status = "INVITING"
+                participantId = null
+                participantName = null
+                readiness = ""
+                message = "탑승자를 끊었어요. 새 초대로 다시 연결할 수 있어요."
+                persistSession()
+            },
+        )
     }
 
     fun cancel() {
@@ -317,7 +410,10 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val path = "/$pickupId/arrival"
         val token = driverToken ?: return
         val version = placeVersion
-        runRequest({ api.request("POST", path, token, JSONObject().put("placeVersion", version)) }, ::receiveSnapshot)
+        runRequest(
+            { api.request("POST", path, token, JSONObject().put("placeVersion", version)) },
+            ::receiveSnapshot,
+        )
     }
 
     private var sdkArrivalAttempt = 0
@@ -325,7 +421,12 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     private var sdkArrivalPickup: String? = null
 
     fun arriveFromSdk(confirmedPlace: PickupPlace) {
-        if (needsSharingConfirmation || status != "ACTIVE" || place?.sameCoordinates(confirmedPlace) != true) return
+        if (
+            needsSharingConfirmation ||
+                status != "ACTIVE" ||
+                place?.sameCoordinates(confirmedPlace) != true
+        )
+            return
         if (sdkArrivalPickup == pickupId && SystemClock.elapsedRealtime() < sdkArrivalUntil) return
         sdkArrivalPickup = pickupId
         sdkArrivalUntil = SystemClock.elapsedRealtime() + 30000
@@ -334,14 +435,26 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
     }
 
     private fun sendSdkArrival() {
-        if (sdkArrivalPickup != pickupId || status != "ACTIVE" || needsSharingConfirmation ||
-            SystemClock.elapsedRealtime() >= sdkArrivalUntil || sdkArrivalAttempt >= 3) return
-        if (busy) { handler.postDelayed(::sendSdkArrival, 1000); return }
+        if (
+            sdkArrivalPickup != pickupId ||
+                status != "ACTIVE" ||
+                needsSharingConfirmation ||
+                SystemClock.elapsedRealtime() >= sdkArrivalUntil ||
+                sdkArrivalAttempt >= 3
+        )
+            return
+        if (busy) {
+            handler.postDelayed(::sendSdkArrival, 1000)
+            return
+        }
         val token = driverToken ?: return
         val path = "/$pickupId/arrival"
         sdkArrivalAttempt++
         val version = placeVersion
-        runRequest({ api.request("POST", path, token, JSONObject().put("placeVersion", version)) }, ::receiveSnapshot)
+        runRequest(
+            { api.request("POST", path, token, JSONObject().put("placeVersion", version)) },
+            ::receiveSnapshot,
+        )
         // Arrival is idempotent on the server. Retry a lost acknowledgement at most twice;
         // never send an event to a subsequent pickup or after recovered sharing was stopped.
         handler.postDelayed(::sendSdkArrival, 6000)
@@ -356,7 +469,10 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
 
     fun prepareNextPickup() {
         if (busy || status !in ended) return
-        if (!clearSavedSession()) { notifyChanged(); return }
+        if (!clearSavedSession()) {
+            notifyChanged()
+            return
+        }
         restoringSession = false
         controlGeneration++
         resetVehiclePublisher()
@@ -381,10 +497,12 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val id = pickupId ?: return null
         val token = inviteToken ?: return null
         val origin = BuildConfig.PICKUP_WEB_ORIGIN
-        return if (origin.isNotBlank() && online && status == "INVITING") "$origin/#join/$id/$token" else null
+        return if (origin.isNotBlank() && online && status == "INVITING") "$origin/#join/$id/$token"
+        else null
     }
 
-    fun invitationForSharingBrowser(): String? = invitationForHostBrowser()?.replace("/#join/", "/#share/")
+    fun invitationForSharingBrowser(): String? =
+        invitationForHostBrowser()?.replace("/#join/", "/#share/")
 
     fun syncVehicle(reader: DestinationReader) {
         checkAutoConfirmProposal(reader)
@@ -403,35 +521,58 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }
         if (vehicleInFlight) return
         val sequence = ++vehicleSequence
-        if (!persistSession()) { notifyChanged(); return }
+        if (!persistSession()) {
+            notifyChanged()
+            return
+        }
         vehicleInFlight = true
         val generation = vehicleGeneration
         if (sample != null) nextVehicleSend = now + 5000 else nextInvalidationSend = now + 3000
         val body = JSONObject().put("sequence", sequence).put("placeVersion", placeVersion)
         if (sample != null) {
-            body.put("latitude", sample.latitude).put("longitude", sample.longitude)
-                .put("durationSeconds", sample.durationSeconds).put("sourceTime", sample.observedAt.toString())
+            body
+                .put("latitude", sample.latitude)
+                .put("longitude", sample.longitude)
+                .put("durationSeconds", sample.durationSeconds)
+                .put("sourceTime", sample.observedAt.toString())
         }
         worker.execute {
             val result = runCatching {
-                api.request(if (sample == null) "DELETE" else "PUT", "/$id/vehicle-state", token, body)
+                api.request(
+                    if (sample == null) "DELETE" else "PUT",
+                    "/$id/vehicle-state",
+                    token,
+                    body,
+                )
             }
             handler.post {
-                if (generation != vehicleGeneration || id != pickupId || status in ended) return@post
+                if (generation != vehicleGeneration || id != pickupId || status in ended)
+                    return@post
                 vehicleInFlight = false
-                result.fold(onSuccess = { response ->
-                    vehicleKnownEmpty = sample == null
-                    vehicleMessage = VehicleSharingFeedback.accepted(
-                        sample != null, response.optString("freshness"), response.optLong("validForMillis", 0)
-                    )
-                }, onFailure = { error ->
-                    // A timed-out request may have committed: invalidate until acknowledged.
-                    vehicleKnownEmpty = false
-                    vehicleMessage = VehicleSharingFeedback.rejected((error as? ApiRejected)?.code)
-                })
+                result.fold(
+                    onSuccess = { response ->
+                        vehicleKnownEmpty = sample == null
+                        vehicleMessage =
+                            VehicleSharingFeedback.accepted(
+                                sample != null,
+                                response.optString("freshness"),
+                                response.optLong("validForMillis", 0),
+                            )
+                    },
+                    onFailure = { error ->
+                        // A timed-out request may have committed: invalidate until acknowledged.
+                        vehicleKnownEmpty = false
+                        vehicleMessage =
+                            VehicleSharingFeedback.rejected((error as? ApiRejected)?.code)
+                    },
+                )
                 notifyChanged()
                 // Do not wait for the next poll if the SDK was invalidated during an upload.
-                if (sample != null && reader.telemetry.current(confirmedPlace, SystemClock.elapsedRealtime()) == null) {
+                if (
+                    sample != null &&
+                        reader.telemetry.current(confirmedPlace, SystemClock.elapsedRealtime()) ==
+                            null
+                ) {
                     syncVehicle(reader)
                 }
             }
@@ -464,9 +605,14 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         placeVersion = version
         val proposal = data.optJSONObject("placeProposal")
         proposalId = proposal?.optString("proposalId")?.takeIf { it.isNotBlank() && it != "null" }
-        placeProposal = proposal?.optJSONObject("place")?.let {
-            PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
-        }
+        placeProposal =
+            proposal?.optJSONObject("place")?.let {
+                PickupPlace(
+                    it.getString("label"),
+                    it.getDouble("latitude"),
+                    it.getDouble("longitude"),
+                )
+            }
         val nextStatus = data.getString("status")
         if (status != nextStatus) message = ""
         status = nextStatus
@@ -477,7 +623,12 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         if (status in ended) needsSharingConfirmation = false
         restoringSession = false
         data.optJSONObject("place")?.let {
-            place = PickupPlace(it.getString("label"), it.getDouble("latitude"), it.getDouble("longitude"))
+            place =
+                PickupPlace(
+                    it.getString("label"),
+                    it.getDouble("latitude"),
+                    it.getDouble("longitude"),
+                )
         }
         val participant = data.optJSONObject("participant")
         participantId = participant?.optString("participantId")
@@ -489,7 +640,10 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         val quickMsgObj = data.optJSONObject("quickMessage")
         val quickMsgText = quickMsgObj?.optString("text")?.takeIf { it.isNotBlank() }
         val quickMsgSentAt = quickMsgObj?.optString("sentAt")
-        if (quickMsgText != null && (quickMsgSentAt != lastQuickMessageAt || quickMsgText != quickMessage)) {
+        if (
+            quickMsgText != null &&
+                (quickMsgSentAt != lastQuickMessageAt || quickMsgText != quickMessage)
+        ) {
             lastQuickMessageAt = quickMsgSentAt
             quickMessage = quickMsgText
             onQuickMessageReceived?.invoke(quickMsgText)
@@ -510,10 +664,17 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         } else persistSession()
     }
 
-    // Confirms application receipt, including background sharing; this does not mean the driver read it.
+    // Confirms application receipt, including background sharing; this does not mean the driver
+    // read it.
     private fun acknowledgeReadiness() {
-        if (!online || receiptInFlight || !supportsReadinessReceipt ||
-            status !in setOf("ACTIVE", "ARRIVED") || readinessSequence <= receivedReadinessSequence) return
+        if (
+            !online ||
+                receiptInFlight ||
+                !supportsReadinessReceipt ||
+                status !in setOf("ACTIVE", "ARRIVED") ||
+                readinessSequence <= receivedReadinessSequence
+        )
+            return
         val id = pickupId ?: return
         val passenger = participantId ?: return
         val token = driverToken ?: return
@@ -522,13 +683,22 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         receiptInFlight = true
         worker.execute {
             val result = runCatching {
-                api.request("PUT", "/$id/readiness-receipt", token,
-                    JSONObject().put("participantId", passenger).put("sequence", sequence))
+                api.request(
+                    "PUT",
+                    "/$id/readiness-receipt",
+                    token,
+                    JSONObject().put("participantId", passenger).put("sequence", sequence),
+                )
             }
             handler.post {
                 receiptInFlight = false
                 // Do not apply an earlier passenger/pickup's response to a new session.
-                if (generation == vehicleGeneration && id == pickupId && passenger == participantId && result.isSuccess) {
+                if (
+                    generation == vehicleGeneration &&
+                        id == pickupId &&
+                        passenger == participantId &&
+                        result.isSuccess
+                ) {
                     receivedReadinessSequence = maxOf(receivedReadinessSequence, sequence)
                 }
                 // A lost receipt is retried only after the next successful snapshot read.
@@ -536,11 +706,16 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
         }
     }
 
-    private fun runRequest(call: () -> JSONObject, accept: (JSONObject) -> Unit,
-                           creating: Boolean = false, readOnly: Boolean = false) {
+    private fun runRequest(
+        call: () -> JSONObject,
+        accept: (JSONObject) -> Unit,
+        creating: Boolean = false,
+        readOnly: Boolean = false,
+    ) {
         if (busy || (readOnly && refreshing)) return
         val generation = if (readOnly) controlGeneration else ++controlGeneration
-        if (readOnly) refreshing = true else {
+        if (readOnly) refreshing = true
+        else {
             busy = true
             refreshError = false
             message = ""
@@ -551,48 +726,66 @@ class PickupController(private val api: PickupApiClient = PickupApiClient(),
             handler.post {
                 if (readOnly) refreshing = false else busy = false
                 if (readOnly && (generation != controlGeneration || busy)) return@post
-                result.fold(onSuccess = { data ->
-                    try {
-                        if (readOnly && refreshError) { message = ""; refreshError = false }
-                        accept(data)
-                        online = true
-                    } catch (_: Exception) {
-                        online = false
-                        message = "서버 응답 형식을 확인하지 못했어요."
+                result.fold(
+                    onSuccess = { data ->
+                        try {
+                            if (readOnly && refreshError) {
+                                message = ""
+                                refreshError = false
+                            }
+                            accept(data)
+                            online = true
+                        } catch (_: Exception) {
+                            online = false
+                            message = "서버 응답 형식을 확인하지 못했어요."
+                            refreshError = readOnly
+                        }
+                    },
+                    onFailure = { error ->
                         refreshError = readOnly
-                    }
-                }, onFailure = { error ->
-                    refreshError = readOnly
-                    online = false
-                    if (creating) registration?.rejectCreation(error)
-                    if (creating && error is ApiRejected && error.status in 400..499) uncertainCreate = false
-                    message = if (creating && uncertainCreate)
-                        "생성 결과를 확인하지 못했어요. 중복 생성을 막기 위해 자동 재시도하지 않아요."
-                    else when ((error as? ApiRejected)?.code) {
-                        "PLACE_CHANGED", "PROPOSAL_CHANGED" -> "장소 제안이 바뀌었어요. 새로 확인한 뒤 경로를 다시 확인해주세요."
-                        "ROUTE_UNVERIFIED", "FUTURE_SOURCE_TIME" -> "최신 내비 경로와 시간을 확인하지 못했어요. 차량 시간을 확인하고 다시 눌러주세요."
-                        else -> "서버와 연결하지 못했어요. 다시 확인해주세요."
-                    }
-                    if (!creating && error is ApiRejected && error.status in setOf(401, 403, 404, 410)) {
-                        clearSavedSession()
-                        restoringSession = false
-                        resetVehiclePublisher()
-                        driverToken = null
-                        inviteToken = null
-                        participantId = null
-                        needsSharingConfirmation = false
-                        status = "EXPIRED"
-                        place = null
-                        navigationReference = null
-                        participantName = null
-                        if (!storageCleanupFailed) message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
-                    }
-                })
+                        online = false
+                        if (creating) registration?.rejectCreation(error)
+                        if (creating && error is ApiRejected && error.status in 400..499)
+                            uncertainCreate = false
+                        message =
+                            if (creating && uncertainCreate)
+                                "생성 결과를 확인하지 못했어요. 중복 생성을 막기 위해 자동 재시도하지 않아요."
+                            else
+                                when ((error as? ApiRejected)?.code) {
+                                    "PLACE_CHANGED",
+                                    "PROPOSAL_CHANGED" -> "장소 제안이 바뀌었어요. 새로 확인한 뒤 경로를 다시 확인해주세요."
+                                    "ROUTE_UNVERIFIED",
+                                    "FUTURE_SOURCE_TIME" ->
+                                        "최신 내비 경로와 시간을 확인하지 못했어요. 차량 시간을 확인하고 다시 눌러주세요."
+                                    else -> "서버와 연결하지 못했어요. 다시 확인해주세요."
+                                }
+                        if (
+                            !creating &&
+                                error is ApiRejected &&
+                                error.status in setOf(401, 403, 404, 410)
+                        ) {
+                            clearSavedSession()
+                            restoringSession = false
+                            resetVehiclePublisher()
+                            driverToken = null
+                            inviteToken = null
+                            participantId = null
+                            needsSharingConfirmation = false
+                            status = "EXPIRED"
+                            place = null
+                            navigationReference = null
+                            participantName = null
+                            if (!storageCleanupFailed) message = "이 픽업에 접근할 수 없어요. 접근 정보를 지웠어요."
+                        }
+                    },
+                )
                 notifyChanged()
                 if (readOnly) acknowledgeReadiness()
             }
         }
     }
 
-    companion object { private val ended = setOf("COMPLETED", "CANCELLED", "EXPIRED") }
+    companion object {
+        private val ended = setOf("COMPLETED", "CANCELLED", "EXPIRED")
+    }
 }

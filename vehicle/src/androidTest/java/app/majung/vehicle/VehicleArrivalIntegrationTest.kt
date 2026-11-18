@@ -1,18 +1,12 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.MemoryPickupSessionStore
+import app.majung.vehicle.data.storage.SavedPickupSession
+import app.majung.vehicle.domain.PickupController
+import app.majung.vehicle.navi.PickupPlace
 import java.net.ServerSocket
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -21,12 +15,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VehicleArrivalIntegrationTest {
-    private val main get() = InstrumentationRegistry.getInstrumentation()
-    @Test fun matchedArrivalRetriesLostAcknowledgementAndDoesNotRepeatAfterArrived() {
+    private val main
+        get() = InstrumentationRegistry.getInstrumentation()
+
+    @Test
+    fun matchedArrivalRetriesLostAcknowledgementAndDoesNotRepeatAfterArrived() {
         ArrivalServer().use { server ->
-            val store = MemoryPickupSessionStore().apply {
-                save(SavedPickupSession(UUID.randomUUID().toString(), "A".repeat(43), null, 0))
-            }
+            val store =
+                MemoryPickupSessionStore().apply {
+                    save(SavedPickupSession(UUID.randomUUID().toString(), "A".repeat(43), null, 0))
+                }
             lateinit var controller: PickupController
             main.runOnMainSync {
                 controller = PickupController(PickupApiClient(server.origin), store)
@@ -50,6 +48,7 @@ class VehicleArrivalIntegrationTest {
             assertEquals(2, server.arrivals.get())
         }
     }
+
     private fun await(condition: () -> Boolean) {
         val until = SystemClock.elapsedRealtime() + 9000
         while (SystemClock.elapsedRealtime() < until) {
@@ -60,28 +59,45 @@ class VehicleArrivalIntegrationTest {
         }
         throw AssertionError("Arrival controller did not reach expected state")
     }
+
     private class ArrivalServer : AutoCloseable {
         private val socket = ServerSocket(0)
         val origin = "http://127.0.0.1:${socket.localPort}"
         val arrivals = AtomicInteger()
-        private val thread = Thread {
-            while (!socket.isClosed) try {
-                socket.accept().use { client ->
-                    val reader = client.getInputStream().bufferedReader()
-                    val request = reader.readLine()
-                    while (reader.readLine()?.takeIf { it.isNotEmpty() } != null) { }
-                    val attempt = if (request.startsWith("POST")) arrivals.incrementAndGet() else 0
-                    val status = if (attempt == 1) 503 else 200
-                    val body = if (status == 503) "{}" else
-                        """{"status":"${if (attempt > 1) "ARRIVED" else "ACTIVE"}","place":{"label":"예시 장소","latitude":37,"longitude":127}}"""
-                    val bytes = body.toByteArray()
-                    client.getOutputStream().apply {
-                        write("HTTP/1.1 $status Response\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray())
-                        write(bytes); flush()
-                    }
+        private val thread =
+            Thread {
+                    while (!socket.isClosed) try {
+                        socket.accept().use { client ->
+                            val reader = client.getInputStream().bufferedReader()
+                            val request = reader.readLine()
+                            while (reader.readLine()?.takeIf { it.isNotEmpty() } != null) {}
+                            val attempt =
+                                if (request.startsWith("POST")) arrivals.incrementAndGet() else 0
+                            val status = if (attempt == 1) 503 else 200
+                            val body =
+                                if (status == 503) "{}"
+                                else
+                                    """{"status":"${if (attempt > 1) "ARRIVED" else "ACTIVE"}","place":{"label":"예시 장소","latitude":37,"longitude":127}}"""
+                            val bytes = body.toByteArray()
+                            client.getOutputStream().apply {
+                                write(
+                                    "HTTP/1.1 $status Response\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+                                        .toByteArray()
+                                )
+                                write(bytes)
+                                flush()
+                            }
+                        }
+                    } catch (_: Exception) {}
                 }
-            } catch (_: Exception) { }
-        }.apply { isDaemon = true; start() }
-        override fun close() { socket.close(); thread.join(1000) }
+                .apply {
+                    isDaemon = true
+                    start()
+                }
+
+        override fun close() {
+            socket.close()
+            thread.join(1000)
+        }
     }
 }

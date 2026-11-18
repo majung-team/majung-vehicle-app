@@ -1,23 +1,16 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
-import android.os.SystemClock
 import android.graphics.Bitmap
+import android.os.SystemClock
 import android.widget.Button
 import androidx.test.core.app.ActivityScenario
-import java.io.File
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.EncryptedPickupSessionStore
+import app.majung.vehicle.data.storage.SavedPickupSession
+import app.majung.vehicle.navi.PickupPlace
+import java.io.File
 import java.time.Instant
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
@@ -26,7 +19,8 @@ import org.junit.Test
 
 /** Opt-in two-process test against the local API. Telemetry here is a synthetic fixture. */
 class PickupProcessRecoveryTest {
-    @Test fun preserveSessionAcrossForceStop() {
+    @Test
+    fun preserveSessionAcrossForceStop() {
         val main = InstrumentationRegistry.getInstrumentation()
         val phase = InstrumentationRegistry.getArguments().getString("recoveryPhase")
         assumeTrue(phase == "prepare" || phase == "verify")
@@ -39,12 +33,31 @@ class PickupProcessRecoveryTest {
             val id = pickup.getString("pickupId")
             val owner = pickup.getString("driverToken")
             try {
-                val guest = api.request("POST", "/$id/participants", body = JSONObject()
-                    .put("inviteToken", pickup.getString("inviteToken")).put("displayName", "복구 시험"))
-                api.request("POST", "/$id/participants/${guest.getString("participantId")}/approval", owner)
-                api.request("PUT", "/$id/vehicle-state", owner, JSONObject().put("sequence", 500)
-                    .put("latitude", 37.0).put("longitude", 127.0).put("durationSeconds", 120)
-                    .put("sourceTime", Instant.now().toString()))
+                val guest =
+                    api.request(
+                        "POST",
+                        "/$id/participants",
+                        body =
+                            JSONObject()
+                                .put("inviteToken", pickup.getString("inviteToken"))
+                                .put("displayName", "복구 시험"),
+                    )
+                api.request(
+                    "POST",
+                    "/$id/participants/${guest.getString("participantId")}/approval",
+                    owner,
+                )
+                api.request(
+                    "PUT",
+                    "/$id/vehicle-state",
+                    owner,
+                    JSONObject()
+                        .put("sequence", 500)
+                        .put("latitude", 37.0)
+                        .put("longitude", 127.0)
+                        .put("durationSeconds", 120)
+                        .put("sourceTime", Instant.now().toString()),
+                )
                 store.save(SavedPickupSession(id, owner, null, 500))
                 assertTrue(store.load()?.pickupId == id)
             } catch (error: Exception) {
@@ -54,12 +67,16 @@ class PickupProcessRecoveryTest {
             }
             return
         }
-        // Application.onCreate automatically loads and verifies the stored session in this new process.
+        // Application.onCreate automatically loads and verifies the stored session in this new
+        // process.
         await { app.pickup.online && app.pickup.status == "ACTIVE" }
         val saved = store.load() ?: throw AssertionError("Stored session missing")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                assertTrue(activity.findViewById<Button>(R.id.resume_pickup).visibility == android.view.View.VISIBLE)
+                assertTrue(
+                    activity.findViewById<Button>(R.id.resume_pickup).visibility ==
+                        android.view.View.VISIBLE
+                )
                 assertTrue(app.pickup.needsSharingConfirmation && !app.sharingRunning)
             }
             if (InstrumentationRegistry.getArguments().getString("captureEvidence") == "true") {
@@ -84,11 +101,16 @@ class PickupProcessRecoveryTest {
             val end = SystemClock.elapsedRealtime() + 15000
             var updated = false
             while (!updated && SystemClock.elapsedRealtime() < end) {
-                val state = api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken)
-                updated = state.optLong("sequence") == 501L && state.optString("freshness") == "FRESH"
+                val state =
+                    api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken)
+                updated =
+                    state.optLong("sequence") == 501L && state.optString("freshness") == "FRESH"
                 if (!updated) SystemClock.sleep(100)
             }
-            assertTrue("The restored pickup should publish fresh telemetry with the next sequence", updated)
+            assertTrue(
+                "The restored pickup should publish fresh telemetry with the next sequence",
+                updated,
+            )
             assertTrue(store.load()?.vehicleSequence == 501L)
             main.runOnMainSync { app.pickup.arrive() }
             await { app.pickup.status == "ARRIVED" && !app.pickup.busy }
@@ -96,7 +118,9 @@ class PickupProcessRecoveryTest {
             await { app.pickup.status == "COMPLETED" && !app.pickup.busy }
             assertTrue(store.load() == null)
         } finally {
-            runCatching { api.request("POST", "/${saved.pickupId}/cancellation", saved.driverToken) }
+            runCatching {
+                api.request("POST", "/${saved.pickupId}/cancellation", saved.driverToken)
+            }
             store.clear()
         }
     }

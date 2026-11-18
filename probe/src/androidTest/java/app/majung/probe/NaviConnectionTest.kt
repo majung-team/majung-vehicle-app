@@ -19,15 +19,18 @@ class NaviConnectionTest {
         val probe: NaviProbe = app.probe
         instrumentation.runOnMainSync { probe.connect() }
         assertTrue("NaviHelper connection failed", await(20_000) { probe.connection == "연결 성공" })
-        val emptyPoiId: Boolean = InstrumentationRegistry.getArguments().getString("poiMode") == "empty"
+        val emptyPoiId: Boolean =
+            InstrumentationRegistry.getArguments().getString("poiMode") == "empty"
         instrumentation.runOnMainSync { probe.requestExampleRoute(emptyPoiId) }
-        val received: Boolean = await(35_000) {
-            Regex("예상 [1-9][0-9]*초").containsMatchIn(probe.driving)
-        }
+        val received: Boolean =
+            await(35_000) { Regex("예상 [1-9][0-9]*초").containsMatchIn(probe.driving) }
         instrumentation.runOnMainSync { probe.query() }
         SystemClock.sleep(3000)
         instrumentation.runOnMainSync { probe.disconnect() }
-        assertTrue("No positive onDrivingInfo duration after route request; inspect navigation state and event log", received)
+        assertTrue(
+            "No positive onDrivingInfo duration after route request; inspect navigation state and event log",
+            received,
+        )
     }
 
     @Test
@@ -37,11 +40,20 @@ class NaviConnectionTest {
         val probe: NaviProbe = ApplicationProvider.getApplicationContext<ProbeApplication>().probe
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             instrumentation.runOnMainSync { probe.connect() }
-            assertTrue("NaviHelper connection failed", await(20_000) { probe.connection == "연결 성공" })
-            assertTrue("Initial location not received", await(10_000) { probe.locationRevision > 0 })
+            assertTrue(
+                "NaviHelper connection failed",
+                await(20_000) { probe.connection == "연결 성공" },
+            )
+            assertTrue(
+                "Initial location not received",
+                await(10_000) { probe.locationRevision > 0 },
+            )
             scenario.moveToState(Lifecycle.State.CREATED)
             var before = 0
-            instrumentation.runOnMainSync { before = probe.locationRevision; probe.query() }
+            instrumentation.runOnMainSync {
+                before = probe.locationRevision
+                probe.query()
+            }
             val received = await(10_000) { probe.locationRevision > before }
             instrumentation.runOnMainSync { probe.disconnect() }
             assertTrue("No location response while Activity was stopped", received)
@@ -55,13 +67,15 @@ class NaviConnectionTest {
         val app = ApplicationProvider.getApplicationContext<ProbeApplication>()
         val probe: NaviProbe = app.probe
         instrumentation.runOnMainSync { probe.connect() }
-        assertTrue("NaviHelper service did not connect in 20 seconds", await(20_000) {
-            probe.connection == "연결 성공"
-        })
+        assertTrue(
+            "NaviHelper service did not connect in 20 seconds",
+            await(20_000) { probe.connection == "연결 성공" },
+        )
         instrumentation.runOnMainSync { probe.query() }
-        assertTrue("Connected, but no current-location callback in 15 seconds", await(15_000) {
-            probe.location.startsWith("위도")
-        })
+        assertTrue(
+            "Connected, but no current-location callback in 15 seconds",
+            await(15_000) { probe.location.startsWith("위도") },
+        )
         // Observe unsolicited updates before release; do not count manual polling as a stream.
         SystemClock.sleep(5000)
         instrumentation.runOnMainSync { probe.disconnect() }

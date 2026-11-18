@@ -1,26 +1,16 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.time.Instant
 
 class VehicleTelemetryTest {
     private val place = PickupPlace("픽업 장소", 37.0, 127.0)
     private val time = Instant.parse("2026-10-23T00:00:00Z")
 
-    @Test fun needsBothLocationAndEtaForTheConfirmedPlace() {
+    @Test
+    fun needsBothLocationAndEtaForTheConfirmedPlace() {
         val buffer = VehicleTelemetry()
         buffer.location(36.0, 126.0, 1000, time)
         assertNull(buffer.current(place, 1001))
@@ -31,14 +21,16 @@ class VehicleTelemetryTest {
         assertEquals(36.0, sample.latitude, 0.0)
     }
 
-    @Test fun anotherDestinationCannotPublishEtaForThisPickup() {
+    @Test
+    fun anotherDestinationCannotPublishEtaForThisPickup() {
         val buffer = VehicleTelemetry()
         buffer.location(36.0, 126.0, 1000, time)
         buffer.destination(place.copy(latitude = 38.0), 120, 1000, time)
         assertNull(buffer.current(place, 1001))
     }
 
-    @Test fun newLocationDoesNotRefreshAnOldEta() {
+    @Test
+    fun newLocationDoesNotRefreshAnOldEta() {
         val buffer = VehicleTelemetry()
         buffer.location(36.0, 126.0, 1000, time)
         buffer.destination(place, 120, 1000, time)
@@ -47,7 +39,8 @@ class VehicleTelemetryTest {
         assertNull(buffer.current(place, 11_000))
     }
 
-    @Test fun invalidationRequiresBothComponentsAgain() {
+    @Test
+    fun invalidationRequiresBothComponentsAgain() {
         val buffer = VehicleTelemetry()
         buffer.location(36.0, 126.0, 1000, time)
         buffer.destination(place, 120, 1000, time)
@@ -58,7 +51,8 @@ class VehicleTelemetryTest {
         assertEquals(100, buffer.current(place, 2002)!!.durationSeconds)
     }
 
-    @Test fun rejectsInvalidCoordinatesNegativeEtaAndClockRollback() {
+    @Test
+    fun rejectsInvalidCoordinatesNegativeEtaAndClockRollback() {
         val buffer = VehicleTelemetry()
         buffer.destination(place, 120, 1000, time)
         buffer.location(Double.NaN, 126.0, 1000, time)

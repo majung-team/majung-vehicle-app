@@ -20,10 +20,11 @@ class NotificationDismissReceiver : BroadcastReceiver() {
         const val EXTRA_NOTIFICATION_ID = "notificationId"
 
         fun pendingIntent(context: Context, notificationId: Int): PendingIntent {
-            val intent = Intent(context, NotificationDismissReceiver::class.java).apply {
-                action = ACTION_DISMISS
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            }
+            val intent =
+                Intent(context, NotificationDismissReceiver::class.java).apply {
+                    action = ACTION_DISMISS
+                    putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+                }
             return PendingIntent.getBroadcast(
                 context,
                 notificationId,

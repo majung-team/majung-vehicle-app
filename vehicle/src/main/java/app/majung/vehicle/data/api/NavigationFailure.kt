@@ -1,16 +1,5 @@
 package app.majung.vehicle.data.api
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 /** Safe display text only. SDK payloads, exception messages and locations are excluded. */
 enum class NavigationFailure(val message: String) {
     DISCONNECTED("내비게이션 연결이 끊겼어요. 연결 버튼을 눌러 다시 연결해주세요."),
@@ -35,6 +24,9 @@ enum class NavigationFailure(val message: String) {
     ROUTE_SEARCH_FAILED("내비게이션에서 경로를 찾지 못했어요. 네트워크와 장소를 확인한 뒤 다시 시도해주세요.");
 
     val requiresPickupReselection: Boolean
-        get() = this == PICKUP_NOT_FOUND || this == ROUTE_CHANGED ||
-            this == WAYPOINT_COORDINATES_UNAVAILABLE || this == WAYPOINT_CONFIRMATION_TIMEOUT
+        get() =
+            this == PICKUP_NOT_FOUND ||
+                this == ROUTE_CHANGED ||
+                this == WAYPOINT_COORDINATES_UNAVAILABLE ||
+                this == WAYPOINT_CONFIRMATION_TIMEOUT
 }

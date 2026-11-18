@@ -1,19 +1,14 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 /** A missing completion event never opens the gate by elapsed time alone. */
 class RouteValidation {
-    private enum class Awaiting { NONE, STATE, DESTINATION, WAYPOINT }
+    private enum class Awaiting {
+        NONE,
+        STATE,
+        DESTINATION,
+        WAYPOINT,
+    }
+
     private var awaiting = Awaiting.NONE
     private var requestedAt = 0L
     private var candidate: List<PickupPlace>? = null
@@ -33,12 +28,14 @@ class RouteValidation {
             (candidateAt + CONFIRMATION_GAP_MS - now).coerceAtLeast(0L)
         else 0L
 
-    /** Start the next read early enough to cover the measured SDK round trip.
-     * receiveRoute still enforces the full response-to-response confirmation gap. */
+    /**
+     * Start the next read early enough to cover the measured SDK round trip. receiveRoute still
+     * enforces the full response-to-response confirmation gap.
+     */
     fun confirmationRequestDelay(now: Long, expectedResponseMillis: Long): Long {
-        val remaining=confirmationDelay(now)
+        val remaining = confirmationDelay(now)
         if (remaining == 0L) return 0L
-        return (remaining - expectedResponseMillis.coerceIn(0L,3000L) + 100L).coerceAtLeast(0L)
+        return (remaining - expectedResponseMillis.coerceIn(0L, 3000L) + 100L).coerceAtLeast(0L)
     }
 
     fun requestState(now: Long): Boolean {
@@ -52,7 +49,10 @@ class RouteValidation {
 
     fun receiveState(guiding: Boolean, now: Long): Boolean {
         if (!awaitingState(now)) return false
-        if (!guiding) { invalidate(); return false }
+        if (!guiding) {
+            invalidate()
+            return false
+        }
         awaiting = Awaiting.DESTINATION
         requestedAt = now
         return true
@@ -74,7 +74,10 @@ class RouteValidation {
         val kind = if (awaiting == Awaiting.WAYPOINT) Awaiting.WAYPOINT else Awaiting.DESTINATION
         if (!expected(kind, now)) return false
         awaiting = Awaiting.NONE
-        if (places.isNullOrEmpty()) { invalidate(); return false }
+        if (places.isNullOrEmpty()) {
+            invalidate()
+            return false
+        }
         if (ready && candidate == places) return true
         ready = false
         val previous = candidate

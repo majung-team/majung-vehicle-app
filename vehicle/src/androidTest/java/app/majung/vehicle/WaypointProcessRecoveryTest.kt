@@ -1,21 +1,13 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.os.SystemClock
 import android.widget.Button
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.EncryptedPickupSessionStore
+import app.majung.vehicle.navi.NavigationStopKind
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -25,8 +17,11 @@ import org.junit.Test
 
 /** Run after the real SDK pickup prepare phase and adb force-stop. No synthetic telemetry. */
 class WaypointProcessRecoveryTest {
-    @Test fun restoreIdlessWaypointAfterProcessRestart() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("verifyWaypointRestart") == "true")
+    @Test
+    fun restoreIdlessWaypointAfterProcessRestart() {
+        assumeTrue(
+            InstrumentationRegistry.getArguments().getString("verifyWaypointRestart") == "true"
+        )
         val main = InstrumentationRegistry.getInstrumentation()
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val api = PickupApiClient()
@@ -47,8 +42,12 @@ class WaypointProcessRecoveryTest {
                 var live: JSONObject? = null
                 val deadline = SystemClock.elapsedRealtime() + 35000
                 while (SystemClock.elapsedRealtime() < deadline) {
-                    val state = api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken)
-                    if (state.optString("freshness") == "FRESH" && state.getLong("sequence") > saved.vehicleSequence) {
+                    val state =
+                        api.request("GET", "/${saved.pickupId}/vehicle-state", saved.driverToken)
+                    if (
+                        state.optString("freshness") == "FRESH" &&
+                            state.getLong("sequence") > saved.vehicleSequence
+                    ) {
                         live = state
                         break
                     }
@@ -62,14 +61,17 @@ class WaypointProcessRecoveryTest {
                     assertEquals(NavigationStopKind.WAYPOINT, waypoint.kind)
                     assertEquals(waypoint.durationSeconds, live!!.getLong("durationSeconds"))
                     assertTrue(stops.destination.durationSeconds != waypoint.durationSeconds)
-                    report.put("sharedTarget", waypoint.kind.name)
+                    report
+                        .put("sharedTarget", waypoint.kind.name)
                         .put("sharedEtaSeconds", live!!.getLong("durationSeconds"))
                         .put("finalEtaSeconds", stops.destination.durationSeconds)
                 }
             }
-            report.put("newProcessRestoredIdentity", true)
+            report
+                .put("newProcessRestoredIdentity", true)
                 .put("sharingRequiredUserConfirmation", true)
-                .put("sequenceAdvanced", true).put("result", "passed")
+                .put("sequenceAdvanced", true)
+                .put("result", "passed")
         } finally {
             File(app.filesDir, "waypoint-process-recovery.json").writeText(report.toString(2))
             main.runOnMainSync { if (app.pickup.canCancel) app.pickup.cancel() }

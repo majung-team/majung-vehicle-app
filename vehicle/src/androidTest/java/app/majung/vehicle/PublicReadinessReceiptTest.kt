@@ -1,28 +1,24 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.MemoryPickupSessionStore
+import app.majung.vehicle.data.storage.SavedPickupSession
+import app.majung.vehicle.domain.PickupController
 import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Explicit HTTPS check using a disposable fixture. Never copies the installed driver's credentials. */
+/**
+ * Explicit HTTPS check using a disposable fixture. Never copies the installed driver's credentials.
+ */
 class PublicReadinessReceiptTest {
-    @Test fun confirmsPreparedStateThroughPublicServer() {
+    @Test
+    fun confirmsPreparedStateThroughPublicServer() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("publicReadiness") == "true")
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val input = File(app.filesDir, "public-readiness-session.json")
@@ -31,7 +27,8 @@ class PublicReadinessReceiptTest {
             val data = JSONObject(input.readText())
             val id = data.getString("pickupId")
             val owner = data.getString("driverToken")
-            val store = MemoryPickupSessionStore().apply { save(SavedPickupSession(id, owner, null, 0)) }
+            val store =
+                MemoryPickupSessionStore().apply { save(SavedPickupSession(id, owner, null, 0)) }
             lateinit var controller: PickupController
             main.runOnMainSync {
                 controller = PickupController(PickupApiClient(), store)
@@ -42,8 +39,11 @@ class PublicReadinessReceiptTest {
             while (SystemClock.elapsedRealtime() < until) {
                 val snapshot = PickupApiClient().request("GET", "/$id", owner)
                 val participant = snapshot.getJSONObject("participant")
-                if (participant.getLong("readinessSequence") > 0 &&
-                    participant.getLong("readinessSequence") == participant.getLong("readinessReceivedSequence")) {
+                if (
+                    participant.getLong("readinessSequence") > 0 &&
+                        participant.getLong("readinessSequence") ==
+                            participant.getLong("readinessReceivedSequence")
+                ) {
                     received = true
                     break
                 }
@@ -51,9 +51,19 @@ class PublicReadinessReceiptTest {
             }
             assertEquals(true, received)
             main.runOnMainSync { assertEquals("READY", controller.readiness) }
-            File(app.filesDir, "public-readiness-summary.json").writeText(JSONObject()
-                .put("publicHttps", true).put("vehicleController", true).put("readyReceived", true)
-                .put("physicalCar", false).put("driverRead", false).put("result", "passed").toString(2))
-        } finally { input.delete() }
+            File(app.filesDir, "public-readiness-summary.json")
+                .writeText(
+                    JSONObject()
+                        .put("publicHttps", true)
+                        .put("vehicleController", true)
+                        .put("readyReceived", true)
+                        .put("physicalCar", false)
+                        .put("driverRead", false)
+                        .put("result", "passed")
+                        .toString(2)
+                )
+        } finally {
+            input.delete()
+        }
     }
 }

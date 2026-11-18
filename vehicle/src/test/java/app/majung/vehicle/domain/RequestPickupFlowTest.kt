@@ -1,25 +1,22 @@
 package app.majung.vehicle.domain
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
+import app.majung.vehicle.navi.NavigationStop
+import app.majung.vehicle.navi.NavigationStopKind
+import app.majung.vehicle.navi.NavigationStops
+import app.majung.vehicle.navi.PickupPlace
 import org.junit.Assert.*
 import org.junit.Test
 
 class RequestPickupFlowTest {
     private val home = PickupPlace("최종 목적지", 37.1, 127.1)
     private val station = PickupPlace("만날 장소", 37.2, 127.2)
-    private fun route(vararg waypoints: PickupPlace) = NavigationStops(
-        NavigationStop(home, 600, NavigationStopKind.DESTINATION),
-        waypoints.map { NavigationStop(it, 120, NavigationStopKind.WAYPOINT) })
+
+    private fun route(vararg waypoints: PickupPlace) =
+        NavigationStops(
+            NavigationStop(home, 600, NavigationStopKind.DESTINATION),
+            waypoints.map { NavigationStop(it, 120, NavigationStopKind.WAYPOINT) },
+        )
+
     private inner class Host : RequestPickupFlow.Host {
         override var authority: Any? = "driver-one"
         override var requestsFresh = true
@@ -38,116 +35,228 @@ class RequestPickupFlowTest {
         var starts = 0
         var refreshes = 0
         var clock = 0L
+
         override fun request(id: String) = target?.takeIf { it.id == id }
+
         override fun hasOtherActiveRequest(id: String) = otherActive
+
         override fun canStart(id: String) = !hasPickup && !pickupBusy
-        override fun refreshRequests() { refreshes++ }
-        override fun prepareRoute(retry: Boolean) { }
+
+        override fun refreshRequests() {
+            refreshes++
+        }
+
+        override fun prepareRoute(retry: Boolean) {}
+
         override fun stops() = current
+
         override fun select(place: PickupPlace) = current?.resolve(place) != null
+
         override fun addWaypoint(place: PickupPlace): Boolean {
             insertions++
             current = null
             return true
         }
+
         override fun setDestination(place: PickupPlace): Boolean {
             destinationChanges++
             current = null
             return true
         }
-        override fun clearEnded() { hasPickup = false; pickupStatus = "" }
-        override fun start(ride: RequestedRide) { starts++; pickupBusy = true }
+
+        override fun clearEnded() {
+            hasPickup = false
+            pickupStatus = ""
+        }
+
+        override fun start(ride: RequestedRide) {
+            starts++
+            pickupBusy = true
+        }
+
         fun flow() = RequestPickupFlow(this) { clock }
     }
-    @Test fun addsOnceWaitsForProofAndStartsOnlyAfterConfirmation() {
-        val host = Host(); val flow = host.flow()
+
+    @Test
+    fun addsOnceWaitsForProofAndStartsOnlyAfterConfirmation() {
+        val host = Host()
+        val flow = host.flow()
         val existingWaypoint = PickupPlace("기존 경유지", 37.4, 127.4)
         host.current = route(existingWaypoint)
-        flow.begin("request-one"); flow.tick()
-        repeat(10) { flow.tick(); flow.confirm(true) }
-        assertEquals(1, host.insertions); assertEquals(0, host.starts)
+        flow.begin("request-one")
+        flow.tick()
+        repeat(10) {
+            flow.tick()
+            flow.confirm(true)
+        }
+        assertEquals(1, host.insertions)
+        assertEquals(0, host.starts)
         assertEquals(0, host.destinationChanges)
-        host.current = route(station, existingWaypoint); flow.tick()
+        host.current = route(station, existingWaypoint)
+        flow.tick()
         assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
-        flow.confirm(false); assertEquals(0, host.starts)
-        flow.confirm(true); repeat(10) { flow.tick(); flow.confirm(true) }
+        flow.confirm(false)
+        assertEquals(0, host.starts)
+        flow.confirm(true)
+        repeat(10) {
+            flow.tick()
+            flow.confirm(true)
+        }
         assertEquals(1, host.starts)
-        host.pickupBusy = false; host.hasPickup = true; host.pickupStatus = "ACTIVE"; flow.tick()
+        host.pickupBusy = false
+        host.hasPickup = true
+        host.pickupStatus = "ACTIVE"
+        flow.tick()
         assertEquals(RequestPickupFlow.Stage.DONE, flow.stage)
     }
-    @Test fun reusesExistingStopAndRejectsChangedDestinationBeforeConfirm() {
-        val host = Host(); host.current = route(station); val flow = host.flow()
-        flow.begin("request-one"); flow.tick()
+
+    @Test
+    fun reusesExistingStopAndRejectsChangedDestinationBeforeConfirm() {
+        val host = Host()
+        host.current = route(station)
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
         assertEquals(0, host.insertions)
-        host.current = NavigationStops(NavigationStop(PickupPlace("다른 목적지", 38.0, 128.0), 600, NavigationStopKind.DESTINATION), listOf(NavigationStop(station, 120, NavigationStopKind.WAYPOINT)))
+        host.current =
+            NavigationStops(
+                NavigationStop(
+                    PickupPlace("다른 목적지", 38.0, 128.0),
+                    600,
+                    NavigationStopKind.DESTINATION,
+                ),
+                listOf(NavigationStop(station, 120, NavigationStopKind.WAYPOINT)),
+            )
         flow.confirm(true)
-        assertEquals(RequestPickupFlow.Stage.FAILED, flow.stage); assertEquals(0, host.starts)
+        assertEquals(RequestPickupFlow.Stage.FAILED, flow.stage)
+        assertEquals(0, host.starts)
     }
-    @Test fun staleServerStateCancelledRequestAndChangedDriverNeverStart() {
+
+    @Test
+    fun staleServerStateCancelledRequestAndChangedDriverNeverStart() {
         for (kind in 0..2) {
-            val host = Host(); host.current = route(station); val flow = host.flow()
-            flow.begin("request-one"); flow.tick()
-            when (kind) { 0 -> host.requestsFresh = false; 1 -> host.target = null; else -> host.authority = "another-driver" }
+            val host = Host()
+            host.current = route(station)
+            val flow = host.flow()
+            flow.begin("request-one")
+            flow.tick()
+            when (kind) {
+                0 -> host.requestsFresh = false
+                1 -> host.target = null
+                else -> host.authority = "another-driver"
+            }
             flow.confirm(true)
             assertEquals(0, host.starts)
             assertNotEquals(RequestPickupFlow.Stage.READY, flow.stage)
             if (kind == 2) assertNull(flow.ride)
         }
     }
-    @Test fun activePickupBlocksAnotherAndEndedPickupCanPrepareNext() {
-        val host = Host(); host.hasPickup = true; host.pickupStatus = "ACTIVE"
-        val flow = host.flow(); flow.begin("request-one")
+
+    @Test
+    fun activePickupBlocksAnotherAndEndedPickupCanPrepareNext() {
+        val host = Host()
+        host.hasPickup = true
+        host.pickupStatus = "ACTIVE"
+        val flow = host.flow()
+        flow.begin("request-one")
         assertEquals(RequestPickupFlow.Stage.IDLE, flow.stage)
-        host.hasPickup = false; host.otherActive = true
-        flow.begin("request-one"); assertEquals(RequestPickupFlow.Stage.IDLE, flow.stage)
-        host.otherActive = false; host.hasPickup = true
-        host.pickupStatus = "COMPLETED"; host.sharingRunning = true
-        flow.begin("request-one"); flow.tick()
+        host.hasPickup = false
+        host.otherActive = true
+        flow.begin("request-one")
+        assertEquals(RequestPickupFlow.Stage.IDLE, flow.stage)
+        host.otherActive = false
+        host.hasPickup = true
+        host.pickupStatus = "COMPLETED"
+        host.sharingRunning = true
+        flow.begin("request-one")
+        flow.tick()
         assertEquals(0, host.insertions)
-        host.sharingRunning = false; flow.tick()
+        host.sharingRunning = false
+        flow.tick()
         assertEquals(1, host.insertions)
     }
-    @Test fun timeoutStopsLoadingAndDoesNotRepeatWaypointOrStartOnRetry() {
-        val host = Host(); val flow = host.flow(); flow.begin("request-one"); flow.tick()
-        host.clock = 60000; flow.tick()
+
+    @Test
+    fun timeoutStopsLoadingAndDoesNotRepeatWaypointOrStartOnRetry() {
+        val host = Host()
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
+        host.clock = 60000
+        flow.tick()
         assertEquals(RequestPickupFlow.Stage.FAILED, flow.stage)
-        repeat(5) { flow.tick() }; assertEquals(1, host.insertions)
-        host.current = route(station); flow.begin("request-one"); flow.tick()
-        assertEquals(RequestPickupFlow.Stage.READY, flow.stage); assertEquals(1, host.insertions)
-        flow.cancel(); flow.confirm(true); assertEquals(0, host.starts)
+        repeat(5) { flow.tick() }
+        assertEquals(1, host.insertions)
+        host.current = route(station)
+        flow.begin("request-one")
+        flow.tick()
+        assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
+        assertEquals(1, host.insertions)
+        flow.cancel()
+        flow.confirm(true)
+        assertEquals(0, host.starts)
     }
-    @Test fun everyEndedRequestIsRejectedAndSecondPickupWaitsForCompletion() {
+
+    @Test
+    fun everyEndedRequestIsRejectedAndSecondPickupWaitsForCompletion() {
         for (state in listOf("CANCELLED", "EXPIRED", "REJECTED", "ACTIVE")) {
-            val host = Host(); host.current = route(station); val flow = host.flow()
-            flow.begin("request-one"); flow.tick()
+            val host = Host()
+            host.current = route(station)
+            val flow = host.flow()
+            flow.begin("request-one")
+            flow.tick()
             host.target = host.target!!.copy(status = state)
-            flow.confirm(true); assertEquals(0, host.starts)
+            flow.confirm(true)
+            assertEquals(0, host.starts)
         }
-        val host = Host(); host.current = route(station); val flow = host.flow()
-        flow.begin("request-one"); flow.tick(); flow.confirm(true)
-        host.pickupBusy = false; host.hasPickup = true; host.pickupStatus = "ACTIVE"; flow.tick()
+        val host = Host()
+        host.current = route(station)
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
+        flow.confirm(true)
+        host.pickupBusy = false
+        host.hasPickup = true
+        host.pickupStatus = "ACTIVE"
+        flow.tick()
         flow.consumeDone()
         val second = PickupPlace("다음 만날 장소", 37.3, 127.3)
         host.target = RequestedRide("request-two", "다음 탑승자", second, "QUEUED")
-        flow.begin("request-two"); assertEquals(RequestPickupFlow.Stage.IDLE, flow.stage)
+        flow.begin("request-two")
+        assertEquals(RequestPickupFlow.Stage.IDLE, flow.stage)
         host.pickupStatus = "COMPLETED"
-        flow.begin("request-two"); flow.tick()
+        flow.begin("request-two")
+        flow.tick()
         assertEquals(1, host.insertions)
-        host.current = route(station, second); flow.tick(); flow.confirm(true)
+        host.current = route(station, second)
+        flow.tick()
+        flow.confirm(true)
         assertEquals(2, host.starts)
     }
 
-    @Test fun staleRouteClosesReadyActionAndLostStartReplyDoesNotAutoRetry() {
-        val host = Host(); host.current = route(station); val flow = host.flow()
-        flow.begin("request-one"); flow.tick(); host.current = null; flow.confirm(true)
+    @Test
+    fun staleRouteClosesReadyActionAndLostStartReplyDoesNotAutoRetry() {
+        val host = Host()
+        host.current = route(station)
+        val flow = host.flow()
+        flow.begin("request-one")
+        flow.tick()
+        host.current = null
+        flow.confirm(true)
         assertEquals(0, host.starts)
-        host.current = route(station); flow.tick(); flow.confirm(true)
-        host.pickupBusy = false; host.pickupMessage = "시작 응답 없음"; flow.tick()
+        host.current = route(station)
+        flow.tick()
+        flow.confirm(true)
+        host.pickupBusy = false
+        host.pickupMessage = "시작 응답 없음"
+        flow.tick()
         assertEquals(RequestPickupFlow.Stage.FAILED, flow.stage)
-        repeat(10) { flow.tick() }; assertEquals(1, host.starts)
+        repeat(10) { flow.tick() }
+        assertEquals(1, host.starts)
     }
 
-    @Test fun startsRouteDirectlyWhenNoNavigationDestinationExists() {
+    @Test
+    fun startsRouteDirectlyWhenNoNavigationDestinationExists() {
         val host = Host()
         host.current = null
         host.confirmedNoGuidance = true
@@ -156,23 +265,34 @@ class RequestPickupFlowTest {
         flow.tick()
         assertEquals(1, host.destinationChanges)
         assertEquals("요청받은 장소를 목적지로 설정하고 경로를 탐색하고 있어요.", flow.message)
-        repeat(10) { flow.tick(); flow.confirm(true) }
+        repeat(10) {
+            flow.tick()
+            flow.confirm(true)
+        }
         assertEquals(1, host.destinationChanges)
         assertEquals(0, host.insertions)
         assertEquals(0, host.starts)
-        host.current = NavigationStops(NavigationStop(station, 600, NavigationStopKind.DESTINATION), emptyList())
+        host.current =
+            NavigationStops(
+                NavigationStop(station, 600, NavigationStopKind.DESTINATION),
+                emptyList(),
+            )
         flow.tick()
         assertEquals(RequestPickupFlow.Stage.READY, flow.stage)
         flow.confirm(true)
         assertEquals(1, host.starts)
     }
 
-    @Test fun waitsForRouteEvidenceBeforeChangingNavigation() {
+    @Test
+    fun waitsForRouteEvidenceBeforeChangingNavigation() {
         val host = Host()
         host.current = null
         val flow = host.flow()
         flow.begin("request-one")
-        repeat(10) { flow.tick(); flow.confirm(true) }
+        repeat(10) {
+            flow.tick()
+            flow.confirm(true)
+        }
         assertEquals(RequestPickupFlow.Stage.PREPARING, flow.stage)
         assertEquals(0, host.destinationChanges)
         assertEquals(0, host.insertions)
@@ -184,7 +304,8 @@ class RequestPickupFlowTest {
         assertEquals(0, host.destinationChanges)
     }
 
-    @Test fun lossOfGuidanceAfterRouteConfirmationDoesNotSetNewDestination() {
+    @Test
+    fun lossOfGuidanceAfterRouteConfirmationDoesNotSetNewDestination() {
         val host = Host()
         host.current = route(station)
         val flow = host.flow()

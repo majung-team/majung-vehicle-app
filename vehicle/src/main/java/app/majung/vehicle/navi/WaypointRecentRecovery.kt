@@ -1,20 +1,16 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 /** Recent places are a coordinate source only for an exact, unambiguous SDK identity. */
 internal class WaypointRecentRecovery {
-    private data class PointKey(val place: PickupPlace, val id: String, val provider: String, val subId: String)
+    private data class PointKey(
+        val place: PickupPlace,
+        val id: String,
+        val provider: String,
+        val subId: String,
+    )
+
     private data class RouteKey(val destination: PickupPlace, val points: List<PointKey>)
+
     private var key: RouteKey? = null
     private var attempted = false
     private var waiting = false
@@ -23,16 +19,32 @@ internal class WaypointRecentRecovery {
     var recovered = emptyList<SdkPickupPlace>()
         private set
 
-    fun observe(destination: PickupPlace, route: List<SdkWaypoint>, known: List<SdkPickupPlace>, now: Long): Boolean {
-        val next = RouteKey(destination, route.map { PointKey(it.place, it.poiId, it.poiProvider, it.poiSubId) })
-        if (next != key) { clear(); key = next }
+    fun observe(
+        destination: PickupPlace,
+        route: List<SdkWaypoint>,
+        known: List<SdkPickupPlace>,
+        now: Long,
+    ): Boolean {
+        val next =
+            RouteKey(
+                destination,
+                route.map { PointKey(it.place, it.poiId, it.poiProvider, it.poiSubId) },
+            )
+        if (next != key) {
+            clear()
+            key = next
+        }
         points = route.toList()
         val resolved = WaypointCoordinates.resolveKnown(route, known + recovered)
-        val missing = route.indices.any { index ->
-            val point = route[index]
-            !resolved[index].usable && point.place.latitude == 0.0 && point.place.longitude == 0.0 &&
-                point.poiId.isNotBlank() && route.count { it.poiId == point.poiId } == 1
-        }
+        val missing =
+            route.indices.any { index ->
+                val point = route[index]
+                !resolved[index].usable &&
+                    point.place.latitude == 0.0 &&
+                    point.place.longitude == 0.0 &&
+                    point.poiId.isNotBlank() &&
+                    route.count { it.poiId == point.poiId } == 1
+            }
         if (!missing || attempted) return false
         attempted = true
         waiting = true
@@ -44,26 +56,52 @@ internal class WaypointRecentRecovery {
         if (!waiting) return false
         waiting = false
         if (now - requestedAt !in 0 until 8000) return false
-        recovered = points.mapNotNull { point ->
-            if (point.place.latitude != 0.0 || point.place.longitude != 0.0 || point.poiId.isBlank() ||
-                points.count { it.poiId == point.poiId } != 1) return@mapNotNull null
-            val exact = recent.filter {
-                it.poiId == point.poiId &&
-                    (it.poiProvider == point.poiProvider || (point.poiProvider.isBlank() && point.poiId.startsWith("majung:") && it.poiProvider == "majung")) &&
-                    it.poiSubId == point.poiSubId
-            }.singleOrNull()
-            val candidate = exact ?: if (point.poiId.startsWith("majung:")) {
-                recent.filter {
-                    it.place.label == point.place.label &&
-                        NavigationStop(it.place, point.durationSeconds, NavigationStopKind.WAYPOINT).usable
-                }.distinctBy { it.place.latitude to it.place.longitude }
-                    .singleOrNull()
-                    ?.copy(poiId = point.poiId, poiProvider = point.poiProvider, poiSubId = point.poiSubId)
-            } else null
-            candidate?.takeIf {
-                NavigationStop(it.place, point.durationSeconds, NavigationStopKind.WAYPOINT).usable
+        recovered =
+            points.mapNotNull { point ->
+                if (
+                    point.place.latitude != 0.0 ||
+                        point.place.longitude != 0.0 ||
+                        point.poiId.isBlank() ||
+                        points.count { it.poiId == point.poiId } != 1
+                )
+                    return@mapNotNull null
+                val exact =
+                    recent
+                        .filter {
+                            it.poiId == point.poiId &&
+                                (it.poiProvider == point.poiProvider ||
+                                    (point.poiProvider.isBlank() &&
+                                        point.poiId.startsWith("majung:") &&
+                                        it.poiProvider == "majung")) &&
+                                it.poiSubId == point.poiSubId
+                        }
+                        .singleOrNull()
+                val candidate =
+                    exact
+                        ?: if (point.poiId.startsWith("majung:")) {
+                            recent
+                                .filter {
+                                    it.place.label == point.place.label &&
+                                        NavigationStop(
+                                                it.place,
+                                                point.durationSeconds,
+                                                NavigationStopKind.WAYPOINT,
+                                            )
+                                            .usable
+                                }
+                                .distinctBy { it.place.latitude to it.place.longitude }
+                                .singleOrNull()
+                                ?.copy(
+                                    poiId = point.poiId,
+                                    poiProvider = point.poiProvider,
+                                    poiSubId = point.poiSubId,
+                                )
+                        } else null
+                candidate?.takeIf {
+                    NavigationStop(it.place, point.durationSeconds, NavigationStopKind.WAYPOINT)
+                        .usable
+                }
             }
-        }
         return recovered.isNotEmpty()
     }
 

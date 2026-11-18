@@ -1,23 +1,15 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
+import app.majung.vehicle.navi.SdkTimingEvent
+import app.majung.vehicle.navi.SdkTimingType
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SdkTimingRecorderTest {
-    @Test fun noCallbacksMeansWholeWindowWasSilent() {
+    @Test
+    fun noCallbacksMeansWholeWindowWasSilent() {
         val recorder = SdkTimingRecorder()
         recorder.begin(1000)
         val row = row(recorder.finish("passive", 121000), SdkTimingType.LOCATION)
@@ -26,7 +18,8 @@ class SdkTimingRecorderTest {
         assertTrue(row.isNull("p50Ms") && row.isNull("maxIntervalMs"))
     }
 
-    @Test fun includesLeadingAndTrailingSilenceAndDoesNotTreatFirstValueAsChange() {
+    @Test
+    fun includesLeadingAndTrailingSilenceAndDoesNotTreatFirstValueAsChange() {
         val recorder = SdkTimingRecorder()
         recorder.begin(0)
         recorder.record(SdkTimingEvent(SdkTimingType.LOCATION, 100, null))
@@ -47,6 +40,8 @@ class SdkTimingRecorderTest {
 
     private fun row(report: JSONObject, type: SdkTimingType): JSONObject {
         val rows = report.getJSONArray("events")
-        return (0 until rows.length()).map { rows.getJSONObject(it) }.first { it.getString("type") == type.name }
+        return (0 until rows.length())
+            .map { rows.getJSONObject(it) }
+            .first { it.getString("type") == type.name }
     }
 }

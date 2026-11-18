@@ -1,104 +1,173 @@
 package app.majung.vehicle.ui.sections
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.app.AlertDialog
 import android.view.View
 import android.widget.ImageView
+import app.majung.vehicle.BuildConfig
+import app.majung.vehicle.R
+import app.majung.vehicle.VehicleApplication
+import app.majung.vehicle.navi.PickupPlace
+import app.majung.vehicle.navi.sameCoordinates
+import app.majung.vehicle.ui.VehicleViews
+import app.majung.vehicle.ui.flattenButtonSurface
+import app.majung.vehicle.ui.updateText
+import app.majung.vehicle.util.InvitationQr
 import org.json.JSONObject
 
-internal class VehicleAccountSection(private val app: VehicleApplication,private val views: VehicleViews) {
-    private val people=VehiclePeopleSection(app,views,::showConnectionQr)
-    private val heading = views.label("", 24f).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }.also(views::addView)
-    private val status=views.label("",16f).also(views::addView)
-    private var qrDialog: AlertDialog?=null
-    private var confirmDialog: AlertDialog?=null
-    private var shownQr: String?=null
-    private var promptedConfirmKey: String?=null
-    private val issue=views.button("운전자 계정 연결 QR 만들기") { app.account.issueQr() }
-    private val qr=views.button("운전자 휴대전화로 QR 스캔") {
-        val link=app.account.qrLink ?: return@button
-        val image=ImageView(views.context).apply { setImageBitmap(InvitationQr.create(link)); adjustViewBounds=true; minimumHeight=320; contentDescription="운전자 계정 연결 QR" }
-        shownQr=link
-        qrDialog=AlertDialog.Builder(views.context).setTitle("운전자 본인 휴대전화로 스캔해주세요")
-            .setMessage("로그인 후 연결 요청을 보내고, 이 차량에서 계정을 확인해주세요. 탑승자는 이 QR을 스캔할 필요가 없어요.")
-            .setView(image).setPositiveButton("닫기",null).show().also(views::trackDialog)
-    }
-    private val confirm=views.button("요청한 운전자 계정 확인") {
-        openConfirmDialog()
-    }
+internal class VehicleAccountSection(
+    private val app: VehicleApplication,
+    private val views: VehicleViews,
+) {
+    private val people = VehiclePeopleSection(app, views, ::showConnectionQr)
+    private val heading =
+        views
+            .label("", 24f)
+            .apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }
+            .also(views::addView)
+    private val status = views.label("", 16f).also(views::addView)
+    private var qrDialog: AlertDialog? = null
+    private var confirmDialog: AlertDialog? = null
+    private var shownQr: String? = null
+    private var promptedConfirmKey: String? = null
+    private val issue = views.button("운전자 계정 연결 QR 만들기") { app.account.issueQr() }
+    private val qr =
+        views.button("운전자 휴대전화로 QR 스캔") {
+            val link = app.account.qrLink ?: return@button
+            val image =
+                ImageView(views.context).apply {
+                    setImageBitmap(InvitationQr.create(link))
+                    adjustViewBounds = true
+                    minimumHeight = 320
+                    contentDescription = "운전자 계정 연결 QR"
+                }
+            shownQr = link
+            qrDialog =
+                AlertDialog.Builder(views.context)
+                    .setTitle("운전자 본인 휴대전화로 스캔해주세요")
+                    .setMessage("로그인 후 연결 요청을 보내고, 이 차량에서 계정을 확인해주세요. 탑승자는 이 QR을 스캔할 필요가 없어요.")
+                    .setView(image)
+                    .setPositiveButton("닫기", null)
+                    .show()
+                    .also(views::trackDialog)
+        }
+    private val confirm = views.button("요청한 운전자 계정 확인") { openConfirmDialog() }
+
     private fun openConfirmDialog() {
-        val state=app.account.state
-        val challengeId=state.optString("challengeId")
-        val majungId=state.optString("majungId")
-        val nickname=state.optString("nickname")
+        val state = app.account.state
+        val challengeId = state.optString("challengeId")
+        val majungId = state.optString("majungId")
+        val nickname = state.optString("nickname")
         if (challengeId.isBlank() || majungId.isBlank()) return
         confirmDialog?.dismiss()
-        confirmDialog=AlertDialog.Builder(views.context).setTitle("이 계정을 차량에 연결할까요?")
-            .setMessage("$nickname ($majungId)\n휴대전화에서 연결 요청이 도착했어요. 운전자 본인의 계정인지 확인해주세요.")
-            .setPositiveButton("이 계정으로 연결") { _,_ -> if (views.canInteract) app.account.confirm(challengeId, majungId) }
-            .setNegativeButton("나중에",null).show().also(views::trackDialog)
+        confirmDialog =
+            AlertDialog.Builder(views.context)
+                .setTitle("이 계정을 차량에 연결할까요?")
+                .setMessage("$nickname ($majungId)\n휴대전화에서 연결 요청이 도착했어요. 운전자 본인의 계정인지 확인해주세요.")
+                .setPositiveButton("이 계정으로 연결") { _, _ ->
+                    if (views.canInteract) app.account.confirm(challengeId, majungId)
+                }
+                .setNegativeButton("나중에", null)
+                .show()
+                .also(views::trackDialog)
     }
+
     fun inviteSelectedPlace() {
         val selected = selectedPlace() ?: return
-        if (!views.canInteract || app.account.busy || app.account.state.optString("status") != "LINKED") return
+        if (
+            !views.canInteract ||
+                app.account.busy ||
+                app.account.state.optString("status") != "LINKED"
+        )
+            return
         loadContacts(selected)
     }
+
     private fun loadContacts(place: PickupPlace, page: Int = 0) {
         if (!views.canInteract || app.account.busy) return
-        if (app.registration.vehicleToken==null || app.account.state.optString("status")!="LINKED") {
-            AlertDialog.Builder(views.context).setTitle("운전자 연결을 확인해주세요")
+        if (
+            app.registration.vehicleToken == null ||
+                app.account.state.optString("status") != "LINKED"
+        ) {
+            AlertDialog.Builder(views.context)
+                .setTitle("운전자 연결을 확인해주세요")
                 .setMessage("연결 상태가 바뀌었어요. 설정에서 차량과 운전자를 다시 연결한 뒤 초대해주세요.")
-                .setPositiveButton("확인",null).show().also(views::trackDialog)
+                .setPositiveButton("확인", null)
+                .show()
+                .also(views::trackDialog)
             return
         }
-        val vehicleToken=app.registration.vehicleToken
-        val driverId=app.account.state.optString("majungId")
-        fun sameDriver()=vehicleToken==app.registration.vehicleToken &&
-            driverId==app.account.state.optString("majungId") && app.account.state.optString("status")=="LINKED"
-        val waiting=AlertDialog.Builder(views.context).setTitle("초대할 사람을 불러오고 있어요")
-            .setMessage("연결된 사람 중에서 초대할 사람을 고를 수 있어요.")
-            .setNegativeButton("닫기",null).show().also(views::trackDialog)
-        app.account.loadContacts(page, failed = {
-            val visible=waiting.isShowing
+        val vehicleToken = app.registration.vehicleToken
+        val driverId = app.account.state.optString("majungId")
+        fun sameDriver() =
+            vehicleToken == app.registration.vehicleToken &&
+                driverId == app.account.state.optString("majungId") &&
+                app.account.state.optString("status") == "LINKED"
+        val waiting =
+            AlertDialog.Builder(views.context)
+                .setTitle("초대할 사람을 불러오고 있어요")
+                .setMessage("연결된 사람 중에서 초대할 사람을 고를 수 있어요.")
+                .setNegativeButton("닫기", null)
+                .show()
+                .also(views::trackDialog)
+        app.account.loadContacts(
+            page,
+            failed = {
+                val visible = waiting.isShowing
+                waiting.dismiss()
+                if (visible && views.canInteract && sameDriver())
+                    AlertDialog.Builder(views.context)
+                        .setTitle("연결 목록을 불러오지 못했어요")
+                        .setMessage("인터넷 연결을 확인한 뒤 다시 시도해주세요. 초대는 보내지 않았어요.")
+                        .setPositiveButton("다시 시도") { _, _ ->
+                            if (invitationPlaceStillCurrent(place)) loadContacts(place, page)
+                        }
+                        .setNegativeButton("닫기", null)
+                        .show()
+                        .also(views::trackDialog)
+            },
+        ) {
+            val visible = waiting.isShowing
             waiting.dismiss()
-            if(visible && views.canInteract && sameDriver()) AlertDialog.Builder(views.context)
-                .setTitle("연결 목록을 불러오지 못했어요")
-                .setMessage("인터넷 연결을 확인한 뒤 다시 시도해주세요. 초대는 보내지 않았어요.")
-                .setPositiveButton("다시 시도") { _,_-> if(invitationPlaceStillCurrent(place)) loadContacts(place,page) }
-                .setNegativeButton("닫기",null).show().also(views::trackDialog)
-        }) {
-            val visible=waiting.isShowing
-            waiting.dismiss()
-            if(visible && views.canInteract && sameDriver() && selectedPlace()?.sameCoordinates(place)==true) showContacts(place)
+            if (
+                visible &&
+                    views.canInteract &&
+                    sameDriver() &&
+                    selectedPlace()?.sameCoordinates(place) == true
+            )
+                showContacts(place)
         }
     }
+
     private fun selectedPlace(): PickupPlace? {
-        val selected = app.destination.selection.current(android.os.SystemClock.elapsedRealtime()) ?: return null
-        return selected.takeIf { app.destination.currentStops()?.resolve(it) != null && !app.destination.addingWaypoint }
+        val selected =
+            app.destination.selection.current(android.os.SystemClock.elapsedRealtime())
+                ?: return null
+        return selected.takeIf {
+            app.destination.currentStops()?.resolve(it) != null && !app.destination.addingWaypoint
+        }
     }
+
     private fun invitationPlaceStillCurrent(place: PickupPlace): Boolean {
         if (!views.canInteract) return false
         if (selectedPlace()?.sameCoordinates(place) == true) return true
-        AlertDialog.Builder(views.context).setMessage("만날 장소가 바뀌었거나 경로 확인이 끝나지 않았어요. 새 장소를 확인한 뒤 다시 초대해주세요.")
-            .setPositiveButton("확인", null).show().also(views::trackDialog)
+        AlertDialog.Builder(views.context)
+            .setMessage("만날 장소가 바뀌었거나 경로 확인이 끝나지 않았어요. 새 장소를 확인한 뒤 다시 초대해주세요.")
+            .setPositiveButton("확인", null)
+            .show()
+            .also(views::trackDialog)
         return false
     }
+
     private fun showContacts(place: PickupPlace) {
         val items = app.account.contacts
         val page = app.account.contactsPage
-        val dialog = AlertDialog.Builder(views.context).setTitle("누구를 ${place.label}에서 태울까요?")
-            .setMessage(if (items.isEmpty()) "연결된 사람이 아직 없어요.\n닉네임으로 찾거나 QR 초대 링크를 보내주세요." else null)
-            .setNegativeButton("닫기", null)
+        val dialog =
+            AlertDialog.Builder(views.context)
+                .setTitle("누구를 ${place.label}에서 태울까요?")
+                .setMessage(
+                    if (items.isEmpty()) "연결된 사람이 아직 없어요.\n닉네임으로 찾거나 QR 초대 링크를 보내주세요." else null
+                )
+                .setNegativeButton("닫기", null)
         if (items.isEmpty()) {
             dialog.setPositiveButton("사람 찾기") { _, _ -> people.find() }
             dialog.setNeutralButton("QR로 초대") { _, _ ->
@@ -106,169 +175,331 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
                     app.pickup.create(place, app.destination.referenceFor(place))
             }
         }
-        if (items.isNotEmpty()) dialog.setItems(items.map { "${it.optString("nickname")}\n마중 ID · ${it.optString("majungId")} · 눌러서 초대" }.toTypedArray()) { _, index ->
-            if (!invitationPlaceStillCurrent(place)) return@setItems
-            val person = items[index]
-            AlertDialog.Builder(views.context).setTitle("${person.optString("nickname")} 님께 초대할까요?")
-                .setMessage("${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘내 요청·초대’에서 수락하면 픽업 대기에 들어가요.")
-                .setPositiveButton("초대 보내기") { _, _ ->
-                    if (invitationPlaceStillCurrent(place))
-                        app.account.invite(person.getString("connectionId"), place)
-                }.setNegativeButton("돌아가기", null).show().also(views::trackDialog)
-        }
-        if (page == 0 && items.isNotEmpty()) dialog.setNeutralButton("사람 추가") { _, _ -> people.open() }
-        if (page > 0) dialog.setNeutralButton("이전 사람들") { _, _ ->
-            loadContacts(place,page-1)
-        }
-        if (items.size == 20 && page < 50) dialog.setPositiveButton("다음 사람들") { _, _ ->
-            loadContacts(place,page+1)
-        }
+        if (items.isNotEmpty())
+            dialog.setItems(
+                items
+                    .map {
+                        "${it.optString("nickname")}\n마중 ID · ${it.optString("majungId")} · 눌러서 초대"
+                    }
+                    .toTypedArray()
+            ) { _, index ->
+                if (!invitationPlaceStillCurrent(place)) return@setItems
+                val person = items[index]
+                AlertDialog.Builder(views.context)
+                    .setTitle("${person.optString("nickname")} 님께 초대할까요?")
+                    .setMessage(
+                        "${person.optString("majungId")}\n만날 장소 · ${place.label}\n탑승자가 마중 웹의 ‘내 요청·초대’에서 수락하면 픽업 대기에 들어가요."
+                    )
+                    .setPositiveButton("초대 보내기") { _, _ ->
+                        if (invitationPlaceStillCurrent(place))
+                            app.account.invite(person.getString("connectionId"), place)
+                    }
+                    .setNegativeButton("돌아가기", null)
+                    .show()
+                    .also(views::trackDialog)
+            }
+        if (page == 0 && items.isNotEmpty())
+            dialog.setNeutralButton("사람 추가") { _, _ -> people.open() }
+        if (page > 0) dialog.setNeutralButton("이전 사람들") { _, _ -> loadContacts(place, page - 1) }
+        if (items.size == 20 && page < 50)
+            dialog.setPositiveButton("다음 사람들") { _, _ -> loadContacts(place, page + 1) }
         dialog.show().also(views::trackDialog)
     }
+
     private fun showConnectionQr() {
         if (!views.canInteract) return
-        val image=ImageView(views.context).apply {
-            setImageBitmap(InvitationQr.create("${BuildConfig.PICKUP_WEB_ORIGIN}/account"))
-            adjustViewBounds=true
-            minimumHeight=320
-            contentDescription="사람 연결을 위한 마중 웹 QR"
-        }
-        AlertDialog.Builder(views.context).setTitle("휴대전화로 사람 연결하기")
-            .setMessage("1. QR을 운전자 휴대전화로 열어 차량에 연결한 계정으로 로그인해주세요.\n2. ‘사람 찾기’에서 연결을 요청하고 상대방의 승인을 받아주세요.\n3. 아래 버튼으로 차량에서도 연결된 사람을 확인할 수 있어요.")
+        val image =
+            ImageView(views.context).apply {
+                setImageBitmap(InvitationQr.create("${BuildConfig.PICKUP_WEB_ORIGIN}/account"))
+                adjustViewBounds = true
+                minimumHeight = 320
+                contentDescription = "사람 연결을 위한 마중 웹 QR"
+            }
+        AlertDialog.Builder(views.context)
+            .setTitle("휴대전화로 사람 연결하기")
+            .setMessage(
+                "1. QR을 운전자 휴대전화로 열어 차량에 연결한 계정으로 로그인해주세요.\n2. ‘사람 찾기’에서 연결을 요청하고 상대방의 승인을 받아주세요.\n3. 아래 버튼으로 차량에서도 연결된 사람을 확인할 수 있어요."
+            )
             .setView(image)
-            .setPositiveButton("연결된 사람 보기") { _, _ -> if (views.canInteract) people.showConnections() }
-            .setNegativeButton("닫기",null).show().also(views::trackDialog)
+            .setPositiveButton("연결된 사람 보기") { _, _ ->
+                if (views.canInteract) people.showConnections()
+            }
+            .setNegativeButton("닫기", null)
+            .show()
+            .also(views::trackDialog)
     }
-    private val inbox=views.button("받은 마중 요청과 픽업 대기 목록") {
-        val items=app.account.requests
-        if (items.isEmpty()) {
-            AlertDialog.Builder(views.context).setMessage("받은 요청이나 대기 중인 픽업이 없어요. 새로 확인해주세요.").setPositiveButton("확인",null).show().also(views::trackDialog)
-        } else AlertDialog.Builder(views.context).setTitle("마중 요청 · 수락 순서대로 진행")
-            .setItems(items.map { "${it.optString("nickname")} · ${it.getJSONObject("place").optString("label")} · ${stateLabel(it.optString("status"))}" }.toTypedArray()) { _,index -> if (views.canInteract) details(items[index]) }
-            .setNegativeButton("닫기",null).show().also(views::trackDialog)
-    }
-    private val requestRows = android.widget.LinearLayout(views.context).apply {
-        orientation = android.widget.LinearLayout.VERTICAL
-    }.also(views::addView)
-    private val emptyRequests=views.label("아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요.",19f).also(views::addView)
+
+    private val inbox =
+        views.button("받은 마중 요청과 픽업 대기 목록") {
+            val items = app.account.requests
+            if (items.isEmpty()) {
+                AlertDialog.Builder(views.context)
+                    .setMessage("받은 요청이나 대기 중인 픽업이 없어요. 새로 확인해주세요.")
+                    .setPositiveButton("확인", null)
+                    .show()
+                    .also(views::trackDialog)
+            } else
+                AlertDialog.Builder(views.context)
+                    .setTitle("마중 요청 · 수락 순서대로 진행")
+                    .setItems(
+                        items
+                            .map {
+                                "${it.optString("nickname")} · ${it.getJSONObject("place").optString("label")} · ${stateLabel(it.optString("status"))}"
+                            }
+                            .toTypedArray()
+                    ) { _, index ->
+                        if (views.canInteract) details(items[index])
+                    }
+                    .setNegativeButton("닫기", null)
+                    .show()
+                    .also(views::trackDialog)
+        }
+    private val requestRows =
+        android.widget
+            .LinearLayout(views.context)
+            .apply { orientation = android.widget.LinearLayout.VERTICAL }
+            .also(views::addView)
+    private val emptyRequests =
+        views
+            .label("아직 받은 요청이 없어요.\n새 초대는 ‘픽업’에서 만들 수 있어요. 요청이 오면 이 화면에 표시돼요.", 19f)
+            .also(views::addView)
     private var renderedRequests = ""
-    private val manageConnections=views.button("사람 찾기 · 연결 관리", compact = true) { people.open() }
-    private val refresh=views.button("요청 목록 새로고침", refreshAfterAction = false, compact = true) { if (!app.account.busy) app.account.refresh(showProgress = true) }
+    private val manageConnections = views.button("사람 찾기 · 연결 관리", compact = true) { people.open() }
+    private val refresh =
+        views.button("요청 목록 새로고침", refreshAfterAction = false, compact = true) {
+            if (!app.account.busy) app.account.refresh(showProgress = true)
+        }
+
     internal fun details(item: JSONObject) {
-        val place=item.getJSONObject("place").let { PickupPlace(it.getString("label"),it.getDouble("latitude"),it.getDouble("longitude")) }
-        val id=item.getString("requestId")
-        val dialog=AlertDialog.Builder(views.context).setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")
-            .setMessage("${item.optString("majungId")}\n만날 장소 · ${place.label}\n" + if (item.optString("status")=="INVITED") "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요." else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요.")
-            .setNegativeButton("돌아가기",null)
+        val place =
+            item.getJSONObject("place").let {
+                PickupPlace(
+                    it.getString("label"),
+                    it.getDouble("latitude"),
+                    it.getDouble("longitude"),
+                )
+            }
+        val id = item.getString("requestId")
+        val dialog =
+            AlertDialog.Builder(views.context)
+                .setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")
+                .setMessage(
+                    "${item.optString("majungId")}\n만날 장소 · ${place.label}\n" +
+                        if (item.optString("status") == "INVITED")
+                            "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요."
+                        else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요."
+                )
+                .setNegativeButton("돌아가기", null)
         when (item.optString("status")) {
-            "INVITED" -> dialog.setPositiveButton("초대 취소") { _, _ -> if (views.canInteract) app.account.cancelInvitation(id) }
-            "PENDING" -> dialog.setPositiveButton(if ((app.pickup.pickupId == null || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) && app.account.requests.none { it.optString("status") == "ACTIVE" }) "수락하고 마중 준비" else "수락하고 대기에 추가") { _, _ ->
-                if (views.canInteract) app.account.changeRequest(id, "accept") {
+            "INVITED" ->
+                dialog.setPositiveButton("초대 취소") { _, _ ->
+                    if (views.canInteract) app.account.cancelInvitation(id)
+                }
+            "PENDING" ->
+                dialog
+                    .setPositiveButton(
+                        if (
+                            (app.pickup.pickupId == null ||
+                                app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
+                                app.account.requests.none { it.optString("status") == "ACTIVE" }
+                        )
+                            "수락하고 마중 준비"
+                        else "수락하고 대기에 추가"
+                    ) { _, _ ->
+                        if (views.canInteract)
+                            app.account.changeRequest(id, "accept") {
+                                if (views.canInteract) app.requestFlow.begin(id)
+                            }
+                    }
+                    .setNeutralButton("거절") { _, _ ->
+                        if (views.canInteract) app.account.changeRequest(id, "reject")
+                    }
+            "QUEUED" ->
+                dialog.setPositiveButton("마중 가기") { _, _ ->
                     if (views.canInteract) app.requestFlow.begin(id)
                 }
-            }
-                .setNeutralButton("거절") { _,_ -> if (views.canInteract) app.account.changeRequest(id,"reject") }
-            "QUEUED" -> dialog.setPositiveButton("마중 가기") { _, _ ->
-                if (views.canInteract) app.requestFlow.begin(id)
-            }
-            "ACTIVE" -> dialog.setPositiveButton("진행 중인 픽업 복구") { _,_ -> if (views.canInteract && app.pickup.canStartRequested(id)) app.pickup.startRequested(id,place,app.destination.referenceFor(place)) }
+            "ACTIVE" ->
+                dialog.setPositiveButton("진행 중인 픽업 복구") { _, _ ->
+                    if (views.canInteract && app.pickup.canStartRequested(id))
+                        app.pickup.startRequested(id, place, app.destination.referenceFor(place))
+                }
         }
         dialog.show().also { shown ->
-            if (item.optString("status")=="QUEUED") {
-                shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=!app.pickup.busy &&
-                    (app.pickup.canStartRequested(id) || app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
-                    app.account.requests.none { it.optString("status") == "ACTIVE" && it.optString("requestId") != id }
+            if (item.optString("status") == "QUEUED") {
+                shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                    !app.pickup.busy &&
+                        (app.pickup.canStartRequested(id) ||
+                            app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
+                        app.account.requests.none {
+                            it.optString("status") == "ACTIVE" && it.optString("requestId") != id
+                        }
             }
-            if (item.optString("status")=="ACTIVE") shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=app.pickup.canStartRequested(id)
+            if (item.optString("status") == "ACTIVE")
+                shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                    app.pickup.canStartRequested(id)
             views.trackDialog(shown)
         }
     }
+
     fun render(settings: Boolean = false) {
-        val state=app.account.state.optString("status")
+        val state = app.account.state.optString("status")
         val counts = app.account.requests.groupingBy { it.optString("status") }.eachCount()
         val pending = counts["PENDING"] ?: 0
-        val summary = listOfNotNull(
-            counts["QUEUED"]?.let { "픽업 대기 ${it}명" },
-            counts["ACTIVE"]?.let { "진행 중 ${it}건" },
-            counts["INVITED"]?.let { "보낸 초대 ${it}건" }
-        ).joinToString(" · ")
+        val summary =
+            listOfNotNull(
+                    counts["QUEUED"]?.let { "픽업 대기 ${it}명" },
+                    counts["ACTIVE"]?.let { "진행 중 ${it}건" },
+                    counts["INVITED"]?.let { "보낸 초대 ${it}건" },
+                )
+                .joinToString(" · ")
         heading.updateText(if (settings) "운전자와 사람 연결" else "확인할 요청 · ${pending}건")
-        status.updateText(if (settings || summary.isEmpty()) app.account.message else "${app.account.message}\n$summary")
+        status.updateText(
+            if (settings || summary.isEmpty()) app.account.message
+            else "${app.account.message}\n$summary"
+        )
 
         issue.visibility = if (settings && state != "LINKED") View.VISIBLE else View.GONE
-        qr.visibility = if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE else View.GONE
-        emptyRequests.visibility = if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
-        inbox.visibility = if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
+        qr.visibility =
+            if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE
+            else View.GONE
+        emptyRequests.visibility =
+            if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
+        inbox.visibility =
+            if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
         requestRows.visibility = if (settings) View.GONE else View.VISIBLE
         val requestSignature = app.account.requests.joinToString { it.toString() }
         if (requestSignature != renderedRequests) {
             renderedRequests = requestSignature
             requestRows.removeAllViews()
-            app.account.requests.sortedBy { when(it.optString("status")) { "ACTIVE" -> 0; "PENDING" -> 1; "QUEUED" -> 2; else -> 3 } }.take(6).forEach { item ->
-                val statusKey = item.optString("status")
-                val row = android.widget.Button(views.context).apply {
-                    flattenButtonSurface()
-                    val actionLabel = when (statusKey) {
-                        "PENDING" -> "눌러서 수락 또는 거절  ›"
-                        "QUEUED" -> if (app.account.requests.any { it.optString("status") == "ACTIVE" }) "현재 픽업이 끝나면 출발해요  ›" else "눌러서 마중 준비  ›"
-                        "ACTIVE" -> "진행 중인 픽업 확인  ›"
-                        else -> "탑승자 응답 확인  ›"
+            app.account.requests
+                .sortedBy {
+                    when (it.optString("status")) {
+                        "ACTIVE" -> 0
+                        "PENDING" -> 1
+                        "QUEUED" -> 2
+                        else -> 3
                     }
-                    text = "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
-                    isAllCaps = false; textSize = 28f; minimumHeight = dp(96); gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
-                    setTextColor(android.graphics.Color.rgb(32,40,46))
-                    setPadding(dp(24), dp(16), dp(24), dp(16))
-                    backgroundTintList = null
-                    background = android.graphics.drawable.StateListDrawable().apply {
-                        val restColor = when (statusKey) {
-                            "ACTIVE" -> android.graphics.Color.rgb(236, 253, 245)
-                            "PENDING" -> android.graphics.Color.rgb(235, 243, 255)
-                            "INVITED" -> android.graphics.Color.rgb(255, 251, 235)
-                            else -> android.graphics.Color.rgb(241, 247, 251)
-                        }
-                        val borderColor = when (statusKey) {
-                            "ACTIVE" -> android.graphics.Color.rgb(167, 243, 208)
-                            "PENDING" -> android.graphics.Color.rgb(147, 197, 253)
-                            "INVITED" -> android.graphics.Color.rgb(253, 230, 138)
-                            else -> android.graphics.Color.rgb(208, 225, 237)
-                        }
-                        fun shape(color: Int) = android.graphics.drawable.GradientDrawable().apply {
-                            setColor(color); cornerRadius = dp(14).toFloat()
-                            setStroke(dp(1), borderColor)
-                        }
-                        addState(intArrayOf(android.R.attr.state_pressed), shape(android.graphics.Color.rgb(218, 236, 247)))
-                        addState(intArrayOf(android.R.attr.state_focused), shape(android.graphics.Color.rgb(218, 236, 247)).apply { setStroke(dp(3), android.graphics.Color.rgb(50, 112, 155)) })
-                        addState(intArrayOf(), shape(restColor))
-                    }
-                    setOnClickListener { if (views.canInteract && !app.account.busy) details(item) }
                 }
-                requestRows.addView(row, android.widget.LinearLayout.LayoutParams(-1,-2).apply { topMargin = (8*views.context.resources.displayMetrics.density).toInt() })
-            }
+                .take(6)
+                .forEach { item ->
+                    val statusKey = item.optString("status")
+                    val row =
+                        android.widget.Button(views.context).apply {
+                            flattenButtonSurface()
+                            val actionLabel =
+                                when (statusKey) {
+                                    "PENDING" -> "눌러서 수락 또는 거절  ›"
+                                    "QUEUED" ->
+                                        if (
+                                            app.account.requests.any {
+                                                it.optString("status") == "ACTIVE"
+                                            }
+                                        )
+                                            "현재 픽업이 끝나면 출발해요  ›"
+                                        else "눌러서 마중 준비  ›"
+                                    "ACTIVE" -> "진행 중인 픽업 확인  ›"
+                                    else -> "탑승자 응답 확인  ›"
+                                }
+                            text =
+                                "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
+                            isAllCaps = false
+                            textSize = 28f
+                            minimumHeight = dp(96)
+                            gravity =
+                                android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                            setTextColor(android.graphics.Color.rgb(32, 40, 46))
+                            setPadding(dp(24), dp(16), dp(24), dp(16))
+                            backgroundTintList = null
+                            background =
+                                android.graphics.drawable.StateListDrawable().apply {
+                                    val restColor =
+                                        when (statusKey) {
+                                            "ACTIVE" -> android.graphics.Color.rgb(236, 253, 245)
+                                            "PENDING" -> android.graphics.Color.rgb(235, 243, 255)
+                                            "INVITED" -> android.graphics.Color.rgb(255, 251, 235)
+                                            else -> android.graphics.Color.rgb(241, 247, 251)
+                                        }
+                                    val borderColor =
+                                        when (statusKey) {
+                                            "ACTIVE" -> android.graphics.Color.rgb(167, 243, 208)
+                                            "PENDING" -> android.graphics.Color.rgb(147, 197, 253)
+                                            "INVITED" -> android.graphics.Color.rgb(253, 230, 138)
+                                            else -> android.graphics.Color.rgb(208, 225, 237)
+                                        }
+                                    fun shape(color: Int) =
+                                        android.graphics.drawable.GradientDrawable().apply {
+                                            setColor(color)
+                                            cornerRadius = dp(14).toFloat()
+                                            setStroke(dp(1), borderColor)
+                                        }
+                                    addState(
+                                        intArrayOf(android.R.attr.state_pressed),
+                                        shape(android.graphics.Color.rgb(218, 236, 247)),
+                                    )
+                                    addState(
+                                        intArrayOf(android.R.attr.state_focused),
+                                        shape(android.graphics.Color.rgb(218, 236, 247)).apply {
+                                            setStroke(
+                                                dp(3),
+                                                android.graphics.Color.rgb(50, 112, 155),
+                                            )
+                                        },
+                                    )
+                                    addState(intArrayOf(), shape(restColor))
+                                }
+                            setOnClickListener {
+                                if (views.canInteract && !app.account.busy) details(item)
+                            }
+                        }
+                    requestRows.addView(
+                        row,
+                        android.widget.LinearLayout.LayoutParams(-1, -2).apply {
+                            topMargin = (8 * views.context.resources.displayMetrics.density).toInt()
+                        },
+                    )
+                }
         }
-        manageConnections.visibility=if (state=="LINKED" && (settings || app.account.requests.isEmpty())) View.VISIBLE else View.GONE
-        manageConnections.isEnabled=state=="LINKED" && !app.account.busy
+        manageConnections.visibility =
+            if (state == "LINKED" && (settings || app.account.requests.isEmpty())) View.VISIBLE
+            else View.GONE
+        manageConnections.isEnabled = state == "LINKED" && !app.account.busy
         views.styleButton(manageConnections, primary = settings)
-        issue.isEnabled=app.registration.vehicleToken!=null && !app.account.busy && state!="LINKED"
-        views.styleButton(issue, primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"))
+        issue.isEnabled =
+            app.registration.vehicleToken != null && !app.account.busy && state != "LINKED"
+        views.styleButton(
+            issue,
+            primary = state !in setOf("AWAITING_ACCOUNT", "AWAITING_VEHICLE_CONFIRMATION"),
+        )
         views.styleButton(qr, primary = state == "AWAITING_ACCOUNT")
         val awaitingConfirm = state == "AWAITING_VEHICLE_CONFIRMATION"
-        confirm.visibility=if (awaitingConfirm) View.VISIBLE else View.GONE
-        confirm.text = if (awaitingConfirm) "${app.account.state.optString("nickname")} (${app.account.state.optString("majungId")}) 계정으로 연결할까요?" else "요청한 운전자 계정 확인"
-        confirm.isEnabled=!app.account.busy
+        confirm.visibility = if (awaitingConfirm) View.VISIBLE else View.GONE
+        confirm.text =
+            if (awaitingConfirm)
+                "${app.account.state.optString("nickname")} (${app.account.state.optString("majungId")}) 계정으로 연결할까요?"
+            else "요청한 운전자 계정 확인"
+        confirm.isEnabled = !app.account.busy
         views.styleButton(confirm, primary = awaitingConfirm)
-        inbox.isEnabled=state=="LINKED" && !app.account.busy
-        refresh.updateText(when {
-            app.account.refreshing -> "새로운 정보 확인 중…"
-            settings -> "운전자 연결 상태 새로고침"
-            else -> "요청 목록 새로고침"
-        })
+        inbox.isEnabled = state == "LINKED" && !app.account.busy
+        refresh.updateText(
+            when {
+                app.account.refreshing -> "새로운 정보 확인 중…"
+                settings -> "운전자 연결 상태 새로고침"
+                else -> "요청 목록 새로고침"
+            }
+        )
         // Keep the pressed surface and layout stable; the controller rejects duplicate requests.
-        refresh.isEnabled=app.registration.vehicleToken!=null
-        refresh.contentDescription = if (app.account.refreshing) "새로운 정보를 확인하고 있어요" else refresh.text
+        refresh.isEnabled = app.registration.vehicleToken != null
+        refresh.contentDescription =
+            if (app.account.refreshing) "새로운 정보를 확인하고 있어요" else refresh.text
         refresh.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-        if (shownQr!=null && shownQr!=app.account.qrLink) { qrDialog?.dismiss(); qrDialog=null; shownQr=null }
+        if (shownQr != null && shownQr != app.account.qrLink) {
+            qrDialog?.dismiss()
+            qrDialog = null
+            shownQr = null
+        }
         if (awaitingConfirm) {
-            val key = "${app.account.state.optString("challengeId")}:${app.account.state.optString("majungId")}"
+            val key =
+                "${app.account.state.optString("challengeId")}:${app.account.state.optString("majungId")}"
             if (views.canInteract && promptedConfirmKey != key && key != ":") {
                 promptedConfirmKey = key
                 openConfirmDialog()
@@ -279,6 +510,15 @@ internal class VehicleAccountSection(private val app: VehicleApplication,private
             confirmDialog = null
         }
     }
+
     private fun dp(value: Int) = (value * views.context.resources.displayMetrics.density).toInt()
-    private fun stateLabel(state: String)=when(state) { "INVITED"->"보낸 초대 · 탑승자 응답 대기"; "PENDING"->"수락 대기"; "QUEUED"->"다음 픽업"; "ACTIVE"->"픽업 진행 중"; else->state }
+
+    private fun stateLabel(state: String) =
+        when (state) {
+            "INVITED" -> "보낸 초대 · 탑승자 응답 대기"
+            "PENDING" -> "수락 대기"
+            "QUEUED" -> "다음 픽업"
+            "ACTIVE" -> "픽업 진행 중"
+            else -> state
+        }
 }

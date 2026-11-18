@@ -6,14 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PickupNotificationPolicyTest {
-    @Test fun quickMessageStaysInNavigationWithoutFullScreenAndShowsOverlayToast() {
+    @Test
+    fun quickMessageStaysInNavigationWithoutFullScreenAndShowsOverlayToast() {
         val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.QUICK_MESSAGE)
         assertFalse(behavior.useFullScreenIntent)
         assertEquals(AlertTapBehavior.DISMISS_ONLY, behavior.tapBehavior)
         assertTrue(behavior.showOverlayToast)
     }
 
-    @Test fun placeProposalAndRideRequestNeverStealScreenAutomatically() {
+    @Test
+    fun placeProposalAndRideRequestNeverStealScreenAutomatically() {
         val proposal = PickupNotificationPolicy.behaviorFor(PickupAlertKind.PLACE_PROPOSAL)
         assertFalse(proposal.useFullScreenIntent)
         assertEquals(AlertTapBehavior.OPEN_APP_SCREEN, proposal.tapBehavior)

@@ -1,39 +1,40 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import org.junit.Assert.*
 import org.junit.Test
 
 class WaypointRecentRecoveryTest {
     private val final = PickupPlace("목적지", 37.5, 127.1)
-    private val missing = SdkWaypoint(PickupPlace("이름으로 추측하지 않음", 0.0, 0.0), 123, "poi", "provider", "1")
-    private val recent = SdkPickupPlace(PickupPlace("확인된 장소", 37.4, 127.2), "poi", "", "1", "provider")
+    private val missing =
+        SdkWaypoint(PickupPlace("이름으로 추측하지 않음", 0.0, 0.0), 123, "poi", "provider", "1")
+    private val recent =
+        SdkPickupPlace(PickupPlace("확인된 장소", 37.4, 127.2), "poi", "", "1", "provider")
 
-    @Test fun exactIdentityRecoversOnlyCoordinatesWhileKeepingWaypointEta() {
+    @Test
+    fun exactIdentityRecoversOnlyCoordinatesWhileKeepingWaypointEta() {
         val recovery = WaypointRecentRecovery()
         assertTrue(recovery.observe(final, listOf(missing), emptyList(), 1000))
         assertTrue(recovery.receive(listOf(recent), 1200))
-        val resolved = WaypointCoordinates.resolveKnown(listOf(missing), recovery.recovered).single()
+        val resolved =
+            WaypointCoordinates.resolveKnown(listOf(missing), recovery.recovered).single()
         assertEquals(recent.place, resolved.place)
         assertEquals(123, resolved.durationSeconds.toInt())
-        assertFalse(recovery.observe(final, listOf(missing.copy(durationSeconds = 110)), emptyList(), 2000))
+        assertFalse(
+            recovery.observe(final, listOf(missing.copy(durationSeconds = 110)), emptyList(), 2000)
+        )
     }
 
-    @Test fun wrongProviderSubIdBlankOrDuplicateIdentityAndInvalidCoordinateAreRejected() {
-        val candidates = listOf(listOf(recent.copy(poiId = "other")), listOf(recent.copy(poiProvider = "other")),
-            listOf(recent.copy(poiSubId = "2")), listOf(recent, recent),
-            listOf(recent, recent.copy(place = recent.place.copy(latitude = Double.NaN))),
-            listOf(recent.copy(place = recent.place.copy(latitude = 0.0, longitude = 0.0))))
+    @Test
+    fun wrongProviderSubIdBlankOrDuplicateIdentityAndInvalidCoordinateAreRejected() {
+        val candidates =
+            listOf(
+                listOf(recent.copy(poiId = "other")),
+                listOf(recent.copy(poiProvider = "other")),
+                listOf(recent.copy(poiSubId = "2")),
+                listOf(recent, recent),
+                listOf(recent, recent.copy(place = recent.place.copy(latitude = Double.NaN))),
+                listOf(recent.copy(place = recent.place.copy(latitude = 0.0, longitude = 0.0))),
+            )
         candidates.forEach { values ->
             val recovery = WaypointRecentRecovery()
             assertTrue(recovery.observe(final, listOf(missing), emptyList(), 1000))
@@ -46,7 +47,8 @@ class WaypointRecentRecoveryTest {
         assertFalse(recovery.observe(final, listOf(missing, missing), emptyList(), 1000))
     }
 
-    @Test fun timeoutDisconnectAndChangedRouteCannotConsumeOldLookup() {
+    @Test
+    fun timeoutDisconnectAndChangedRouteCannotConsumeOldLookup() {
         for (receivedAt in listOf(999L, 9000L)) {
             val recovery = WaypointRecentRecovery()
             recovery.observe(final, listOf(missing), emptyList(), 1000)
@@ -62,9 +64,12 @@ class WaypointRecentRecoveryTest {
         assertTrue(recovery.recovered.isEmpty())
     }
 
-    @Test fun validSdkCoordinatesAndKnownRequestDoNotTriggerRecentLookup() {
+    @Test
+    fun validSdkCoordinatesAndKnownRequestDoNotTriggerRecentLookup() {
         val recovery = WaypointRecentRecovery()
-        assertFalse(recovery.observe(final, listOf(missing.copy(place = recent.place)), emptyList(), 1000))
+        assertFalse(
+            recovery.observe(final, listOf(missing.copy(place = recent.place)), emptyList(), 1000)
+        )
         assertFalse(recovery.observe(final, listOf(missing), listOf(recent), 1100))
     }
 }

@@ -1,16 +1,5 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.content.Intent
 import android.os.SystemClock
 import android.view.View
@@ -19,16 +8,26 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.service.PickupSharingService
+import app.majung.vehicle.util.SharingNotice
 import org.junit.Assert.*
 import org.junit.Test
 
 class SharingNoticeTest {
-    private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
-    private val app get() = instrumentation.targetContext.applicationContext as VehicleApplication
-    private fun descendants(view: View): List<View> = listOf(view) +
-        if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
+    private val instrumentation
+        get() = InstrumentationRegistry.getInstrumentation()
 
-    @Test fun choiceIsVersionedAndSharingServiceRefusesBeforeAcceptance() {
+    private val app
+        get() = instrumentation.targetContext.applicationContext as VehicleApplication
+
+    private fun descendants(view: View): List<View> =
+        listOf(view) +
+            if (view is ViewGroup)
+                (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) }
+            else emptyList()
+
+    @Test
+    fun choiceIsVersionedAndSharingServiceRefusesBeforeAcceptance() {
         val previous = app.sharingNotice.accepted
         try {
             assertTrue(app.sharingNotice.withdraw())
@@ -47,7 +46,8 @@ class SharingNoticeTest {
         }
     }
 
-    @Test fun firstUseShowsPurposeAndDoesNotSilentlyAccept() {
+    @Test
+    fun firstUseShowsPurposeAndDoesNotSilentlyAccept() {
         val previous = app.sharingNotice.accepted
         try {
             app.sharingNotice.withdraw()
@@ -56,8 +56,10 @@ class SharingNoticeTest {
                 var visible = false
                 do {
                     scenario.onActivity { activity ->
-                        visible = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                            .any { it.isShown && it.text.toString() == "마중을 시작하기 전에" }
+                        visible =
+                            descendants(activity.window.decorView)
+                                .filterIsInstance<TextView>()
+                                .any { it.isShown && it.text.toString() == "마중을 시작하기 전에" }
                     }
                     if (!visible) SystemClock.sleep(100)
                 } while (!visible && SystemClock.elapsedRealtime() < deadline)
@@ -65,9 +67,11 @@ class SharingNoticeTest {
                 assertFalse(app.sharingNotice.accepted)
                 scenario.onActivity { activity ->
                     val views = descendants(activity.window.decorView)
-                    assertTrue(views.filterIsInstance<TextView>().any {
-                        it.isShown && it.text.contains("허용하지 않아도 차량 연결과 픽업은 할 수 있어요.")
-                    })
+                    assertTrue(
+                        views.filterIsInstance<TextView>().any {
+                            it.isShown && it.text.contains("허용하지 않아도 차량 연결과 픽업은 할 수 있어요.")
+                        }
+                    )
                     val action = views.filterIsInstance<Button>().single { it.isShown }
                     assertTrue(action.text == "위치 공유 안내에 동의하고 시작")
                     action.performClick()

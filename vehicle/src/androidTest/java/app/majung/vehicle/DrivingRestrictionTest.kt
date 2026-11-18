@@ -1,31 +1,26 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.app.AlertDialog
 import android.os.SystemClock
 import android.widget.LinearLayout
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.domain.DrivingRestrictionMonitor
+import app.majung.vehicle.ui.VehicleViews
 import org.junit.Assert.*
 import org.junit.Test
 
 class DrivingRestrictionTest {
-    @Test fun liveCarManagerIsReadAndDisconnectBlocksAgain() {
+    @Test
+    fun liveCarManagerIsReadAndDisconnectBlocksAgain() {
         val main = InstrumentationRegistry.getInstrumentation()
         lateinit var monitor: DrivingRestrictionMonitor
         main.runOnMainSync {
-            monitor = DrivingRestrictionMonitor(ApplicationProvider.getApplicationContext<VehicleApplication>()) { }
+            monitor =
+                DrivingRestrictionMonitor(
+                    ApplicationProvider.getApplicationContext<VehicleApplication>()
+                ) {}
             assertFalse(monitor.allowed)
             monitor.start()
         }
@@ -35,19 +30,34 @@ class DrivingRestrictionTest {
             main.runOnMainSync { allowed = monitor.allowed }
             SystemClock.sleep(50)
         }
-        try { assertTrue("Parked emulator must allow baseline UX", allowed) }
-        finally { main.runOnMainSync { monitor.stop(); assertFalse(monitor.allowed) } }
+        try {
+            assertTrue("Parked emulator must allow baseline UX", allowed)
+        } finally {
+            main.runOnMainSync {
+                monitor.stop()
+                assertFalse(monitor.allowed)
+            }
+        }
     }
 
-    @Test fun liveRestrictionOnOffChangesGate() {
+    @Test
+    fun liveRestrictionOnOffChangesGate() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val service = instrumentation.uiAutomation.executeShellCommand("service check hmg_car_service").use { descriptor ->
-            java.io.FileInputStream(descriptor.fileDescriptor).use { String(it.readBytes()) }
-        }
-        org.junit.Assume.assumeTrue("This emulator lacks the official restriction-control service", service.contains("found") && !service.contains("not found"))
+        val service =
+            instrumentation.uiAutomation.executeShellCommand("service check hmg_car_service").use {
+                descriptor ->
+                java.io.FileInputStream(descriptor.fileDescriptor).use { String(it.readBytes()) }
+            }
+        org.junit.Assume.assumeTrue(
+            "This emulator lacks the official restriction-control service",
+            service.contains("found") && !service.contains("not found"),
+        )
         lateinit var monitor: DrivingRestrictionMonitor
         instrumentation.runOnMainSync {
-            monitor = DrivingRestrictionMonitor(ApplicationProvider.getApplicationContext<VehicleApplication>()) { }
+            monitor =
+                DrivingRestrictionMonitor(
+                    ApplicationProvider.getApplicationContext<VehicleApplication>()
+                ) {}
             monitor.start()
         }
         fun waitFor(expected: Boolean) {
@@ -61,8 +71,13 @@ class DrivingRestrictionTest {
             throw AssertionError("Live UX restriction did not reach expected state")
         }
         fun regulation(value: String) {
-            instrumentation.uiAutomation.executeShellCommand("cmd hmg_car_service --service drivingstate driving_regulation $value")
-                .use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
+            instrumentation.uiAutomation
+                .executeShellCommand(
+                    "cmd hmg_car_service --service drivingstate driving_regulation $value"
+                )
+                .use { descriptor ->
+                    java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
+                }
         }
         try {
             waitFor(true)
@@ -76,7 +91,8 @@ class DrivingRestrictionTest {
         }
     }
 
-    @Test fun restrictedViewClosesDialogAndRechecksActions() {
+    @Test
+    fun restrictedViewClosesDialogAndRechecksActions() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 var allowed = true
@@ -85,7 +101,11 @@ class DrivingRestrictionTest {
                 val button = views.button("시험 동작") { actions++ }
                 button.performClick()
                 assertEquals(1, actions)
-                val dialog = AlertDialog.Builder(activity).setMessage("시험 확인창").setPositiveButton("확인", null).show()
+                val dialog =
+                    AlertDialog.Builder(activity)
+                        .setMessage("시험 확인창")
+                        .setPositiveButton("확인", null)
+                        .show()
                 views.trackDialog(dialog)
                 assertTrue(dialog.isShowing)
                 allowed = false

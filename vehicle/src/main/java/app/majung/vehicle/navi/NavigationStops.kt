@@ -1,25 +1,27 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import kotlin.math.abs
 
-enum class NavigationStopKind { DESTINATION, WAYPOINT }
+enum class NavigationStopKind {
+    DESTINATION,
+    WAYPOINT,
+}
 
-data class NavigationStop(val place: PickupPlace, val durationSeconds: Long, val kind: NavigationStopKind) {
-    val usable: Boolean get() = place.label.isNotBlank() && place.label.length <= 120 &&
-        place.latitude.isFinite() && place.longitude.isFinite() &&
-        place.latitude in -90.0..90.0 && place.longitude in -180.0..180.0 &&
-        (place.latitude != 0.0 || place.longitude != 0.0) && durationSeconds >= 0
+data class NavigationStop(
+    val place: PickupPlace,
+    val durationSeconds: Long,
+    val kind: NavigationStopKind,
+) {
+    val usable: Boolean
+        get() =
+            place.label.isNotBlank() &&
+                place.label.length <= 120 &&
+                place.latitude.isFinite() &&
+                place.longitude.isFinite() &&
+                place.latitude in -90.0..90.0 &&
+                place.longitude in -180.0..180.0 &&
+                (place.latitude != 0.0 || place.longitude != 0.0) &&
+                durationSeconds >= 0
 }
 
 internal fun PickupPlace.sameCoordinates(other: PickupPlace): Boolean =
@@ -29,9 +31,12 @@ internal fun PickupPlace.sameCoordinates(other: PickupPlace): Boolean =
 class NavigationStops(val destination: NavigationStop, val waypoints: List<NavigationStop>) {
     val all: List<NavigationStop> = listOf(destination) + waypoints
 
-    fun resolve(place: PickupPlace): NavigationStop? = all.filter { it.place.sameCoordinates(place) }.singleOrNull()?.takeIf { it.usable }
+    fun resolve(place: PickupPlace): NavigationStop? =
+        all.filter { it.place.sameCoordinates(place) }.singleOrNull()?.takeIf { it.usable }
 
     fun preserves(previous: NavigationStops): Boolean =
         destination.place.sameCoordinates(previous.destination.place) &&
-            previous.waypoints.all { old -> waypoints.count { it.place.sameCoordinates(old.place) } == 1 }
+            previous.waypoints.all { old ->
+                waypoints.count { it.place.sameCoordinates(old.place) } == 1
+            }
 }

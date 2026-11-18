@@ -1,19 +1,10 @@
 package app.majung.vehicle
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.storage.EncryptedVehicleCredentialStore
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,7 +13,8 @@ import org.junit.Test
 
 /** Run in a new process after adb force-stop following PublicHttpsPickupTest. */
 class PublicVehicleRecoveryTest {
-    @Test fun restoresVehicleAuthorityWithoutRegistrationCode() {
+    @Test
+    fun restoresVehicleAuthorityWithoutRegistrationCode() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("publicRecovery") == "true")
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val saved = EncryptedVehicleCredentialStore(app).load()
@@ -30,16 +22,25 @@ class PublicVehicleRecoveryTest {
         val until = SystemClock.elapsedRealtime() + 15000
         var ready = false
         while (!ready && SystemClock.elapsedRealtime() < until) {
-            InstrumentationRegistry.getInstrumentation().runOnMainSync { ready = app.registration.canCreate }
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                ready = app.registration.canCreate
+            }
             if (!ready) SystemClock.sleep(100)
         }
         assertTrue("Server did not revalidate saved authority", ready)
         val response = PickupApiClient().requestApi("GET", "/vehicles/me", saved!!.token)
         assertEquals(saved.vehicleId, response.getString("vehicleId"))
         assertTrue(!java.io.File(app.filesDir, "public-registration-code").exists())
-        java.io.File(app.filesDir, "public-vehicle-recovery-summary.json").writeText(JSONObject()
-            .put("afterActualForceStop", true).put("credentialRestored", true)
-            .put("serverRevalidated", true).put("registrationCodeRequiredAgain", false)
-            .put("result", "passed").toString(2))
+        java.io
+            .File(app.filesDir, "public-vehicle-recovery-summary.json")
+            .writeText(
+                JSONObject()
+                    .put("afterActualForceStop", true)
+                    .put("credentialRestored", true)
+                    .put("serverRevalidated", true)
+                    .put("registrationCodeRequiredAgain", false)
+                    .put("result", "passed")
+                    .toString(2)
+            )
     }
 }

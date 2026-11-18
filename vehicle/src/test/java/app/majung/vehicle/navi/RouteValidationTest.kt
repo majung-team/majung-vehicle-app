@@ -1,16 +1,5 @@
 package app.majung.vehicle.navi
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,13 +8,18 @@ import org.junit.Test
 class RouteValidationTest {
     private val place = PickupPlace("확정 장소", 37.0, 127.0)
 
-    private fun cycle(gate: RouteValidation, now: Long, destination: PickupPlace? = place): Boolean {
+    private fun cycle(
+        gate: RouteValidation,
+        now: Long,
+        destination: PickupPlace? = place,
+    ): Boolean {
         assertTrue(gate.requestState(now))
         assertTrue(gate.receiveState(true, now + 1))
         return gate.receiveDestination(destination, now + 2)
     }
 
-    @Test fun missingCompletionCanRecoverOnlyAfterTwoMatchingValidatedResponses() {
+    @Test
+    fun missingCompletionCanRecoverOnlyAfterTwoMatchingValidatedResponses() {
         val gate = RouteValidation()
         assertFalse(cycle(gate, 0))
         assertFalse(gate.ready)
@@ -36,7 +30,8 @@ class RouteValidationTest {
         assertTrue(cycle(gate, 15000))
     }
 
-    @Test fun timeAloneAndUnsolicitedOrExpiredCallbacksCannotRecover() {
+    @Test
+    fun timeAloneAndUnsolicitedOrExpiredCallbacksCannotRecover() {
         val gate = RouteValidation()
         assertFalse(gate.receiveState(true, 0))
         assertFalse(gate.receiveDestination(place, 100000))
@@ -50,7 +45,8 @@ class RouteValidationTest {
         assertFalse(gate.ready)
     }
 
-    @Test fun interruptedOrFailedValidationDiscardsEarlierEvidence() {
+    @Test
+    fun interruptedOrFailedValidationDiscardsEarlierEvidence() {
         val gate = RouteValidation()
         assertFalse(cycle(gate, 0))
         assertTrue(gate.requestState(5000))
@@ -63,7 +59,8 @@ class RouteValidationTest {
         assertFalse(cycle(gate, 25000))
     }
 
-    @Test fun differentDestinationNeedsNewConfirmationAndCannotUseOldPickupTelemetry() {
+    @Test
+    fun differentDestinationNeedsNewConfirmationAndCannotUseOldPickupTelemetry() {
         val gate = RouteValidation()
         assertFalse(cycle(gate, 0))
         val other = place.copy(latitude = 38.0)
@@ -74,7 +71,8 @@ class RouteValidationTest {
         assertTrue(cycle(gate, 20000, place))
     }
 
-    @Test fun destinationAndWaypointHaveSeparateDeadlinesAndDuplicateDestinationIsIgnored() {
+    @Test
+    fun destinationAndWaypointHaveSeparateDeadlinesAndDuplicateDestinationIsIgnored() {
         val gate = RouteValidation()
         assertTrue(gate.requestState(0))
         assertTrue(gate.receiveState(true, 1))
@@ -87,7 +85,8 @@ class RouteValidationTest {
         assertTrue(gate.receiveRoute(listOf(place), 14000))
     }
 
-    @Test fun duplicatePollDoesNotResetInFlightResponseButTimeoutClosesReadyGate() {
+    @Test
+    fun duplicatePollDoesNotResetInFlightResponseButTimeoutClosesReadyGate() {
         val gate = RouteValidation()
         cycle(gate, 0)
         assertTrue(cycle(gate, 5000))
@@ -98,32 +97,37 @@ class RouteValidationTest {
         assertTrue(gate.receiveState(true, 15001))
         assertFalse(gate.receiveDestination(place, 15002))
     }
-    @Test fun confirmationScheduleStartsAtResponseEvenWhenSecondResponseWouldBeFaster() {
-        val gate=RouteValidation()
+
+    @Test
+    fun confirmationScheduleStartsAtResponseEvenWhenSecondResponseWouldBeFaster() {
+        val gate = RouteValidation()
         assertTrue(gate.requestState(0))
-        assertTrue(gate.receiveState(true,100))
-        assertFalse(gate.receiveDestination(place,900))
-        assertEquals(900L,gate.confirmationDelay(1000))
-        assertEquals(0L,gate.confirmationDelay(1900))
+        assertTrue(gate.receiveState(true, 100))
+        assertFalse(gate.receiveDestination(place, 900))
+        assertEquals(900L, gate.confirmationDelay(1000))
+        assertEquals(0L, gate.confirmationDelay(1900))
         assertTrue(gate.requestState(1900))
-        assertTrue(gate.receiveState(true,1901))
-        assertTrue(gate.receiveDestination(place,1902))
-        assertEquals(0L,gate.confirmationDelay(1903))
+        assertTrue(gate.receiveState(true, 1901))
+        assertTrue(gate.receiveDestination(place, 1902))
+        assertEquals(0L, gate.confirmationDelay(1903))
         gate.invalidate()
-        assertEquals(0L,gate.confirmationDelay(2000))
+        assertEquals(0L, gate.confirmationDelay(2000))
     }
 
-    @Test fun measuredReadLatencyCanOverlapConfirmationWithoutOpeningEarly() {
-        val gate=RouteValidation()
-        assertTrue(gate.requestState(0)); assertTrue(gate.receiveState(true,1))
-        assertFalse(gate.receiveDestination(place,1000))
-        assertEquals(100L,gate.confirmationRequestDelay(1000,1000))
-        assertTrue(gate.requestState(1100)); assertTrue(gate.receiveState(true,1101))
-        assertFalse(gate.receiveDestination(place,1900)) // faster than expected: stay locked
+    @Test
+    fun measuredReadLatencyCanOverlapConfirmationWithoutOpeningEarly() {
+        val gate = RouteValidation()
+        assertTrue(gate.requestState(0))
+        assertTrue(gate.receiveState(true, 1))
+        assertFalse(gate.receiveDestination(place, 1000))
+        assertEquals(100L, gate.confirmationRequestDelay(1000, 1000))
+        assertTrue(gate.requestState(1100))
+        assertTrue(gate.receiveState(true, 1101))
+        assertFalse(gate.receiveDestination(place, 1900)) // faster than expected: stay locked
         assertFalse(gate.ready)
-        assertTrue(gate.requestState(2100)); assertTrue(gate.receiveState(true,2101))
-        assertTrue(gate.receiveDestination(place,2200))
-        assertEquals(0L,gate.confirmationRequestDelay(2201,1000))
+        assertTrue(gate.requestState(2100))
+        assertTrue(gate.receiveState(true, 2101))
+        assertTrue(gate.receiveDestination(place, 2200))
+        assertEquals(0L, gate.confirmationRequestDelay(2201, 1000))
     }
-
 }

@@ -1,22 +1,12 @@
 package app.majung.vehicle.domain
 
-
-import app.majung.vehicle.*
-import app.majung.vehicle.ui.*
-import app.majung.vehicle.ui.sections.*
-import app.majung.vehicle.navi.*
-import app.majung.vehicle.domain.*
-import app.majung.vehicle.data.api.*
-import app.majung.vehicle.data.storage.*
-import app.majung.vehicle.util.*
-import app.majung.vehicle.service.*
-
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DrivingAccessTest {
-    @Test fun unknownRestrictedAndDisconnectedNeverAllowActions() {
+    @Test
+    fun unknownRestrictedAndDisconnectedNeverAllowActions() {
         val access = DrivingAccess()
         assertFalse(access.known)
         assertFalse(access.allowed)
