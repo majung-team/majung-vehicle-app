@@ -6,7 +6,7 @@ import android.widget.LinearLayout
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.domain.DrivingRestrictionMonitor
+import app.majung.vehicle.feature.driving.DrivingRestrictionMonitor
 import app.majung.vehicle.ui.VehicleViews
 import org.junit.Assert.*
 import org.junit.Test

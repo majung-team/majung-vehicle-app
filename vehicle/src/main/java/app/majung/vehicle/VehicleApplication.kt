@@ -5,18 +5,18 @@ import android.app.NotificationManager
 import app.majung.vehicle.data.api.PickupApiClient
 import app.majung.vehicle.data.storage.EncryptedPickupSessionStore
 import app.majung.vehicle.data.storage.EncryptedVehicleCredentialStore
-import app.majung.vehicle.domain.ApplicationRequestPickupHost
-import app.majung.vehicle.domain.PickupController
-import app.majung.vehicle.domain.RequestPickupFlow
-import app.majung.vehicle.domain.VehicleAccountController
-import app.majung.vehicle.domain.VehicleEnrollmentController
-import app.majung.vehicle.domain.VehiclePeopleController
-import app.majung.vehicle.domain.VehicleRegistrationController
+import app.majung.vehicle.feature.account.controller.VehicleAccountController
+import app.majung.vehicle.feature.account.controller.VehiclePeopleController
+import app.majung.vehicle.feature.pickup.controller.PickupController
+import app.majung.vehicle.feature.pickup.flow.ApplicationRequestPickupHost
+import app.majung.vehicle.feature.pickup.flow.RequestPickupFlow
+import app.majung.vehicle.feature.vehicle.controller.VehicleEnrollmentController
+import app.majung.vehicle.feature.vehicle.controller.VehicleRegistrationController
 import app.majung.vehicle.navi.DestinationReader
 import app.majung.vehicle.notification.PickupAlerts
+import app.majung.vehicle.notification.voice.PickupVoiceGuide
 import app.majung.vehicle.service.BackgroundPickupPoller
 import app.majung.vehicle.service.PickupSharingService
-import app.majung.vehicle.util.PickupVoiceGuide
 import app.majung.vehicle.util.SharingNotice
 
 class VehicleApplication : Application() {

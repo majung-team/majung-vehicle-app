@@ -14,12 +14,9 @@ import app.majung.vehicle.VehicleApplication.Companion.ALERT_PROPOSAL_NOTIFICATI
 import app.majung.vehicle.VehicleApplication.Companion.ALERT_QUICK_MSG_NOTIFICATION_ID
 import app.majung.vehicle.VehicleApplication.Companion.ALERT_REQUEST_NOTIFICATION_ID
 import app.majung.vehicle.VehicleApplication.Companion.EXTRA_OPEN_REQUEST_ID
-import app.majung.vehicle.domain.RequestedRide
+import app.majung.vehicle.feature.pickup.flow.RequestedRide
 import app.majung.vehicle.service.NotificationDismissReceiver
 import app.majung.vehicle.service.PickupSharingService
-import app.majung.vehicle.util.AlertTapBehavior
-import app.majung.vehicle.util.PickupAlertKind
-import app.majung.vehicle.util.PickupNotificationPolicy
 
 internal class PickupAlerts(private val app: VehicleApplication) {
     private val pickup

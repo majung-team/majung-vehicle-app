@@ -1,6 +1,6 @@
 package app.majung.vehicle.navi
 
-import app.majung.vehicle.domain.PickupPlaceChange
+import app.majung.vehicle.feature.pickup.model.PickupPlaceChange
 import org.junit.Assert.*
 import org.junit.Test
 

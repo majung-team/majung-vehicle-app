@@ -3,7 +3,7 @@ package app.majung.vehicle
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.domain.DrivingRestrictionMonitor
+import app.majung.vehicle.feature.driving.DrivingRestrictionMonitor
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test

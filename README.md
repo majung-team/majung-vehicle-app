@@ -74,13 +74,16 @@ flowchart LR
 
 - `ui/sections/` — 연결·요청·초대·픽업·주행 요약 화면
 - `navi/` — SDK 연결·경로 확인·좌표와 ETA 처리
-- `domain/` — 픽업 상태·공유 시작·주행 제한
+- `feature/` — 픽업·계정·차량 연결·주행 기능별 상태와 처리 흐름
 - `service/` — 화면 밖 위치 공유와 알림 동작
-- `data/` — API 통신과 암호화 저장소
-- `util/` — 음성·QR·알림 정책
+- `data/` — API 통신·응답 모델·암호화 저장소
+- `notification/` — Android 알림과 음성 안내
+- `util/` — QR·공유 안내 동의
 - `probe/` 모듈 — SDK 진단용, 일반 배포 제외
 
 </details>
+
+[구조 리팩터링 범위와 검증](docs/vehicle-refactoring.md)
 
 ## 시험 환경과 남은 범위
 

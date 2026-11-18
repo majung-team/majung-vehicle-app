@@ -14,7 +14,6 @@ import android.widget.Button
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.data.api.NavigationFailure
 import app.majung.vehicle.data.api.PickupApiClient
 import app.majung.vehicle.data.storage.EncryptedPickupSessionStore
 import app.majung.vehicle.navi.DestinationReader
@@ -23,6 +22,7 @@ import app.majung.vehicle.navi.NavigationStops
 import app.majung.vehicle.navi.PickupPlace
 import app.majung.vehicle.navi.SdkPickupPlace
 import app.majung.vehicle.navi.SdkTimingType
+import app.majung.vehicle.navi.connection.NavigationFailure
 import app.majung.vehicle.navi.sameCoordinates
 import app.majung.vehicle.service.PickupSharingService
 import java.io.File

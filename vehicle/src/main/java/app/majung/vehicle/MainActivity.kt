@@ -12,9 +12,9 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import app.majung.vehicle.domain.DrivingRestrictionMonitor
-import app.majung.vehicle.domain.RequestPickupFlow
-import app.majung.vehicle.domain.SharingStartup
+import app.majung.vehicle.feature.driving.DrivingRestrictionMonitor
+import app.majung.vehicle.feature.pickup.flow.RequestPickupFlow
+import app.majung.vehicle.feature.pickup.flow.SharingStartup
 import app.majung.vehicle.service.PickupSharingService
 import app.majung.vehicle.ui.VehicleColumns
 import app.majung.vehicle.ui.VehicleViews

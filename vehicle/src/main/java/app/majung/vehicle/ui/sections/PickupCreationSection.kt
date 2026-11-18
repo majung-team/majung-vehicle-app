@@ -13,10 +13,10 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import app.majung.vehicle.R
 import app.majung.vehicle.VehicleApplication
-import app.majung.vehicle.data.api.NavigationFailure
 import app.majung.vehicle.navi.NavigationStopKind
 import app.majung.vehicle.navi.NavigationStops
 import app.majung.vehicle.navi.SdkPickupPlace
+import app.majung.vehicle.navi.connection.NavigationFailure
 import app.majung.vehicle.ui.VehicleColumns
 import app.majung.vehicle.ui.VehicleViews
 import app.majung.vehicle.ui.updateText

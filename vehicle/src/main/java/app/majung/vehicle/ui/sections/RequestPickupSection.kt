@@ -4,7 +4,7 @@ import android.app.AlertDialog
 import android.view.View
 import app.majung.vehicle.R
 import app.majung.vehicle.VehicleApplication
-import app.majung.vehicle.domain.RequestPickupFlow
+import app.majung.vehicle.feature.pickup.flow.RequestPickupFlow
 import app.majung.vehicle.ui.VehicleViews
 import app.majung.vehicle.ui.updateText
 import kotlin.math.ceil

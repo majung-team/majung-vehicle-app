@@ -22,10 +22,11 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import app.majung.vehicle.BuildConfig
-import app.majung.vehicle.data.api.NavigationFailure
-import app.majung.vehicle.data.api.NavigationRequest
-import app.majung.vehicle.domain.PickupArrivalEvidence
-import app.majung.vehicle.domain.PickupPlaceChange
+import app.majung.vehicle.feature.pickup.model.PickupArrivalEvidence
+import app.majung.vehicle.feature.pickup.model.PickupPlaceChange
+import app.majung.vehicle.navi.connection.NavigationFailure
+import app.majung.vehicle.navi.connection.NavigationRequest
+import app.majung.vehicle.navi.connection.NavigationSdkConnection
 import java.time.Instant
 
 /** All mutable state is confined to the main thread. No raw SDK data is logged. */

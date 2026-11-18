@@ -6,7 +6,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.domain.PickupController
+import app.majung.vehicle.feature.pickup.controller.PickupController
 import app.majung.vehicle.navi.PickupPlace
 import app.majung.vehicle.ui.VehicleViews
 import app.majung.vehicle.ui.sections.PickupParticipantSection

@@ -2,8 +2,8 @@ package app.majung.vehicle
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.data.api.NavigationFailure
 import app.majung.vehicle.navi.DestinationReader
+import app.majung.vehicle.navi.connection.NavigationFailure
 import org.junit.Assert.*
 import org.junit.Test
 

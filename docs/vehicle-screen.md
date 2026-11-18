@@ -7,6 +7,8 @@
 
 픽업의 상태 전이와 서버 요청은 기존 컨트롤러가 담당하며, 화면 영역은 현재 상태를 읽어 표시하는 역할에 집중한다.
 
+2026-11-18에 알림·권한·SDK 연결·차량 정보 전송을 분리했다. 현재 패키지와 검증 범위는 [구조 리팩터링 기록](vehicle-refactoring.md)을 참고한다. 아래의 과거 시험 기록은 당시 버전 기준이다.
+
 ## 1. 전체 구조
 
 차량 앱의 주요 구성은 다음과 같다.
@@ -16,7 +18,11 @@
 | `MainActivity` | 화면 배치, 생명주기, 상태별 화면 전환 및 주기 갱신 |
 | UI Section | 기능별 화면 생성, 버튼 상태 및 표시 내용 갱신 |
 | `VehicleViews` | 공통 UI 요소와 렌더링 보조 |
-| `VehicleApplication` | 계정·내비게이션·픽업 컨트롤러 연결 |
+| `VehicleApplication` | 계정·내비게이션·픽업 컨트롤러 생성과 이벤트 연결 |
+| `PickupAlerts` | Android 알림 생성과 종료 시 정리 |
+| `VehiclePermissions` | 위치·알림 권한 요청 및 요청 상태 복원 |
+| `VehicleStatePublisher` | 차량 정보 전송·무효화·응답 세대 검사 |
+| `NavigationSdkConnection` | SDK 연결·해제와 이전 연결의 콜백 차단 |
 | `PickupController` | 픽업 상태 전이, 서버 요청 및 접근 정보 관리 |
 | `PickupSharingService` | 화면 밖 위치·ETA 공유, 서버 상태 조회 및 종료 감지 |
 | `DestinationReader` | SDK 내비게이션 정보 조회 |

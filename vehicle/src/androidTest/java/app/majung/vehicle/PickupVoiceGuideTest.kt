@@ -9,11 +9,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import app.majung.vehicle.data.api.PickupApiClient
 import app.majung.vehicle.data.storage.MemoryPickupSessionStore
 import app.majung.vehicle.data.storage.SavedPickupSession
-import app.majung.vehicle.domain.PickupController
-import app.majung.vehicle.util.PickupVoiceGuide
-import app.majung.vehicle.util.PickupVoiceOutput
-import app.majung.vehicle.util.PickupVoicePolicy
-import app.majung.vehicle.util.PleosPickupVoiceOutput
+import app.majung.vehicle.feature.pickup.controller.PickupController
+import app.majung.vehicle.notification.voice.PickupVoiceGuide
+import app.majung.vehicle.notification.voice.PickupVoiceOutput
+import app.majung.vehicle.notification.voice.PickupVoicePolicy
+import app.majung.vehicle.notification.voice.PleosPickupVoiceOutput
 import java.io.File
 import java.net.ServerSocket
 import java.util.concurrent.CountDownLatch
@@ -159,6 +159,8 @@ class PickupVoiceGuideTest {
     @Test
     fun parkedScreenTogglesVoiceAndSavesChoice() {
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
+        val noticeAccepted = app.sharingNotice.accepted
+        assertTrue(app.sharingNotice.accept())
         val preferences = app.getSharedPreferences("voice-screen-only", Context.MODE_PRIVATE)
         assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
         val field =
@@ -171,6 +173,28 @@ class PickupVoiceGuideTest {
         }
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { activity ->
+                    val tabs =
+                        MainActivity::class
+                            .java
+                            .getDeclaredField("tabs")
+                            .apply { isAccessible = true }
+                            .get(activity) as Map<*, *>
+                    (tabs["settings"] as Button).performClick()
+                }
+                await {
+                    var selected = false
+                    scenario.onActivity { activity ->
+                        val tabs =
+                            MainActivity::class
+                                .java
+                                .getDeclaredField("tabs")
+                                .apply { isAccessible = true }
+                                .get(activity) as Map<*, *>
+                        selected = (tabs["settings"] as Button).isSelected
+                    }
+                    selected
+                }
                 lateinit var toggle: Button
                 scenario.onActivity { toggle = it.findViewById(R.id.toggle_voice) }
                 await { toggle.isEnabled }
@@ -207,6 +231,7 @@ class PickupVoiceGuideTest {
                 }
             }
         } finally {
+            if (noticeAccepted) app.sharingNotice.accept() else app.sharingNotice.withdraw()
             main.runOnMainSync {
                 field.set(app, original)
                 guide.close()

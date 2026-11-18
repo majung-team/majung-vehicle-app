@@ -10,7 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import app.majung.vehicle.R
 import app.majung.vehicle.VehicleApplication
-import app.majung.vehicle.domain.DrivingPickupSummary
+import app.majung.vehicle.feature.driving.DrivingPickupSummary
 import app.majung.vehicle.ui.updateText
 
 /** No controls, scroll, links or editable fields are added to the restricted surface. */

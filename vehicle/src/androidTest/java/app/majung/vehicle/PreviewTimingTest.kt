@@ -5,8 +5,8 @@ import ai.pleos.playground.navi.helper.NaviHelper
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
-import app.majung.vehicle.domain.RequestPickupFlow
-import app.majung.vehicle.domain.RequestedRide
+import app.majung.vehicle.feature.pickup.flow.RequestPickupFlow
+import app.majung.vehicle.feature.pickup.flow.RequestedRide
 import app.majung.vehicle.navi.DestinationReader
 import app.majung.vehicle.navi.PickupPlace
 import org.junit.Assert.assertTrue

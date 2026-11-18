@@ -5,7 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import app.majung.vehicle.data.api.PickupApiClient
 import app.majung.vehicle.data.storage.MemoryPickupSessionStore
 import app.majung.vehicle.data.storage.SavedPickupSession
-import app.majung.vehicle.domain.PickupController
+import app.majung.vehicle.feature.pickup.controller.PickupController
 import app.majung.vehicle.navi.PickupPlace
 import java.net.ServerSocket
 import java.util.UUID
