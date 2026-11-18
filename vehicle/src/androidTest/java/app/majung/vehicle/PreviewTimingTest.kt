@@ -164,12 +164,17 @@ class PreviewTimingTest {
                 )
                 // Use the current reader connection; the separate setup connection may no longer
                 // own SDK control.
-                val active =
+                val connection =
                     DestinationReader::class
                         .java
+                        .getDeclaredField("sdkConnection")
+                        .apply { isAccessible = true }
+                        .get(reader)
+                val active =
+                    connection.javaClass
                         .getDeclaredField("helper")
                         .apply { isAccessible = true }
-                        .get(reader) as NaviHelper
+                        .get(connection) as NaviHelper
                 active.cancelRoute()
             }
             waitFor {

@@ -16,7 +16,6 @@ import ai.pleos.playground.navi.data.RouteWithWaypointsRequest
 import ai.pleos.playground.navi.data.WaypointArrivedInfo
 import ai.pleos.playground.navi.data.WaypointChangedInfo
 import ai.pleos.playground.navi.data.WaypointInfo
-import ai.pleos.playground.navi.helper.NaviHelper
 import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import android.content.Context
 import android.os.Handler
@@ -48,16 +47,18 @@ class DestinationReader(private val context: Context) {
     }
 
     private val handler = Handler(Looper.getMainLooper())
-    private var helper: NaviHelper? = null
-    private var listener: NaviHelperEventListener? = null
-    private var generation = 0
-    private var connected = false
-    private val connectionTimeout = Runnable {
-        if (!connected && helper != null) {
-            disconnect()
-            fail(NavigationFailure.CONNECTION_TIMEOUT)
-        }
+    private val sdkConnection = NavigationSdkConnection(context, handler, ::connectionFailed)
+    private val helper
+        get() = sdkConnection.helper
+
+    private val connected
+        get() = sdkConnection.connected
+
+    private fun connectionFailed(reason: NavigationFailure) {
+        disconnect()
+        fail(reason)
     }
+
     var previewPlaceLabel: String? = null
         private set
 
@@ -520,26 +521,14 @@ class DestinationReader(private val context: Context) {
 
     fun connect() {
         if (helper != null) return
-        val version = ++generation
         status = "내비게이션 연결 중"
-        val instance =
-            try {
-                NaviHelper(context.applicationContext)
-            } catch (_: SecurityException) {
-                fail(NavigationFailure.PERMISSION_DENIED)
-                return
-            } catch (_: Exception) {
-                fail(NavigationFailure.CONNECTION_FAILED)
-                return
-            }
-        helper = instance
+        val instance = sdkConnection.create { fail(it) } ?: return
+        val version = sdkConnection.generation
         failure = null
-        handler.removeCallbacks(connectionTimeout)
-        handler.postDelayed(connectionTimeout, 12000)
         val callbacks =
             object : NaviHelperEventListener {
                 private fun update(action: () -> Unit) {
-                    handler.post { if (generation == version && connected) action() }
+                    sdkConnection.dispatch(version, action)
                 }
 
                 override fun onCurrentLocationInfo(currentLocationInfo: CurrentLocationInfo) =
@@ -871,36 +860,13 @@ class DestinationReader(private val context: Context) {
                     )
                 }
             }
-        listener = callbacks
-        try {
-            instance.initialize(
-                onConnected = {
-                    handler.post {
-                        if (generation == version) {
-                            handler.removeCallbacks(connectionTimeout)
-                            connected = true
-                            timing(SdkTimingType.CONNECTED)
-                            instance.addListener(callbacks)
-                            query()
-                        }
-                    }
-                },
-                onFailed = {
-                    handler.post {
-                        if (generation == version) {
-                            disconnect()
-                            fail(NavigationFailure.CONNECTION_FAILED)
-                        }
-                    }
-                },
-            )
-        } catch (_: SecurityException) {
-            disconnect()
-            fail(NavigationFailure.PERMISSION_DENIED)
-        } catch (_: Exception) {
-            disconnect()
-            fail(NavigationFailure.CONNECTION_FAILED)
-        }
+        sdkConnection.initialize(
+            instance,
+            callbacks,
+            version,
+            beforeListener = { timing(SdkTimingType.CONNECTED) },
+            afterListener = { query() },
+        )
     }
 
     private fun validPlace(
@@ -1007,13 +973,11 @@ class DestinationReader(private val context: Context) {
         lastLocationValue = null
         lastDestinationValue = null
         lastDrivingEta = null
-        generation++
+        sdkConnection.invalidate()
         recentRecovery.clear()
-        handler.removeCallbacks(connectionTimeout)
         cancelResponseTimeout()
         handler.removeCallbacks(recentTimeout)
         handler.removeCallbacks(insertionTimeout)
-        connected = false
         waitingForGuidance = false
         recentCallback = null
         recentRequestPending = false
@@ -1024,15 +988,7 @@ class DestinationReader(private val context: Context) {
         reviewedProposal = null
         lastObservedStops = null
         invalidateRoute()
-        val instance = helper
-        helper = null
-        try {
-            listener?.let { instance?.removeListener(it) }
-            instance?.release()
-        } catch (_: Exception) {
-            /* No raw SDK error logging. */
-        }
-        listener = null
+        sdkConnection.release()
         status = "내비게이션 연결 해제 · 이전 장소 사용 중지"
     }
 }

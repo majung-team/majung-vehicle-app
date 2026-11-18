@@ -1,12 +1,9 @@
 package app.majung.vehicle
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +19,7 @@ import app.majung.vehicle.service.PickupSharingService
 import app.majung.vehicle.ui.VehicleColumns
 import app.majung.vehicle.ui.VehicleViews
 import app.majung.vehicle.ui.flattenButtonSurface
+import app.majung.vehicle.ui.permission.VehiclePermissions
 import app.majung.vehicle.ui.sections.DrivingPickupSection
 import app.majung.vehicle.ui.sections.PickupCompletionSection
 import app.majung.vehicle.ui.sections.PickupCreationSection
@@ -60,13 +58,16 @@ class MainActivity : Activity() {
     private lateinit var completion: PickupCompletionSection
     private lateinit var sharingButton: Button
     private lateinit var sharingExplanation: android.widget.TextView
-    private var permissionRequestInFlight = false
-    private var firstUsePermissionPending = false
-    private val permissionPreferences by lazy {
-        getSharedPreferences("location-permission", MODE_PRIVATE)
+    private val vehiclePermissions by lazy {
+        VehiclePermissions(
+            this,
+            app,
+            { driving.allowed },
+            { resumed },
+            ::render,
+            { startRequested = false },
+        )
     }
-    private var permissionAttempted = false
-    private var notificationPermissionAttempted = false
     private lateinit var resumeButton: Button
     private var selectedTab = "pickup"
     private lateinit var createGroup: LinearLayout
@@ -105,12 +106,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        firstUsePermissionPending =
-            savedInstanceState?.getBoolean("firstUsePermissionPending") == true
-        permissionRequestInFlight = firstUsePermissionPending
-        permissionAttempted = permissionPreferences.getBoolean("requested", false)
-        notificationPermissionAttempted =
-            permissionPreferences.getBoolean("notification_requested", false)
+        vehiclePermissions.restore(savedInstanceState)
         val layout =
             object : LinearLayout(this) {
                     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -172,12 +168,12 @@ class MainActivity : Activity() {
         resumeButton =
             views.button("이전 픽업 계속하기") {
                 app.pickup.confirmRecoveredSharing()
-                requestSharingPermission()
+                vehiclePermissions.requestSharingPermission()
             }
         resumeButton.id = R.id.resume_pickup
         sharingButton =
             views
-                .button("위치 권한 허용하고 공유 시작") { requestSharingPermission() }
+                .button("위치 권한 허용하고 공유 시작") { vehiclePermissions.requestSharingPermission() }
                 .apply { id = R.id.start_sharing }
         layout.removeView(permissionGroup)
         layout.addView(permissionGroup, layout.indexOfChild(statusGroup))
@@ -352,13 +348,13 @@ class MainActivity : Activity() {
                                 if (driving.allowed && app.sharingNotice.accept()) {
                                     if (
                                         resumed &&
-                                            !permissionAttempted &&
+                                            !vehiclePermissions.permissionAttempted &&
                                             !PickupSharingService.hasLocationPermission(
                                                 this@MainActivity
                                             )
                                     ) {
-                                        firstUsePermissionPending = true
-                                        launchLocationPermission()
+                                        vehiclePermissions.firstUsePermissionPending = true
+                                        vehiclePermissions.launchLocationPermission()
                                     }
                                     preparePickup(refresh = true)
                                     render()
@@ -444,7 +440,10 @@ class MainActivity : Activity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putBoolean("firstUsePermissionPending", firstUsePermissionPending)
+        outState.putBoolean(
+            "firstUsePermissionPending",
+            vehiclePermissions.firstUsePermissionPending,
+        )
         super.onSaveInstanceState(outState)
     }
 
@@ -595,123 +594,21 @@ class MainActivity : Activity() {
             app.destination.prepareForPickup(refresh)
     }
 
-    private fun requestSharingPermission() {
-        if (
-            !resumed || !driving.allowed || !app.sharingNotice.accepted || permissionRequestInFlight
-        )
-            return
-        if (!PickupSharingService.hasLocationPermission(this)) {
-            if (
-                permissionAttempted &&
-                    !shouldShowRequestPermissionRationale(
-                        Manifest.permission.ACCESS_FINE_LOCATION
-                    ) &&
-                    !shouldShowRequestPermissionRationale(
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-            ) {
-                startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        android.net.Uri.parse("package:$packageName"),
-                    )
-                )
-                return
-            }
-            launchLocationPermission()
-        } else {
-            startRequested = false
-            render()
-        }
-    }
-
-    private fun isRunningInstrumentationTest(): Boolean =
-        try {
-            val registry = Class.forName("androidx.test.platform.app.InstrumentationRegistry")
-            registry.getMethod("getInstrumentation").invoke(null) != null
-        } catch (_: Throwable) {
-            false
-        }
-
-    private fun maybeRequestNotificationPermission() {
-        if (
-            Build.VERSION.SDK_INT < 33 ||
-                !resumed ||
-                !driving.allowed ||
-                !app.sharingNotice.accepted ||
-                permissionRequestInFlight ||
-                notificationPermissionAttempted ||
-                isRunningInstrumentationTest()
-        )
-            return
-        if (
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionAttempted = true
-            permissionPreferences.edit().putBoolean("notification_requested", true).apply()
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
-        }
-    }
-
-    private fun launchLocationPermission() {
-        if (!resumed || !driving.allowed || permissionRequestInFlight) return
-        permissionAttempted = true
-        permissionPreferences.edit().putBoolean("requested", true).apply()
-        permissionRequestInFlight = true
-        val permissions =
-            if (Build.VERSION.SDK_INT >= 33) {
-                notificationPermissionAttempted = true
-                permissionPreferences.edit().putBoolean("notification_requested", true).apply()
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                )
-            } else {
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                )
-            }
-        requestPermissions(permissions, 32)
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 32) {
-            permissionRequestInFlight = false
-            app.sharingMessage =
-                if (PickupSharingService.hasLocationPermission(this)) "공유 시작 준비 중"
-                else "위치 권한이 꺼져 있어 차량 위치와 도착 시간을 공유하지 않아요"
-            if (
-                driving.allowed &&
-                    Build.VERSION.SDK_INT >= 33 &&
-                    PickupSharingService.hasLocationPermission(this) &&
-                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                        PackageManager.PERMISSION_GRANTED &&
-                    !notificationPermissionAttempted
-            ) {
-                notificationPermissionAttempted = true
-                permissionPreferences.edit().putBoolean("notification_requested", true).apply()
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 33)
-            } else {
-                firstUsePermissionPending = false
-            }
-            startRequested = false
-        } else if (requestCode == 33) {
-            if (firstUsePermissionPending) permissionRequestInFlight = false
-            firstUsePermissionPending = false
-        }
-        render()
+        vehiclePermissions.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     private fun render() {
-        if (!app.sharingNotice.accepted || firstUsePermissionPending || permissionRequestInFlight) {
+        if (
+            !app.sharingNotice.accepted ||
+                vehiclePermissions.firstUsePermissionPending ||
+                vehiclePermissions.permissionRequestInFlight
+        ) {
             val parked = driving.allowed
             if (::noticeScreen.isInitialized)
                 noticeScreen.visibility = if (parked) View.VISIBLE else View.GONE
@@ -722,7 +619,7 @@ class MainActivity : Activity() {
         }
         noticeScreen.visibility = View.GONE
         if (PickupSharingService.hasLocationPermission(this)) {
-            maybeRequestNotificationPermission()
+            vehiclePermissions.maybeRequestNotificationPermission()
         }
         app.requestFlow.tick()
         if (app.requestFlow.stage == RequestPickupFlow.Stage.DONE) {
@@ -778,16 +675,16 @@ class MainActivity : Activity() {
                 sharing,
                 app.pickup.needsSharingConfirmation,
                 app.sharingRunning,
-                startRequested || permissionRequestInFlight,
+                startRequested || vehiclePermissions.permissionRequestInFlight,
                 hasLocation,
-                permissionAttempted,
+                vehiclePermissions.permissionAttempted,
             )
         ) {
             SharingStartup.Action.REQUEST_PERMISSION -> {
                 // Let the explanation draw first. Never repeat a denied prompt on each render.
-                permissionRequestInFlight = true
+                vehiclePermissions.permissionRequestInFlight = true
                 handler.post {
-                    permissionRequestInFlight = false
+                    vehiclePermissions.permissionRequestInFlight = false
                     if (
                         resumed &&
                             driving.allowed &&
@@ -795,9 +692,9 @@ class MainActivity : Activity() {
                             app.pickup.status in setOf("ACTIVE", "ARRIVED") &&
                             !app.pickup.needsSharingConfirmation &&
                             !PickupSharingService.hasLocationPermission(this) &&
-                            !permissionAttempted
+                            !vehiclePermissions.permissionAttempted
                     )
-                        launchLocationPermission()
+                        vehiclePermissions.launchLocationPermission()
                 }
             }
             else -> Unit
@@ -809,9 +706,9 @@ class MainActivity : Activity() {
                 sharing,
                 app.pickup.needsSharingConfirmation,
                 app.sharingRunning,
-                startRequested || permissionRequestInFlight,
+                startRequested || vehiclePermissions.permissionRequestInFlight,
                 hasLocation,
-                permissionAttempted,
+                vehiclePermissions.permissionAttempted,
             ) == SharingStartup.Action.START
         ) {
             startRequested = true
@@ -896,7 +793,7 @@ class MainActivity : Activity() {
             when (selectedTab) {
                 "requests" -> "받은 요청을 확인하고 순서대로 픽업할 수 있어요."
                 "settings" ->
-                    if (app.account.state.optString("status") == "LINKED")
+                    if (app.account.accountSnapshot.status == "LINKED")
                         "운전자 계정과 연결된 사람, 음성 안내를 관리해요."
                     else "처음 한 번 운전자 휴대전화로 연결해주세요."
                 else ->

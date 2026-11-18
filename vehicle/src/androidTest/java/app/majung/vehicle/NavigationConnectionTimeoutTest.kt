@@ -13,39 +13,39 @@ class NavigationConnectionTimeoutTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val context = ApplicationProvider.getApplicationContext<VehicleApplication>()
             val reader = DestinationReader(context)
-            val helper =
-                DestinationReader::class.java.getDeclaredField("helper").apply {
-                    isAccessible = true
-                }
-            helper.set(reader, ai.pleos.playground.navi.helper.NaviHelper(context))
-            val generation =
-                DestinationReader::class.java.getDeclaredField("generation").apply {
-                    isAccessible = true
-                }
-            val before = generation.getInt(reader)
-            val deadline =
+            val connection =
                 DestinationReader::class
                     .java
+                    .getDeclaredField("sdkConnection")
+                    .apply { isAccessible = true }
+                    .get(reader)
+            val helper =
+                connection.javaClass.getDeclaredField("helper").apply { isAccessible = true }
+            helper.set(connection, ai.pleos.playground.navi.helper.NaviHelper(context))
+            val generation =
+                connection.javaClass.getDeclaredField("generation").apply { isAccessible = true }
+            val before = generation.getInt(connection)
+            val deadline =
+                connection.javaClass
                     .getDeclaredField("connectionTimeout")
                     .apply { isAccessible = true }
-                    .get(reader) as Runnable
+                    .get(connection) as Runnable
             deadline.run()
             assertEquals(NavigationFailure.CONNECTION_TIMEOUT, reader.failure)
-            assertNull(helper.get(reader))
-            assertTrue(generation.getInt(reader) > before)
+            assertNull(helper.get(connection))
+            assertTrue(generation.getInt(connection) > before)
             assertNull(reader.currentStops())
             assertNull(reader.selection.current(android.os.SystemClock.elapsedRealtime()))
             deadline.run()
             assertEquals(NavigationFailure.CONNECTION_TIMEOUT, reader.failure)
             // Late completion of a successful connection must not be disconnected by its old timer.
-            helper.set(reader, ai.pleos.playground.navi.helper.NaviHelper(context))
-            DestinationReader::class
-                .java
+            helper.set(connection, ai.pleos.playground.navi.helper.NaviHelper(context))
+            connection.javaClass
                 .getDeclaredField("connected")
                 .apply { isAccessible = true }
-                .setBoolean(reader, true)
+                .setBoolean(connection, true)
             deadline.run()
-            assertNotNull(helper.get(reader))
+            assertNotNull(helper.get(connection))
             reader.disconnect()
         }
     }

@@ -22,9 +22,9 @@ internal class VehiclePeopleSection(
     private var owner: String? = null
 
     private fun currentDriver(): String? =
-        app.account.state
-            .takeIf { it.optString("status") == "LINKED" }
-            ?.optString("majungId")
+        app.account.accountSnapshot
+            .takeIf { it.status == "LINKED" }
+            ?.majungId
             ?.takeIf { it.isNotBlank() }
 
     private fun allowed() = views.canInteract && owner != null && owner == currentDriver()

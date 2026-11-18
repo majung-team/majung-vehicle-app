@@ -6,6 +6,8 @@ import android.os.SystemClock
 import app.majung.vehicle.BuildConfig
 import app.majung.vehicle.data.api.ApiRejected
 import app.majung.vehicle.data.api.PickupApiClient
+import app.majung.vehicle.data.model.RideRequestResponse
+import app.majung.vehicle.data.model.VehicleAccountResponse
 import app.majung.vehicle.navi.NavigationStop
 import app.majung.vehicle.navi.NavigationStopKind
 import app.majung.vehicle.navi.PickupPlace
@@ -34,6 +36,12 @@ class VehicleAccountController(
 
     var state = JSONObject()
         private set
+
+    val accountSnapshot: VehicleAccountResponse
+        get() = VehicleAccountResponse.fromJson(state)
+
+    val rideRequests: List<RideRequestResponse>
+        get() = requests.map(RideRequestResponse::fromJson)
 
     var requestsCheckedAt = 0L
         private set
@@ -265,7 +273,7 @@ class VehicleAccountController(
                         }
                     }
                     data.optJSONArray("requests")?.let { array ->
-                        (0 until array.length()).forEach { array.getJSONObject(it) }
+                        (0 until array.length()).forEach { RideRequestResponse.fromJson(array.getJSONObject(it)) }
                     }
                 }
             }

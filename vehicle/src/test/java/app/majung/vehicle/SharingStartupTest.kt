@@ -1,7 +1,6 @@
 package app.majung.vehicle
 
 import app.majung.vehicle.domain.SharingStartup
-
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

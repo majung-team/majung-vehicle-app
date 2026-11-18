@@ -55,6 +55,7 @@ class VehicleSharingFeedbackIntegrationTest {
                 throw AssertionError("Expected feedback: $expected")
             }
             send(200, """{"freshness":"STALE","validForMillis":0}""", "공유하지 않아요", 112)
+            org.junit.Assert.assertEquals(1L, server.placeVersion.get())
             assertTrue(
                 java.time.Duration.between(Instant.parse(server.sourceTime.get()), Instant.now())
                     .seconds in 112..114
@@ -87,6 +88,7 @@ class VehicleSharingFeedbackIntegrationTest {
         val origin = "http://127.0.0.1:${socket.localPort}"
         val reply = AtomicReference(200 to "{}")
         val sourceTime = AtomicReference("")
+        val placeVersion = java.util.concurrent.atomic.AtomicLong()
         @Volatile var deleted = false
         private val thread =
             Thread {
@@ -108,10 +110,11 @@ class VehicleSharingFeedbackIntegrationTest {
                                 if (n < 0) break
                                 read += n
                             }
-                            if (request.startsWith("PUT"))
-                                sourceTime.set(
-                                    org.json.JSONObject(String(chars)).getString("sourceTime")
-                                )
+                            if (request.startsWith("PUT")) {
+                                val body = org.json.JSONObject(String(chars))
+                                sourceTime.set(body.getString("sourceTime"))
+                                placeVersion.set(body.getLong("placeVersion"))
+                            }
                             if (request.startsWith("DELETE")) deleted = true
                             val (code, body) =
                                 if (request.startsWith("GET"))

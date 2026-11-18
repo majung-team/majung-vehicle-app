@@ -119,6 +119,8 @@ class VehicleEnrollmentTest {
     fun unregisteredPickupTabStaysSelectedAndShowsConnectionAction() {
         Fixture().use { fixture ->
             val app = instrumentation.targetContext.applicationContext as VehicleApplication
+            val noticeAccepted = app.sharingNotice.accepted
+            assertTrue(app.sharingNotice.accept())
             val api = PickupApiClient(fixture.origin)
             val fields =
                 listOf("registration", "pickup", "account", "enrollment").map {
@@ -156,17 +158,41 @@ class VehicleEnrollmentTest {
                         allowed
                     }
                     scenario.onActivity { activity ->
-                        val list = buttons(activity.window.decorView)
-                        list.first { it.text == "설정" }.performClick()
-                        val pickup = list.first { it.text == "픽업" }
-                        pickup.performClick()
-                        assertTrue(pickup.isSelected)
+                        buttons(activity.window.decorView).first { it.text == "설정" }.performClick()
+                    }
+                    await {
+                        var selected = false
+                        scenario.onActivity { activity ->
+                            selected =
+                                buttons(activity.window.decorView)
+                                    .first { it.text == "설정" }
+                                    .isSelected
+                        }
+                        selected
+                    }
+                    scenario.onActivity { activity ->
+                        buttons(activity.window.decorView).first { it.text == "픽업" }.performClick()
+                    }
+                    await {
+                        var selected = false
+                        scenario.onActivity { activity ->
+                            selected =
+                                buttons(activity.window.decorView)
+                                    .first { it.text == "픽업" }
+                                    .isSelected
+                        }
+                        selected
+                    }
+                    scenario.onActivity { activity ->
                         assertTrue(
-                            list.any { it.text.toString().contains("휴대전화로 시작하기") && it.isShown }
+                            buttons(activity.window.decorView).any {
+                                it.text.toString().contains("휴대전화로 시작하기") && it.isShown
+                            }
                         )
                     }
                 }
             } finally {
+                if (noticeAccepted) app.sharingNotice.accept() else app.sharingNotice.withdraw()
                 instrumentation.runOnMainSync {
                     fields.forEachIndexed { i, field -> field.set(app, previous[i]) }
                 }

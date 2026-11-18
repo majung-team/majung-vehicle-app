@@ -6,6 +6,7 @@ import android.widget.ImageView
 import app.majung.vehicle.BuildConfig
 import app.majung.vehicle.R
 import app.majung.vehicle.VehicleApplication
+import app.majung.vehicle.data.model.RideRequestResponse
 import app.majung.vehicle.navi.PickupPlace
 import app.majung.vehicle.navi.sameCoordinates
 import app.majung.vehicle.ui.VehicleViews
@@ -53,10 +54,10 @@ internal class VehicleAccountSection(
     private val confirm = views.button("요청한 운전자 계정 확인") { openConfirmDialog() }
 
     private fun openConfirmDialog() {
-        val state = app.account.state
-        val challengeId = state.optString("challengeId")
-        val majungId = state.optString("majungId")
-        val nickname = state.optString("nickname")
+        val state = app.account.accountSnapshot
+        val challengeId = state.challengeId
+        val majungId = state.majungId
+        val nickname = state.nickname
         if (challengeId.isBlank() || majungId.isBlank()) return
         confirmDialog?.dismiss()
         confirmDialog =
@@ -74,9 +75,7 @@ internal class VehicleAccountSection(
     fun inviteSelectedPlace() {
         val selected = selectedPlace() ?: return
         if (
-            !views.canInteract ||
-                app.account.busy ||
-                app.account.state.optString("status") != "LINKED"
+            !views.canInteract || app.account.busy || app.account.accountSnapshot.status != "LINKED"
         )
             return
         loadContacts(selected)
@@ -85,8 +84,7 @@ internal class VehicleAccountSection(
     private fun loadContacts(place: PickupPlace, page: Int = 0) {
         if (!views.canInteract || app.account.busy) return
         if (
-            app.registration.vehicleToken == null ||
-                app.account.state.optString("status") != "LINKED"
+            app.registration.vehicleToken == null || app.account.accountSnapshot.status != "LINKED"
         ) {
             AlertDialog.Builder(views.context)
                 .setTitle("운전자 연결을 확인해주세요")
@@ -97,11 +95,11 @@ internal class VehicleAccountSection(
             return
         }
         val vehicleToken = app.registration.vehicleToken
-        val driverId = app.account.state.optString("majungId")
+        val driverId = app.account.accountSnapshot.majungId
         fun sameDriver() =
             vehicleToken == app.registration.vehicleToken &&
-                driverId == app.account.state.optString("majungId") &&
-                app.account.state.optString("status") == "LINKED"
+                driverId == app.account.accountSnapshot.majungId &&
+                app.account.accountSnapshot.status == "LINKED"
         val waiting =
             AlertDialog.Builder(views.context)
                 .setTitle("초대할 사람을 불러오고 있어요")
@@ -231,7 +229,7 @@ internal class VehicleAccountSection(
 
     private val inbox =
         views.button("받은 마중 요청과 픽업 대기 목록") {
-            val items = app.account.requests
+            val items = app.account.rideRequests
             if (items.isEmpty()) {
                 AlertDialog.Builder(views.context)
                     .setMessage("받은 요청이나 대기 중인 픽업이 없어요. 새로 확인해주세요.")
@@ -243,9 +241,7 @@ internal class VehicleAccountSection(
                     .setTitle("마중 요청 · 수락 순서대로 진행")
                     .setItems(
                         items
-                            .map {
-                                "${it.optString("nickname")} · ${it.getJSONObject("place").optString("label")} · ${stateLabel(it.optString("status"))}"
-                            }
+                            .map { "${it.nickname} · ${it.place.label} · ${stateLabel(it.status)}" }
                             .toTypedArray()
                     ) { _, index ->
                         if (views.canInteract) details(items[index])
@@ -270,27 +266,21 @@ internal class VehicleAccountSection(
             if (!app.account.busy) app.account.refresh(showProgress = true)
         }
 
-    internal fun details(item: JSONObject) {
-        val place =
-            item.getJSONObject("place").let {
-                PickupPlace(
-                    it.getString("label"),
-                    it.getDouble("latitude"),
-                    it.getDouble("longitude"),
-                )
-            }
-        val id = item.getString("requestId")
+    internal fun details(item: JSONObject) = details(RideRequestResponse.fromJson(item))
+
+    internal fun details(item: RideRequestResponse) {
+        val place = item.place
+        val id = item.requestId
         val dialog =
             AlertDialog.Builder(views.context)
-                .setTitle("${item.optString("nickname")} · ${stateLabel(item.optString("status"))}")
+                .setTitle("${item.nickname} · ${stateLabel(item.status)}")
                 .setMessage(
-                    "${item.optString("majungId")}\n만날 장소 · ${place.label}\n" +
-                        if (item.optString("status") == "INVITED")
-                            "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요."
+                    "${item.majungId}\n만날 장소 · ${place.label}\n" +
+                        if (item.status == "INVITED") "탑승자의 수락을 기다리고 있어요. 수락 전에는 위치를 공유하지 않아요."
                         else "현재 픽업을 끝내기 전에는 다음 픽업을 시작하지 않아요."
                 )
                 .setNegativeButton("돌아가기", null)
-        when (item.optString("status")) {
+        when (item.status) {
             "INVITED" ->
                 dialog.setPositiveButton("초대 취소") { _, _ ->
                     if (views.canInteract) app.account.cancelInvitation(id)
@@ -301,7 +291,7 @@ internal class VehicleAccountSection(
                         if (
                             (app.pickup.pickupId == null ||
                                 app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
-                                app.account.requests.none { it.optString("status") == "ACTIVE" }
+                                app.account.rideRequests.none { it.status == "ACTIVE" }
                         )
                             "수락하고 마중 준비"
                         else "수락하고 대기에 추가"
@@ -325,16 +315,16 @@ internal class VehicleAccountSection(
                 }
         }
         dialog.show().also { shown ->
-            if (item.optString("status") == "QUEUED") {
+            if (item.status == "QUEUED") {
                 shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
                     !app.pickup.busy &&
                         (app.pickup.canStartRequested(id) ||
                             app.pickup.status in setOf("COMPLETED", "CANCELLED", "EXPIRED")) &&
-                        app.account.requests.none {
-                            it.optString("status") == "ACTIVE" && it.optString("requestId") != id
+                        app.account.rideRequests.none {
+                            it.status == "ACTIVE" && it.requestId != id
                         }
             }
-            if (item.optString("status") == "ACTIVE")
+            if (item.status == "ACTIVE")
                 shown.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
                     app.pickup.canStartRequested(id)
             views.trackDialog(shown)
@@ -342,8 +332,8 @@ internal class VehicleAccountSection(
     }
 
     fun render(settings: Boolean = false) {
-        val state = app.account.state.optString("status")
-        val counts = app.account.requests.groupingBy { it.optString("status") }.eachCount()
+        val state = app.account.accountSnapshot.status
+        val counts = app.account.rideRequests.groupingBy { it.status }.eachCount()
         val pending = counts["PENDING"] ?: 0
         val summary =
             listOfNotNull(
@@ -363,17 +353,17 @@ internal class VehicleAccountSection(
             if (settings && state != "LINKED" && app.account.qrLink != null) View.VISIBLE
             else View.GONE
         emptyRequests.visibility =
-            if (!settings && app.account.requests.isEmpty()) View.VISIBLE else View.GONE
+            if (!settings && app.account.rideRequests.isEmpty()) View.VISIBLE else View.GONE
         inbox.visibility =
-            if (settings || app.account.requests.size <= 6) View.GONE else View.VISIBLE
+            if (settings || app.account.rideRequests.size <= 6) View.GONE else View.VISIBLE
         requestRows.visibility = if (settings) View.GONE else View.VISIBLE
-        val requestSignature = app.account.requests.joinToString { it.toString() }
+        val requestSignature = app.account.rideRequests.joinToString { it.signature }
         if (requestSignature != renderedRequests) {
             renderedRequests = requestSignature
             requestRows.removeAllViews()
-            app.account.requests
+            app.account.rideRequests
                 .sortedBy {
-                    when (it.optString("status")) {
+                    when (it.status) {
                         "ACTIVE" -> 0
                         "PENDING" -> 1
                         "QUEUED" -> 2
@@ -382,7 +372,7 @@ internal class VehicleAccountSection(
                 }
                 .take(6)
                 .forEach { item ->
-                    val statusKey = item.optString("status")
+                    val statusKey = item.status
                     val row =
                         android.widget.Button(views.context).apply {
                             flattenButtonSurface()
@@ -390,18 +380,14 @@ internal class VehicleAccountSection(
                                 when (statusKey) {
                                     "PENDING" -> "눌러서 수락 또는 거절  ›"
                                     "QUEUED" ->
-                                        if (
-                                            app.account.requests.any {
-                                                it.optString("status") == "ACTIVE"
-                                            }
-                                        )
+                                        if (app.account.rideRequests.any { it.status == "ACTIVE" })
                                             "현재 픽업이 끝나면 출발해요  ›"
                                         else "눌러서 마중 준비  ›"
                                     "ACTIVE" -> "진행 중인 픽업 확인  ›"
                                     else -> "탑승자 응답 확인  ›"
                                 }
                             text =
-                                "${item.optString("nickname")} · ${stateLabel(statusKey)}\n${item.getJSONObject("place").optString("label")}\n$actionLabel"
+                                "${item.nickname} · ${stateLabel(statusKey)}\n${item.place.label}\n$actionLabel"
                             isAllCaps = false
                             textSize = 28f
                             minimumHeight = dp(96)
@@ -460,7 +446,7 @@ internal class VehicleAccountSection(
                 }
         }
         manageConnections.visibility =
-            if (state == "LINKED" && (settings || app.account.requests.isEmpty())) View.VISIBLE
+            if (state == "LINKED" && (settings || app.account.rideRequests.isEmpty())) View.VISIBLE
             else View.GONE
         manageConnections.isEnabled = state == "LINKED" && !app.account.busy
         views.styleButton(manageConnections, primary = settings)
@@ -475,7 +461,7 @@ internal class VehicleAccountSection(
         confirm.visibility = if (awaitingConfirm) View.VISIBLE else View.GONE
         confirm.text =
             if (awaitingConfirm)
-                "${app.account.state.optString("nickname")} (${app.account.state.optString("majungId")}) 계정으로 연결할까요?"
+                "${app.account.accountSnapshot.nickname} (${app.account.accountSnapshot.majungId}) 계정으로 연결할까요?"
             else "요청한 운전자 계정 확인"
         confirm.isEnabled = !app.account.busy
         views.styleButton(confirm, primary = awaitingConfirm)
@@ -499,7 +485,7 @@ internal class VehicleAccountSection(
         }
         if (awaitingConfirm) {
             val key =
-                "${app.account.state.optString("challengeId")}:${app.account.state.optString("majungId")}"
+                "${app.account.accountSnapshot.challengeId}:${app.account.accountSnapshot.majungId}"
             if (views.canInteract && promptedConfirmKey != key && key != ":") {
                 promptedConfirmKey = key
                 openConfirmDialog()

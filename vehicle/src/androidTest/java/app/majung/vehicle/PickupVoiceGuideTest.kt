@@ -34,7 +34,7 @@ class PickupVoiceGuideTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val preferences =
             context.getSharedPreferences("voice-instrumentation-only", Context.MODE_PRIVATE)
-        assertTrue(preferences.edit().clear().commit())
+        assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
         Fixture().use { server ->
             val output = RecordingOutput()
             lateinit var pickup: PickupController
@@ -82,7 +82,7 @@ class PickupVoiceGuideTest {
                 assertFalse(preferences.getBoolean("enabled", true))
             } finally {
                 main.runOnMainSync { guide.close() }
-                assertTrue(preferences.edit().clear().commit())
+                assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
             }
         }
     }
@@ -120,7 +120,7 @@ class PickupVoiceGuideTest {
                 assertTrue(output.notices.isEmpty())
             } finally {
                 main.runOnMainSync { guide.close() }
-                assertTrue(preferences.edit().clear().commit())
+                assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
             }
         }
     }
@@ -160,7 +160,7 @@ class PickupVoiceGuideTest {
     fun parkedScreenTogglesVoiceAndSavesChoice() {
         val app = ApplicationProvider.getApplicationContext<VehicleApplication>()
         val preferences = app.getSharedPreferences("voice-screen-only", Context.MODE_PRIVATE)
-        assertTrue(preferences.edit().clear().commit())
+        assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
         val field =
             VehicleApplication::class.java.getDeclaredField("voice").apply { isAccessible = true }
         val original = app.voice
@@ -211,7 +211,7 @@ class PickupVoiceGuideTest {
                 field.set(app, original)
                 guide.close()
             }
-            assertTrue(preferences.edit().clear().commit())
+            assertTrue(preferences.edit().clear().putBoolean("enabled", false).commit())
         }
     }
 
