@@ -9,18 +9,20 @@
 
 ## 1. 현재 배포 버전
 
-**기준일: 2026년 11월 15일**
+**기준일: 2026년 11월 23일**
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026년 11월 15일 |
-| 버전 | `0.2.36-preview` |
-| versionCode | `38` |
+| 기준일 | 2026년 11월 23일 |
+| 버전 | `0.2.37-preview` |
+| versionCode | `39` |
 | API origin | `https://majung.cloud` |
 | 서명 인증서 SHA-256 | `8d9ea4cd41a7a576b67faced207231088e78af81c41f0007e326cd380006bf98` |
-| 릴리스 | [0.2.36-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115) |
-| 소스 커밋 | `7750922233c9ea93d179daeeb73754a3a809f78f` |
-| APK SHA-256 | `0ea73655a5dc0041f3418e03d3f7539b8aeb542fa7caa70f5b9b895c10b324b8` |
+| 릴리스 | [0.2.37-preview](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.37-preview.20261123) |
+| 소스 커밋 | `7edfdb45c8dea4a3e0ae99de1eec45d2fdc188ad` |
+| APK SHA-256 | `35e05a0b883b6fcfc1f9e17fa6193d8cae6668f6563ef0507313be6ab64356ec` |
+
+0.2.37은 픽업 알림 게시 결과와 차단 상태를 구분하고, 주행 중 한 줄 요약에 도착·공유 중단·탑승 준비 상태를 우선 표시한다.
 
 0.2.36은 운전자가 초대 링크 생성 뒤 곧바로 내비게이션 화면으로 전환해도 백그라운드 대기 서비스가 탑승자 합류를 감지해 즉시 ETA·위치 공유를 시작하고, 내비게이션 화면 위에서 장소 제안·빠른 메시지·준비 상태 헤드업 알림과 오버레이 토스트를 자동 표시하도록 보완했다. 또한 첫 사용 권한 안내와 차량 연결 화면 흐름(#127)을 함께 반영했다. 단위 테스트(72)·Lint 및 공식 Pleos 에뮬레이터(0.2.36-preview) 내비게이션 전환 연동 시험(초대 대기 중 내비 전환→합류 감지→FRESH ETA·빠른 메시지·장소 제안 헤드업 알림)을 확인했다. 전체 `connectedDebugAndroidTest` 스위트, 첫 사용 권한 거부·복구 실화면 재조작, 실제 차량의 시동 종료·재시동 시험은 별도 검증 범위로 남아 있다.
 

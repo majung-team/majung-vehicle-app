@@ -32,7 +32,7 @@
 
 ## 설치와 첫 연결
 
-최신 게시 APK는 **0.2.36-preview · versionCode 38**이다. [Releases](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.36-preview.20261115) 또는 [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk)에서 받는다.
+최신 게시 APK는 **0.2.37-preview · versionCode 39**이다. [Releases](https://github.com/majung-team/majung-vehicle-app/releases/tag/v0.2.37-preview.20261123) 또는 [`apk/마중_마중_release.apk`](apk/마중_마중_release.apk)에서 받는다.
 
 ```sh
 adb install -r apk/마중_마중_release.apk
