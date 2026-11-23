@@ -2,6 +2,7 @@ package app.majung.vehicle.notification
 
 import android.Manifest
 import android.app.NotificationManager
+import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import app.majung.vehicle.VehicleApplication
@@ -27,6 +28,14 @@ class PickupAlertsTest {
         val original = app.pickup
         val voiceEnabled = app.voice.enabled
         val resumed = app.activityResumed
+        lateinit var alerts: PickupAlerts
+        fun awaitNotifications(condition: () -> Boolean) {
+            val deadline = SystemClock.elapsedRealtime() + 3000
+            while (!condition()) {
+                assertTrue("활성 알림 목록 갱신 시간 초과", SystemClock.elapsedRealtime() < deadline)
+                SystemClock.sleep(25)
+            }
+        }
         try {
             main.runOnMainSync {
                 app.voice.setEnabled(false)
@@ -42,35 +51,43 @@ class PickupAlertsTest {
                 set("status", "ACTIVE")
                 set("proposalId", "test-proposal")
                 set("placeProposal", PickupPlace("시험 장소", 37.0, 127.0))
-                val alerts = PickupAlerts(app)
+                alerts = PickupAlerts(app)
                 alerts.notifyQuickMessage("지금 내려가요")
                 alerts.notifyPassengerEvents()
-                val messages = manager.activeNotifications.associateBy { it.id }
-                val quick =
-                    messages
-                        .getValue(VehicleApplication.ALERT_QUICK_MSG_NOTIFICATION_ID)
-                        .notification
-                assertEquals(VehicleApplication.ALERT_CHANNEL, quick.channelId)
-                assertTrue(
-                    quick.extras.getCharSequence("android.text").toString().contains("지금 내려가요")
-                )
-                assertEquals("확인", quick.actions.single().title.toString())
-                val proposal =
-                    messages
-                        .getValue(VehicleApplication.ALERT_PROPOSAL_NOTIFICATION_ID)
-                        .notification
-                assertEquals("수락 및 내비 변경", proposal.actions.single().title.toString())
-                assertEquals(
-                    NotificationManager.IMPORTANCE_HIGH,
-                    manager.getNotificationChannel(VehicleApplication.ALERT_CHANNEL).importance,
-                )
-                set("status", "COMPLETED")
+            }
+            awaitNotifications {
+                val ids = manager.activeNotifications.map { it.id }
+                VehicleApplication.ALERT_PROPOSAL_NOTIFICATION_ID in ids &&
+                    VehicleApplication.ALERT_QUICK_MSG_NOTIFICATION_ID in ids
+            }
+            val messages = manager.activeNotifications.associateBy { it.id }
+            val quick =
+                messages
+                    .getValue(VehicleApplication.ALERT_QUICK_MSG_NOTIFICATION_ID)
+                    .notification
+            assertEquals(VehicleApplication.ALERT_CHANNEL, quick.channelId)
+            assertTrue(
+                quick.extras.getCharSequence("android.text").toString().contains("지금 내려가요")
+            )
+            assertEquals("확인", quick.actions.single().title.toString())
+            val proposal =
+                messages
+                    .getValue(VehicleApplication.ALERT_PROPOSAL_NOTIFICATION_ID)
+                    .notification
+            assertEquals("수락 및 내비 변경", proposal.actions.single().title.toString())
+            assertEquals(
+                NotificationManager.IMPORTANCE_HIGH,
+                manager.getNotificationChannel(VehicleApplication.ALERT_CHANNEL).importance,
+            )
+            main.runOnMainSync {
+                PickupController::class.java.getDeclaredField("status").apply {
+                    isAccessible = true
+                    set(fixture, "COMPLETED")
+                }
                 alerts.notifyPassengerEvents()
-                assertFalse(
-                    manager.activeNotifications.any {
-                        it.id == VehicleApplication.ALERT_PROPOSAL_NOTIFICATION_ID
-                    }
-                )
+            }
+            awaitNotifications {
+                manager.activeNotifications.none { it.id == VehicleApplication.ALERT_PROPOSAL_NOTIFICATION_ID }
             }
         } finally {
             main.runOnMainSync {

@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import app.majung.vehicle.MainActivity
 import app.majung.vehicle.R
 import app.majung.vehicle.VehicleApplication
@@ -29,6 +31,8 @@ internal class PickupAlerts(private val app: VehicleApplication) {
         get() = app.activityResumed
 
     private var lastNotifiedProposalId: String? = null
+    private var lastAttemptedProposalId: String? = null
+    private var proposalAttemptAt = 0L
     private var lastNotifiedReadiness: String = ""
 
     fun ensureAlertChannel(notifications: NotificationManager) {
@@ -98,10 +102,28 @@ internal class PickupAlerts(private val app: VehicleApplication) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+    private fun postAlert(manager: NotificationManager, id: Int, alert: Notification): Boolean {
+        return try {
+            ensureAlertChannel(manager)
+            val importance = manager.getNotificationChannel(ALERT_CHANNEL)?.importance
+            val enabled = manager.areNotificationsEnabled()
+            if (!enabled || importance == null || importance == NotificationManager.IMPORTANCE_NONE) {
+                Log.w("PickupAlerts", "Blocked id=$id enabled=$enabled importance=$importance")
+                false
+            } else {
+                manager.notify(id, alert)
+                Log.i("PickupAlerts", "Posted id=$id importance=$importance foreground=$activityResumed")
+                true
+            }
+        } catch (failure: RuntimeException) {
+            Log.w("PickupAlerts", "Post failed id=$id cause=${failure.javaClass.simpleName}")
+            false
+        }
+    }
+
     fun notifyQuickMessage(text: String) {
         val passenger = pickup.participantName ?: "탑승자"
         val notifications = app.getSystemService(NotificationManager::class.java) ?: return
-        ensureAlertChannel(notifications)
         val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.QUICK_MESSAGE)
         val tapIntent =
             when (behavior.tapBehavior) {
@@ -125,10 +147,7 @@ internal class PickupAlerts(private val app: VehicleApplication) {
                 fullScreenIntent =
                     if (behavior.useFullScreenIntent) openMainActivityPendingIntent(3) else null,
             )
-        runCatching {
-            notifications.cancel(ALERT_QUICK_MSG_NOTIFICATION_ID)
-            notifications.notify(ALERT_QUICK_MSG_NOTIFICATION_ID, alert)
-        }
+        postAlert(notifications, ALERT_QUICK_MSG_NOTIFICATION_ID, alert)
         if (behavior.showOverlayToast && !activityResumed) {
             android.widget.Toast.makeText(
                     app,
@@ -142,7 +161,6 @@ internal class PickupAlerts(private val app: VehicleApplication) {
 
     fun notifyNewRide(ride: RequestedRide) {
         val notifications = app.getSystemService(NotificationManager::class.java) ?: return
-        ensureAlertChannel(notifications)
         val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.NEW_RIDE_REQUEST)
         val openApp = openMainActivityPendingIntent(2, requestId = ride.id)
         val tapIntent =
@@ -166,10 +184,7 @@ internal class PickupAlerts(private val app: VehicleApplication) {
                 action = openAction,
                 fullScreenIntent = if (behavior.useFullScreenIntent) openApp else null,
             )
-        runCatching {
-            notifications.cancel(ALERT_REQUEST_NOTIFICATION_ID)
-            notifications.notify(ALERT_REQUEST_NOTIFICATION_ID, alert)
-        }
+        postAlert(notifications, ALERT_REQUEST_NOTIFICATION_ID, alert)
         if (behavior.showOverlayToast && !activityResumed) {
             android.widget.Toast.makeText(
                     app,
@@ -184,14 +199,18 @@ internal class PickupAlerts(private val app: VehicleApplication) {
     @Suppress("DEPRECATION")
     internal fun notifyPassengerEvents() {
         val notifications = app.getSystemService(NotificationManager::class.java) ?: return
-        ensureAlertChannel(notifications)
         val proposal = pickup.proposalId
         val proposedPlace = pickup.placeProposal
         if (pickup.status != "ACTIVE" || proposal == null || proposedPlace == null) {
             lastNotifiedProposalId = null
+            lastAttemptedProposalId = null
             runCatching { notifications.cancel(ALERT_PROPOSAL_NOTIFICATION_ID) }
-        } else if (proposal != lastNotifiedProposalId) {
-            lastNotifiedProposalId = proposal
+        } else if (proposal != lastNotifiedProposalId &&
+            (proposal != lastAttemptedProposalId || SystemClock.elapsedRealtime() - proposalAttemptAt >= 30_000L)
+        ) {
+            val firstAttempt = proposal != lastAttemptedProposalId
+            lastAttemptedProposalId = proposal
+            proposalAttemptAt = SystemClock.elapsedRealtime()
             val behavior = PickupNotificationPolicy.behaviorFor(PickupAlertKind.PLACE_PROPOSAL)
             val openApp = openMainActivityPendingIntent(1)
             val tapIntent =
@@ -234,11 +253,10 @@ internal class PickupAlerts(private val app: VehicleApplication) {
                     action = acceptAction,
                     fullScreenIntent = if (behavior.useFullScreenIntent) openApp else null,
                 )
-            runCatching {
-                notifications.cancel(ALERT_PROPOSAL_NOTIFICATION_ID)
-                notifications.notify(ALERT_PROPOSAL_NOTIFICATION_ID, alert)
+            if (postAlert(notifications, ALERT_PROPOSAL_NOTIFICATION_ID, alert)) {
+                lastNotifiedProposalId = proposal
             }
-            if (behavior.showOverlayToast && !activityResumed) {
+            if (firstAttempt && behavior.showOverlayToast && !activityResumed) {
                 android.widget.Toast.makeText(
                         app,
                         "마중: 탑승자가 ‘${proposedPlace.label}’(으)로 장소 변경을 요청했어요.",

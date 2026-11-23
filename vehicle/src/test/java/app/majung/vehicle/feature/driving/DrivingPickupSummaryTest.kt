@@ -45,6 +45,15 @@ class DrivingPickupSummaryTest {
     }
 
     @Test
+    fun oneLineSummaryPrioritizesArrivalThenSharingThenPassenger() {
+        assertEquals("탑승자 준비 완료", active().headline)
+        assertEquals("위치 공유가 멈춰 있어요", active(sharing = false).headline)
+        assertEquals("서버 연결 확인 중", active(online = false).headline)
+        val arrived = DrivingPickupSummary.from(true, "ARRIVED", true, false, false, "READY", 0)
+        assertEquals(arrived.phase, arrived.headline)
+    }
+
+    @Test
     fun quickMessageOverridesReadinessWhenPresent() {
         val summary =
             DrivingPickupSummary.from(true, "ACTIVE", true, false, true, "READY", 300, "1번 출구 앞이에요")

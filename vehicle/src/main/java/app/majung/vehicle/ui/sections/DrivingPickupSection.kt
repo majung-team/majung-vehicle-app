@@ -51,10 +51,14 @@ internal class DrivingPickupSection(context: Context, private val app: VehicleAp
                 app.sharingRunning,
                 pickup.readiness,
                 seconds,
-                pickup.quickMessage,
+                pickup.drivingQuickMessage,
             )
         val rows =
-            listOf(phase to summary.phase, readiness to summary.readiness, eta to summary.eta)
+            listOf(
+                phase to (if (itemLimit == 1) summary.headline else summary.phase),
+                readiness to summary.readiness,
+                eta to summary.eta,
+            )
         var remaining = if (known) itemLimit.coerceIn(0, 3) else 1
         val limit = if (known) stringLimit.coerceIn(0, 40) else 16
         for ((view, text) in rows) {

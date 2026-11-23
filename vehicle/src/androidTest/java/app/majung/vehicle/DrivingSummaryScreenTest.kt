@@ -20,6 +20,7 @@ import app.majung.vehicle.navi.PickupPlace
 import app.majung.vehicle.ui.sections.DrivingPickupSection
 import java.io.File
 import java.time.Instant
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -27,6 +28,39 @@ import org.junit.Test
 class DrivingSummaryScreenTest {
     private val instrumentation
         get() = InstrumentationRegistry.getInstrumentation()
+
+    @Test
+    fun singleLineTracksNewMessagesAndReadinessAcrossRefreshes() {
+        isolated { app ->
+            instrumentation.runOnMainSync {
+                val pickup = app.pickup
+                val receive =
+                    PickupController::class.java.getDeclaredMethod("receiveSnapshot", JSONObject::class.java)
+                        .apply { isAccessible = true }
+                PickupController::class.java.getDeclaredField("online").apply {
+                    isAccessible = true
+                    set(pickup, true)
+                }
+                app.sharingRunning = true
+                val section = DrivingPickupSection(app, app)
+                fun headline(state: String, sequence: Int, message: String): String {
+                    val snapshot = JSONObject()
+                        .put("status", "ACTIVE")
+                        .put("participant", JSONObject().put("participantId", "test")
+                            .put("readiness", state).put("readinessSequence", sequence))
+                        .put("quickMessage", JSONObject().put("text", message))
+                    receive.invoke(pickup, snapshot)
+                    section.render(true, 40, 1)
+                    return section.root.findViewById<TextView>(R.id.driving_phase).text.toString()
+                }
+                val first = "지금 내려가요"
+                assertTrue(headline("PREPARING", 1, first).contains(first))
+                assertEquals("탑승자 준비 완료", headline("READY", 2, first))
+                assertEquals("탑승자 준비 완료", headline("READY", 2, first))
+                assertTrue(headline("READY", 2, "도착했어요").contains("도착했어요"))
+            }
+        }
+    }
 
     @Test
     fun summaryUsesFreshTelemetryAndRespectsPlatformLimits() {

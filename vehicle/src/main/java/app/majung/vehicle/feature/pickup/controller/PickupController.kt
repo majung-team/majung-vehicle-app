@@ -103,6 +103,9 @@ class PickupController(
     var quickMessage: String? = null
         private set
 
+    var drivingQuickMessage: String? = null
+        private set
+
     private var lastQuickMessageAt: String? = null
     var onQuickMessageReceived: ((String) -> Unit)? = null
     var readiness = ""
@@ -513,6 +516,7 @@ class PickupController(
         participantId = null
         participantName = null
         quickMessage = null
+        drivingQuickMessage = null
         lastQuickMessageAt = null
         place = null
         navigationReference = null
@@ -565,6 +569,14 @@ class PickupController(
         if (status in ended) needsSharingConfirmation = false
         restoringSession = false
         snapshot.place?.let { place = it }
+        val participantChanged = participantId != snapshot.participantId
+        val readinessChanged =
+            readinessSequence != snapshot.readinessSequence || readiness != snapshot.readiness
+        if (participantChanged) {
+            quickMessage = null
+            drivingQuickMessage = null
+            lastQuickMessageAt = null
+        }
         participantId = snapshot.participantId
         participantName = snapshot.participantName
         readiness = snapshot.readiness
@@ -579,7 +591,11 @@ class PickupController(
         ) {
             lastQuickMessageAt = quickMsgSentAt
             quickMessage = quickMsgText
+            drivingQuickMessage = quickMsgText
             onQuickMessageReceived?.invoke(quickMsgText)
+        }
+        if (quickMsgText == null || (readinessChanged && readiness == "READY")) {
+            drivingQuickMessage = null
         }
         if (status != "INVITING") inviteToken = null
         if (status in ended) {
@@ -590,6 +606,7 @@ class PickupController(
             participantId = null
             participantName = null
             quickMessage = null
+            drivingQuickMessage = null
             lastQuickMessageAt = null
             place = null
             navigationReference = null

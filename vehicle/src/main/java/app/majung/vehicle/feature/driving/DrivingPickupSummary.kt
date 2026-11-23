@@ -7,6 +7,7 @@ internal data class DrivingPickupSummary(
     val phase: String,
     val readiness: String,
     val eta: String,
+    val headline: String = phase,
 ) {
     companion object {
         fun from(
@@ -43,11 +44,15 @@ internal data class DrivingPickupSummary(
                     durationSeconds < 60 -> "곧 도착"
                     else -> "약 ${ceil(durationSeconds / 60.0).toLong()}분 남음"
                 }
-            return DrivingPickupSummary(
-                if (status == "ARRIVED") "약속 장소에 도착했어요" else "픽업 진행 중",
-                ready,
-                time,
-            )
+            val phase = if (status == "ARRIVED") "약속 장소에 도착했어요" else "픽업 진행 중"
+            val headline =
+                when {
+                    status == "ARRIVED" -> phase
+                    !sharing -> time
+                    quickMessage != null || readiness == "READY" -> ready
+                    else -> phase
+                }
+            return DrivingPickupSummary(phase, ready, time, headline)
         }
     }
 }
